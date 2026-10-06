@@ -9,15 +9,15 @@
     "devDependencies": {
         "concurrently": "^10.0.3",
         "laravel-vite-plugin": "^3.1",
-        "sass": "^1.105.1",
+        "sass-embedded": "^1.105.1",
         "vite": "^8.0.0"
     },
     "optionalDependencies": {
         "@laravel/multiplex": "^0.4.1"
     },
     "dependencies": {
-        "@popperjs/core": "^2.11.8",
         "bootstrap": "^5.3.8",
-        "jquery": "^4.0.0"
+        "jquery": "^4.0.0",
+        "jquery-ui-dist": "^1.13.3"
     }
 }
