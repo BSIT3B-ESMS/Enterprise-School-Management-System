@@ -1,7 +1,15 @@
 $(function () {
   var toastElement = document.getElementById("portal-toast");
   var portalToast = toastElement ? bootstrap.Toast.getOrCreateInstance(toastElement, { delay: 2800 }) : null;
-  var uploadedDocuments = 0;
+  var uploadedDocuments = new Set();
+  var pageLabels = {
+    overview: "Overview",
+    application: "My application",
+    documents: "Requirements",
+    exam: "Entrance exam",
+    notifications: "Notifications",
+    profile: "My profile"
+  };
 
   function showToast(message) {
     $("#toast-message").text(message);
@@ -15,7 +23,7 @@ $(function () {
     $(".view-section").removeClass("active");
     $target.addClass("active");
     $(".sidebar-nav .nav-link").removeClass("active").filter('[data-view="' + viewName + '"]').addClass("active");
-    $("#page-breadcrumb").text($(".sidebar-nav [data-view='" + viewName + "']").first().text().trim() || "My profile");
+    $("#page-breadcrumb").text(pageLabels[viewName]);
     $("#sidebar").removeClass("open");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -68,11 +76,13 @@ $(function () {
   });
 
   function updateDocumentSummary() {
-    $(".summary-progress").text(uploadedDocuments + " of 2 uploaded");
+    $(".summary-progress").text(uploadedDocuments.size + " of 2 uploaded");
   }
 
   function handleFile(file, statusSelector) {
     if (!file) return;
+    uploadedDocuments.delete(statusSelector);
+    updateDocumentSummary();
     var allowedTypes = ["application/pdf", "image/jpeg", "image/png"];
     if (!allowedTypes.includes(file.type)) {
       $(statusSelector).text("Please choose a PDF, JPG, or PNG file.").css("color", "#b64949");
@@ -83,7 +93,7 @@ $(function () {
       return;
     }
     $(statusSelector).text("✓ " + file.name + " selected").css("color", "#34845e");
-    uploadedDocuments = Math.min(uploadedDocuments + 1, 2);
+    uploadedDocuments.add(statusSelector);
     updateDocumentSummary();
     showToast("Document selected. Submit your application to send it for review.");
   }
@@ -107,13 +117,6 @@ $(function () {
     var file = event.originalEvent.dataTransfer.files[0];
     var input = $(this).find(".file-input")[0];
     if (file && input) {
-      try {
-        var transfer = new DataTransfer();
-        transfer.items.add(file);
-        input.files = transfer.files;
-      } catch (error) {
-        // The selected file is still validated and shown even if assigning it is unsupported.
-      }
       handleFile(file, "#" + input.id.replace("-upload", "-status"));
     }
   });
