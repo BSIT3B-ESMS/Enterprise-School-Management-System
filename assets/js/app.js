@@ -779,10 +779,10 @@ $(function () {
   function docExtra(doc) {
     if (doc.extra === "photo") {
       var tag = ((state.data.lastName || "LAST NAME").toUpperCase()) + ", " + (state.data.firstName || "Given Name");
-      return '<div class="doc-extra">2×2 or passport size, white background. Name tag format:<br><span class="name-tag">' + esc(tag) + "</span></div>";
+      return '<p class="doc-extra">Name tag: <span class="name-tag">' + esc(tag) + "</span></p>";
     }
     if (doc.extra === "payment") {
-      return '<div class="doc-extra">Application fee: <strong>' + APP_FEE + "</strong>. Pay through GCash or Dragonpay, then upload the receipt. The reference number must be readable.</div>";
+      return '<p class="doc-extra">Fee: <strong>' + APP_FEE + "</strong> via GCash or Dragonpay. Reference number must be readable.</p>";
     }
     return "";
   }
@@ -796,15 +796,17 @@ $(function () {
         '<div class="file-actions"><button class="icon-button doc-replace" type="button" data-key="' + doc.key + '" aria-label="Replace ' + esc(doc.title) + '" data-bs-toggle="tooltip" data-bs-title="Replace">' + icon("refresh") + "</button>" +
         '<button class="icon-button doc-remove" type="button" data-key="' + doc.key + '" aria-label="Remove ' + esc(doc.title) + '" data-bs-toggle="tooltip" data-bs-title="Remove">' + icon("trash") + "</button></div>";
       body = '<div class="file-row"><span class="file-thumb">' + thumb + '</span><span class="file-meta"><strong>' + esc(f.name) + "</strong><span>" +
-        (uploading ? "Uploading…" : fileSize(f.size) + " · " + (locked() ? "Submitted" : "Ready to submit")) + "</span>" +
+        (uploading ? "Uploading…" : fileSize(f.size)) + "</span>" +
         (uploading ? '<span class="upload-progress"><span></span></span>' : "") + "</span>" + actions + "</div>";
     } else {
-      body = '<label class="upload-zone" for="file-' + doc.key + '"><span class="upload-symbol">' + icon("upload") + "</span><strong>Choose a file</strong><small>or drop it here · " + (doc.imageOnly ? "JPG or PNG" : "PDF, JPG, PNG") + " · 10 MB max</small></label>";
+      body = '<label class="upload-btn" for="file-' + doc.key + '" title="' + (doc.imageOnly ? "JPG or PNG" : "PDF, JPG, or PNG") + ', 10 MB max">' + icon("upload") + "Upload</label>";
     }
-    return '<article class="doc-card" data-key="' + doc.key + '">' +
-      '<div class="doc-top"><span class="doc-icon tone-' + doc.tone + '">' + icon(doc.icon) + "</span>" + docTag(doc) + "</div>" +
-      "<h3>" + esc(doc.title) + '</h3><p class="doc-desc">' + esc(doc.desc) + "</p>" + docExtra(doc) + body +
-      '<p class="upload-error" id="err-' + doc.key + '" role="alert"></p>' +
+    return '<article class="doc-card' + (f ? " has-file" : "") + '" data-key="' + doc.key + '">' +
+      '<span class="doc-icon tone-' + doc.tone + '">' + icon(doc.icon) + "</span>" +
+      '<div class="doc-main"><div class="doc-title-row"><h3>' + esc(doc.title) + "</h3>" + docTag(doc) + "</div>" +
+      '<p class="doc-desc">' + esc(doc.desc) + "</p>" + docExtra(doc) +
+      '<p class="upload-error" id="err-' + doc.key + '" role="alert"></p></div>' +
+      '<div class="doc-action">' + body + "</div>" +
       '<input class="file-input" type="file" id="file-' + doc.key + '" data-key="' + doc.key + '" accept="' + (doc.imageOnly ? ".jpg,.jpeg,.png" : ".pdf,.jpg,.jpeg,.png") + '"' + (locked() ? " disabled" : "") + ">" +
       "</article>";
   }
@@ -816,7 +818,7 @@ $(function () {
   function renderDocs() {
     $(".tooltip").remove();
     $("#doc-grid").html(DOCS.map(function (doc, i) {
-      return '<div class="col-md-6 col-xxl-3 reveal-in" style="--d:' + (160 + i * 55) + 'ms">' + docCardHTML(doc) + "</div>";
+      return '<li class="reveal-in" style="--d:' + (120 + i * 40) + 'ms">' + docCardHTML(doc) + "</li>";
     }).join(""));
     initTooltips("#doc-grid");
     renderDocSummary();
@@ -834,7 +836,6 @@ $(function () {
     var count = docCount();
     animateCount($("#docs-count"), count);
     setRing($("#docs-ring"), count, 8);
-    $("#seg-bar").html(DOCS.map(function (doc) { return "<i" + (state.docs[doc.key] ? ' class="on"' : "") + "></i>"; }).join(""));
     var headline, sub;
     if (state.phase === "review") { headline = "Submitted for review"; sub = "Admissions is checking your documents. You'll be notified when they're verified."; }
     else if (locked()) { headline = "All documents verified"; sub = "Every requirement passed review. Keep the originals for enrollment."; }

@@ -45,16 +45,23 @@
   --info: #22607a;
   --info-soft: #E0FAFF;
 
-  --grad: linear-gradient(135deg, var(--frost) 0%, var(--wisteria) 50%, var(--slate) 100%);
+  --grad: linear-gradient(135deg, #4f86e8 0%, #6a6fdc 55%, #8a5cd6 100%);
+  --grad-soft: linear-gradient(135deg, #eef4ff 0%, #f1efff 100%);
+  --glass: rgba(255, 255, 255, .8);
+  --page-bg:
+    radial-gradient(55% 45% at 0% 0%, rgba(125, 176, 250, .30) 0%, transparent 70%),
+    radial-gradient(50% 45% at 100% 0%, rgba(167, 139, 250, .26) 0%, transparent 70%),
+    radial-gradient(60% 55% at 100% 100%, rgba(196, 181, 253, .26) 0%, transparent 70%),
+    linear-gradient(165deg, #ffffff 0%, #f3f7ff 50%, #f6f1ff 100%);
   --shadow-sm: 0 1px 2px rgba(31, 33, 65, .05);
   --shadow: 0 1px 2px rgba(31, 33, 65, .04), 0 12px 32px rgba(31, 33, 65, .07);
   --shadow-lg: 0 2px 6px rgba(31, 33, 65, .05), 0 24px 56px rgba(31, 33, 65, .13);
 
   --font-display: "DM Serif Display", "Iowan Old Style", Georgia, serif;
   --font-body: "DM Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
-  --radius: 18px;
-  --radius-sm: 11px;
-  --sidebar-w: 250px;
+  --radius: 14px;
+  --radius-sm: 9px;
+  --sidebar-w: 224px;
   --ease: cubic-bezier(.2, .7, .2, 1);
 
   color-scheme: light;
@@ -63,10 +70,11 @@
 /* ---------- Base + Bootstrap overrides ---------- */
 body {
   margin: 0;
-  background: var(--bg);
+  background: var(--page-bg);
+  background-attachment: fixed;
   color: var(--ink);
   font-family: var(--font-body);
-  font-size: 15px;
+  font-size: 14px;
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
 }
@@ -95,7 +103,7 @@ h2 {
 h1 {
   font-family: var(--font-display);
   font-weight: 400;
-  font-size: clamp(30px, 3.4vw, 38px);
+  font-size: clamp(24px, 2.6vw, 30px);
   line-height: 1.1;
   letter-spacing: -.01em;
 }
@@ -141,11 +149,11 @@ h1 {
 
 .form-control,
 .form-select {
-  min-height: 46px;
+  min-height: 40px;
   border-radius: var(--radius-sm);
   border-color: var(--line-strong);
   color: var(--ink);
-  font-size: 14.5px;
+  font-size: 14px;
   background-color: var(--surface);
   transition: border-color .2s, box-shadow .2s, background-color .2s;
 }
@@ -242,10 +250,10 @@ h1 {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-height: 44px;
-  padding: 0 18px;
+  min-height: 38px;
+  padding: 0 16px;
   border-radius: var(--radius-sm);
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 600;
   transition: background .2s, border-color .2s, color .2s, transform .15s var(--ease), box-shadow .2s;
 }
@@ -265,22 +273,23 @@ h1 {
 }
 
 .btn-lg {
-  min-height: 50px;
-  font-size: 15px;
+  min-height: 44px;
+  font-size: 14px;
 }
 
 .btn-brand {
-  background: var(--accent);
-  border: 1px solid var(--accent);
+  background: var(--grad);
+  border: 1px solid transparent;
   color: var(--on-accent);
   box-shadow: 0 6px 16px rgba(95, 88, 184, .22);
 }
 
 .btn-brand:hover,
 .btn-brand:focus-visible {
-  background: var(--accent-strong);
-  border-color: var(--accent-strong);
+  background: var(--grad);
+  border-color: transparent;
   color: var(--on-accent);
+  filter: brightness(1.06);
   box-shadow: 0 10px 22px rgba(95, 88, 184, .3);
   transform: translateY(-1px);
 }
@@ -369,8 +378,8 @@ h1 {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   border-radius: 10px;
   border: 0;
   background: transparent;
@@ -411,9 +420,9 @@ h1 {
 }
 
 .brand-mark {
-  width: 36px;
-  height: 36px;
-  border-radius: 11px;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
   background: var(--grad);
   color: #fff;
   box-shadow: 0 6px 14px rgba(123, 117, 201, .3);
@@ -426,7 +435,7 @@ h1 {
 
 .brand-name {
   font-weight: 700;
-  font-size: 17px;
+  font-size: 16px;
   letter-spacing: .05em;
   color: var(--ink);
 }
@@ -495,7 +504,7 @@ h1 {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 16px;
   padding: 16px;
-  background: var(--bg);
+  background: transparent;
 }
 
 .auth-art {
@@ -508,10 +517,10 @@ h1 {
   padding: 36px clamp(24px, 4vw, 56px);
   border-radius: 26px;
   background:
-    radial-gradient(45% 40% at 12% 10%, rgba(159, 226, 238, .55) 0%, transparent 70%),
-    radial-gradient(50% 45% at 92% 18%, rgba(128, 164, 212, .38) 0%, transparent 70%),
-    radial-gradient(60% 50% at 30% 100%, rgba(123, 117, 201, .30) 0%, transparent 70%),
-    linear-gradient(160deg, var(--cyan) 0%, #f6fcff 45%, var(--honeydew) 100%);
+    radial-gradient(45% 40% at 12% 10%, rgba(125, 176, 250, .45) 0%, transparent 70%),
+    radial-gradient(50% 45% at 92% 18%, rgba(167, 139, 250, .38) 0%, transparent 70%),
+    radial-gradient(60% 50% at 30% 100%, rgba(139, 92, 246, .28) 0%, transparent 70%),
+    linear-gradient(160deg, #ffffff 0%, #eef4ff 45%, #f3edff 100%);
   animation: rise .7s var(--ease) both;
 }
 
@@ -597,7 +606,7 @@ h1 {
 }
 
 .auth-pitch h1 {
-  font-size: clamp(36px, 4.4vw, 54px);
+  font-size: clamp(30px, 3.6vw, 44px);
 }
 
 .auth-pitch p:last-child {
@@ -809,11 +818,11 @@ h1 {
 .auth-tab {
   position: relative;
   z-index: 1;
-  min-height: 42px;
+  min-height: 38px;
   border: 0;
   border-radius: 10px;
   background: transparent;
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 600;
   color: var(--muted);
   transition: color .25s;
@@ -839,7 +848,7 @@ h1 {
 .auth-head h2 {
   font-family: var(--font-display);
   font-weight: 400;
-  font-size: 30px;
+  font-size: 26px;
   line-height: 1.15;
 }
 
@@ -859,8 +868,8 @@ h1 {
   position: absolute;
   right: 4px;
   top: 4px;
-  width: 38px;
-  height: 38px;
+  width: 32px;
+  height: 32px;
   border: 0;
   background: transparent;
   color: var(--muted);
@@ -906,7 +915,7 @@ h1 {
    ========================================================================== */
 .app-shell {
   min-height: 100vh;
-  background: var(--bg);
+  background: transparent;
 }
 
 .sidebar {
@@ -918,14 +927,16 @@ h1 {
   width: var(--sidebar-w);
   display: flex;
   flex-direction: column;
-  padding: calc(26px + env(safe-area-inset-top, 0px)) 16px calc(18px + env(safe-area-inset-bottom, 0px));
-  background: var(--surface);
+  padding: calc(20px + env(safe-area-inset-top, 0px)) 14px calc(18px + env(safe-area-inset-bottom, 0px));
+  background: rgba(255, 255, 255, .72);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
   border-right: 1px solid var(--line);
   overflow-y: auto;
 }
 
 .sidebar .brand {
-  margin: 0 0 40px 8px;
+  margin: 0 0 28px 8px;
 }
 
 .sidebar-label {
@@ -944,21 +955,21 @@ h1 {
   left: 0;
   right: 0;
   top: 0;
-  height: 46px;
-  border-radius: 12px;
-  background: var(--accent-soft);
+  height: 40px;
+  border-radius: 10px;
+  background: var(--grad-soft);
   transition: transform .4s var(--ease);
 }
 
 .nav-indicator::before {
   content: "";
   position: absolute;
-  left: -16px;
-  top: 12px;
-  bottom: 12px;
+  left: -14px;
+  top: 10px;
+  bottom: 10px;
   width: 4px;
   border-radius: 0 4px 4px 0;
-  background: var(--accent);
+  background: var(--grad);
 }
 
 .sidebar-nav .nav-link {
@@ -966,12 +977,12 @@ h1 {
   z-index: 1;
   display: flex;
   align-items: center;
-  gap: 12px;
-  height: 46px;
+  gap: 10px;
+  height: 40px;
   padding: 0 12px;
-  border-radius: 12px;
+  border-radius: 10px;
   color: var(--ink-2);
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 500;
   transition: color .2s;
 }
@@ -1017,9 +1028,9 @@ h1 {
 
 .sidebar-help {
   margin-top: auto;
-  padding: 16px;
-  border-radius: 16px;
-  background: linear-gradient(150deg, var(--cyan), var(--surface) 70%);
+  padding: 14px;
+  border-radius: 12px;
+  background: var(--grad-soft);
   border: 1px solid var(--line);
   display: flex;
   flex-direction: column;
@@ -1063,22 +1074,22 @@ h1 {
 }
 
 .avatar {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--cyan), var(--frost));
-  color: #1d2050;
+  background: var(--grad);
+  color: #fff;
   font-size: 12px;
   font-weight: 700;
 }
 
 .avatar-sm {
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
 }
 
 .user-mini {
@@ -1114,13 +1125,13 @@ h1 {
   position: sticky;
   top: env(safe-area-inset-top, 0px);
   z-index: 1020;
-  height: 64px;
+  height: 56px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 0 36px;
-  background: rgba(255, 255, 255, .88);
+  padding: 0 28px;
+  background: rgba(255, 255, 255, .6);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--line);
@@ -1181,9 +1192,9 @@ h1 {
 }
 
 .content-wrap {
-  max-width: 1180px;
+  max-width: 1100px;
   margin: 0 auto;
-  padding: 36px 40px 0;
+  padding: 26px 32px 0;
 }
 
 .view-section {
@@ -1193,7 +1204,7 @@ h1 {
 .view-section.active {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 18px;
 }
 
 .page-title {
@@ -1222,15 +1233,15 @@ h1 {
 }
 
 .card-soft {
-  background: var(--surface);
+  background: var(--glass);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 22px;
+  padding: 18px;
   transition: transform .3s var(--ease), box-shadow .3s var(--ease), border-color .3s;
 }
 
 .card-soft:hover {
-  transform: translateY(-3px);
+  transform: translateY(-2px);
   box-shadow: var(--shadow);
   border-color: transparent;
 }
@@ -1243,7 +1254,7 @@ h1 {
 }
 
 .panel-heading h2 {
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 700;
   margin-bottom: 2px;
 }
@@ -1294,10 +1305,10 @@ h1 {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 26px;
-  padding: 26px 28px 28px;
-  border-radius: 22px;
-  background: var(--surface);
+  gap: 20px;
+  padding: 20px 22px 22px;
+  border-radius: var(--radius);
+  background: var(--glass);
   border: 1px solid var(--line);
   box-shadow: var(--shadow);
   overflow: hidden;
@@ -1330,7 +1341,7 @@ h1 {
 .journey-head h2 {
   font-family: var(--font-display);
   font-weight: 400;
-  font-size: 26px;
+  font-size: 21px;
   margin-top: 4px;
 }
 
@@ -1351,7 +1362,7 @@ h1 {
 .progress-track {
   position: relative;
   flex: 1;
-  height: 10px;
+  height: 8px;
   border-radius: 99px;
   background: var(--tint-2);
   overflow: hidden;
@@ -1437,7 +1448,7 @@ h1 {
    STEPPER (connected circles)
    ========================================================================== */
 .stepper {
-  --dot: 46px;
+  --dot: 38px;
   --gap: 10px;
   list-style: none;
   margin: 0;
@@ -1451,7 +1462,7 @@ h1 {
 
 .stepper-3 {
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  --dot: 54px;
+  --dot: 44px;
 }
 
 .step {
@@ -1503,7 +1514,7 @@ h1 {
   border: 2px solid var(--line-strong);
   background: var(--surface);
   color: var(--muted);
-  font-size: 15px;
+  font-size: 13.5px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   transition: background .35s, border-color .35s, color .35s, box-shadow .35s, transform .2s var(--ease);
@@ -1524,7 +1535,7 @@ button.step-dot:hover {
   border-color: var(--accent);
   color: var(--accent);
   background: var(--surface);
-  box-shadow: 0 0 0 6px var(--ring);
+  box-shadow: 0 0 0 5px var(--ring);
 }
 
 .step.current .step-dot::after {
@@ -1593,14 +1604,14 @@ button.step-dot:hover {
 }
 
 .step-label {
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 600;
   color: var(--muted);
   line-height: 1.3;
 }
 
 .step-sub {
-  font-size: 11.5px;
+  font-size: 11px;
   color: var(--muted);
 }
 
@@ -1632,10 +1643,10 @@ button.step-dot:hover {
 
 /* ---------- Stage detail panel (overview) ---------- */
 .stage-panel {
-  border-radius: 18px;
-  background: var(--tint);
+  border-radius: 12px;
+  background: var(--grad-soft);
   border: 1px solid var(--line);
-  padding: 22px 24px;
+  padding: 16px 18px;
 }
 
 .stage-panel>* {
@@ -1650,9 +1661,9 @@ button.step-dot:hover {
 }
 
 .sp-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 14px;
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
   flex: 0 0 auto;
   background: var(--surface);
   color: var(--accent);
@@ -1660,8 +1671,8 @@ button.step-dot:hover {
 }
 
 .sp-icon .ico {
-  width: 22px;
-  height: 22px;
+  width: 19px;
+  height: 19px;
 }
 
 .sp-body {
@@ -1673,13 +1684,13 @@ button.step-dot:hover {
 }
 
 .sp-body h3 {
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 700;
 }
 
 .sp-body p {
   color: var(--ink-2);
-  font-size: 14px;
+  font-size: 13.5px;
 }
 
 .sp-actions {
@@ -1901,20 +1912,20 @@ button.step-dot:hover {
 .result-card {
   position: relative;
   overflow: hidden;
-  margin: -22px -24px;
-  padding: 34px 28px 28px;
-  border-radius: 18px;
+  margin: -16px -18px;
+  padding: 28px 22px 22px;
+  border-radius: 12px;
   text-align: center;
   background:
-    radial-gradient(50% 60% at 10% 0%, rgba(159, 226, 238, .45), transparent 70%),
-    radial-gradient(45% 55% at 95% 10%, rgba(123, 117, 201, .25), transparent 70%),
-    linear-gradient(180deg, var(--cyan) 0%, var(--surface) 60%);
+    radial-gradient(50% 60% at 10% 0%, rgba(125, 176, 250, .35), transparent 70%),
+    radial-gradient(45% 55% at 95% 10%, rgba(167, 139, 250, .30), transparent 70%),
+    linear-gradient(180deg, #eef4ff 0%, var(--surface) 60%);
 }
 
 .result-seal {
   position: relative;
-  width: 84px;
-  height: 84px;
+  width: 70px;
+  height: 70px;
   margin: 0 auto 14px;
   border-radius: 50%;
   background: var(--grad);
@@ -1961,7 +1972,7 @@ button.step-dot:hover {
 .result-card h3 {
   font-family: var(--font-display);
   font-weight: 400;
-  font-size: clamp(30px, 4vw, 44px);
+  font-size: clamp(26px, 3.2vw, 36px);
   line-height: 1.1;
   margin: 8px 0 10px;
 }
@@ -2092,15 +2103,15 @@ button.step-dot:hover {
 /* Docs summary + rings */
 .docs-summary-body {
   display: flex;
-  gap: 24px;
+  gap: 20px;
   align-items: center;
-  margin-top: 18px;
+  margin-top: 14px;
 }
 
 .ring {
   position: relative;
-  width: 112px;
-  height: 112px;
+  width: 92px;
+  height: 92px;
   flex: 0 0 auto;
 }
 
@@ -2144,7 +2155,7 @@ button.step-dot:hover {
 .ring-label strong {
   font-family: var(--font-display);
   font-weight: 400;
-  font-size: 34px;
+  font-size: 28px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -2155,8 +2166,22 @@ button.step-dot:hover {
 }
 
 .ring-lg {
-  width: 128px;
-  height: 128px;
+  width: 112px;
+  height: 112px;
+}
+
+.ring-sm {
+  width: 60px;
+  height: 60px;
+}
+
+.ring-sm .ring-label strong {
+  font-size: 20px;
+}
+
+.ring-sm .ring-label span {
+  font-size: 10px;
+  margin-top: 1px;
 }
 
 .doc-mini-list {
@@ -2221,10 +2246,10 @@ button.step-dot:hover {
 }
 
 .program-icon {
-  width: 44px;
-  height: 44px;
+  width: 38px;
+  height: 38px;
   flex: 0 0 auto;
-  border-radius: 13px;
+  border-radius: 11px;
   background: var(--accent-soft);
   color: var(--accent);
 }
@@ -2281,10 +2306,10 @@ button.step-dot:hover {
   align-items: center;
   gap: 16px;
   flex-wrap: wrap;
-  padding: 16px 20px;
+  padding: 14px 18px;
   border-radius: var(--radius);
   border: 1.5px dashed var(--line-strong);
-  background: var(--surface);
+  background: var(--glass);
 }
 
 .demo-strip strong {
@@ -2298,17 +2323,17 @@ button.step-dot:hover {
 
 /* ---------- Application ---------- */
 .stepper-card {
-  padding: 28px 24px 24px;
-  border-radius: 22px;
-  background: var(--surface);
+  padding: 20px 20px 18px;
+  border-radius: var(--radius);
+  background: var(--glass);
   border: 1px solid var(--line);
   box-shadow: var(--shadow);
 }
 
 .form-card {
-  padding: 30px;
-  border-radius: 22px;
-  background: var(--surface);
+  padding: 22px;
+  border-radius: var(--radius);
+  background: var(--glass);
   border: 1px solid var(--line);
 }
 
@@ -2317,8 +2342,8 @@ button.step-dot:hover {
   justify-content: space-between;
   align-items: flex-start;
   gap: 16px;
-  padding-bottom: 22px;
-  margin-bottom: 24px;
+  padding-bottom: 16px;
+  margin-bottom: 18px;
   border-bottom: 1px solid var(--line);
 }
 
@@ -2331,7 +2356,7 @@ button.step-dot:hover {
 .form-card-head h2 {
   font-family: var(--font-display);
   font-weight: 400;
-  font-size: 28px;
+  font-size: 22px;
   line-height: 1.2;
 }
 
@@ -2412,8 +2437,8 @@ button.step-dot:hover {
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  margin-top: 28px;
-  padding-top: 20px;
+  margin-top: 22px;
+  padding-top: 16px;
   border-top: 1px solid var(--line);
 }
 
@@ -2427,17 +2452,17 @@ button.step-dot:hover {
   align-items: center;
   text-align: center;
   gap: 12px;
-  padding: 44px 28px;
-  border-radius: 22px;
+  padding: 34px 24px;
+  border-radius: var(--radius);
   border: 1px solid var(--line);
-  background: linear-gradient(180deg, var(--honeydew), var(--surface) 70%);
+  background: linear-gradient(180deg, #eef4ff, var(--surface) 70%);
   box-shadow: var(--shadow);
 }
 
 .complete-card h2 {
   font-family: var(--font-display);
   font-weight: 400;
-  font-size: clamp(28px, 3vw, 36px);
+  font-size: clamp(24px, 2.6vw, 30px);
 }
 
 .complete-card .lede {
@@ -2445,8 +2470,8 @@ button.step-dot:hover {
 }
 
 .check-draw {
-  width: 72px;
-  height: 72px;
+  width: 60px;
+  height: 60px;
   margin-bottom: 6px;
 }
 
@@ -2478,103 +2503,77 @@ button.step-dot:hover {
 .docs-hero {
   display: flex;
   align-items: center;
-  gap: 28px;
-  padding: 24px 28px;
-  border-radius: 22px;
-  background: var(--surface);
+  gap: 18px;
+  padding: 16px 20px;
+  border-radius: var(--radius);
+  background: var(--glass);
   border: 1px solid var(--line);
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-sm);
   flex-wrap: wrap;
 }
 
 .docs-hero-text {
   flex: 1;
-  min-width: 240px;
+  min-width: 220px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 2px;
 }
 
 .docs-hero-text h2 {
-  font-family: var(--font-display);
-  font-weight: 400;
-  font-size: 28px;
+  font-size: 16px;
+  font-weight: 700;
 }
 
 .docs-hero-text p {
-  color: var(--ink-2);
+  color: var(--muted);
+  font-size: 13px;
 }
 
-.seg-bar {
-  display: grid;
-  grid-template-columns: repeat(8, 1fr);
-  gap: 5px;
-  margin-top: 10px;
-  max-width: 420px;
-}
-
-.seg-bar i {
-  height: 7px;
-  border-radius: 4px;
-  background: var(--tint-2);
-  position: relative;
+/* One quiet list instead of a card grid */
+.doc-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-radius: var(--radius);
+  background: var(--glass);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-sm);
   overflow: hidden;
 }
 
-.seg-bar i::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: var(--grad);
-  transform: scaleX(0);
-  transform-origin: left;
-  transition: transform .5s var(--ease);
-}
-
-.seg-bar i.on::after {
-  transform: scaleX(1);
+.doc-list>li+li {
+  border-top: 1px solid var(--line);
 }
 
 .doc-card {
   position: relative;
-  height: 100%;
   display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 20px;
-  border-radius: var(--radius);
-  background: var(--surface);
-  border: 1px solid var(--line);
-  transition: transform .3s var(--ease), box-shadow .3s var(--ease), border-color .3s;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 18px;
+  transition: background .2s;
 }
 
 .doc-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow);
-  border-color: transparent;
+  background: rgba(241, 240, 252, .45);
 }
 
 .doc-card.drag-over {
-  border-color: var(--slate);
-  box-shadow: 0 0 0 4px var(--ring);
-}
-
-.doc-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 2px var(--slate);
 }
 
 .doc-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 13px;
-  transition: transform .3s var(--ease);
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border-radius: 10px;
 }
 
-.doc-card:hover .doc-icon {
-  transform: rotate(-6deg) scale(1.06);
+.doc-card.has-file .doc-icon {
+  background: var(--success-soft);
+  color: var(--success);
 }
 
 .tone-1 {
@@ -2583,8 +2582,8 @@ button.step-dot:hover {
 }
 
 .tone-2 {
-  background: var(--honeydew);
-  color: var(--success);
+  background: #eaf0fb;
+  color: #3f5f8f;
 }
 
 .tone-3 {
@@ -2593,28 +2592,42 @@ button.step-dot:hover {
 }
 
 .tone-4 {
-  background: #eef3fa;
-  color: #3f5f8f;
+  background: #f3eefc;
+  color: #6a4fb0;
+}
+
+.doc-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.doc-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .doc-card h3 {
-  font-size: 15.5px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 600;
   line-height: 1.35;
 }
 
 .doc-card .doc-desc {
-  font-size: 13px;
-  color: var(--ink-2);
-  flex: 1;
+  font-size: 12.5px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .doc-extra {
-  font-size: 12.5px;
+  font-size: 12px;
   color: var(--ink-2);
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: var(--tint);
 }
 
 .doc-extra strong {
@@ -2623,65 +2636,56 @@ button.step-dot:hover {
 
 .name-tag {
   display: inline-block;
-  margin-top: 4px;
-  padding: 2px 8px;
-  border-radius: 6px;
-  background: var(--surface);
-  border: 1px solid var(--line);
+  padding: 0 6px;
+  border-radius: 5px;
+  background: var(--tint-2);
   font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
-  font-size: 12px;
+  font-size: 11.5px;
   color: var(--ink);
 }
 
-.upload-zone {
-  position: relative;
+.doc-action {
+  flex: 0 0 auto;
+  width: 250px;
   display: flex;
-  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.doc-action .file-row {
+  width: 100%;
+}
+
+.upload-btn {
+  display: inline-flex;
   align-items: center;
-  text-align: center;
-  gap: 2px;
-  padding: 18px 12px;
-  border: 1.5px dashed var(--line-strong);
-  border-radius: 13px;
-  background: var(--tint);
-  cursor: pointer;
-  transition: border-color .2s, background .2s;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 14px;
   margin: 0;
-}
-
-.upload-zone:hover {
-  border-color: var(--slate);
-  background: var(--accent-soft);
-}
-
-.upload-zone:hover .upload-symbol {
-  transform: translateY(-3px);
-}
-
-.upload-zone:focus-within {
-  border-color: var(--slate);
-  box-shadow: 0 0 0 4px var(--ring);
-}
-
-.upload-symbol {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
+  border-radius: 999px;
+  border: 1px solid var(--accent-line);
   background: var(--surface);
   color: var(--accent);
-  margin-bottom: 4px;
-  box-shadow: var(--shadow-sm);
-  transition: transform .25s var(--ease);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .2s, color .2s, border-color .2s;
 }
 
-.upload-zone strong {
-  color: var(--accent);
-  font-size: 13.5px;
+.upload-btn .ico {
+  width: 14px;
+  height: 14px;
 }
 
-.upload-zone small {
-  font-size: 12px;
-  color: var(--muted);
+.upload-btn:hover {
+  background: var(--grad);
+  border-color: transparent;
+  color: #fff;
+}
+
+.doc-card:has(.file-input:focus-visible) .upload-btn {
+  outline: 3px solid var(--accent-line);
+  outline-offset: 2px;
 }
 
 .file-input {
@@ -2695,19 +2699,19 @@ button.step-dot:hover {
 .file-row {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px;
-  border-radius: 13px;
+  gap: 10px;
+  padding: 5px 6px;
+  border-radius: 10px;
   border: 1px solid var(--line);
   background: var(--surface);
   animation: rise .4s var(--ease) both;
 }
 
 .file-thumb {
-  width: 46px;
-  height: 46px;
+  width: 32px;
+  height: 32px;
   flex: 0 0 auto;
-  border-radius: 10px;
+  border-radius: 7px;
   background: var(--tint-2);
   color: var(--accent);
   display: flex;
@@ -2731,14 +2735,14 @@ button.step-dot:hover {
 }
 
 .file-meta strong {
-  font-size: 13px;
+  font-size: 12.5px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .file-meta span {
-  font-size: 12px;
+  font-size: 11.5px;
   color: var(--muted);
 }
 
@@ -2748,13 +2752,13 @@ button.step-dot:hover {
 }
 
 .file-actions .icon-button {
-  width: 34px;
-  height: 34px;
+  width: 28px;
+  height: 28px;
 }
 
 .file-actions .ico {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
 }
 
 .upload-progress {
@@ -2793,10 +2797,10 @@ button.step-dot:hover {
 .tag {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 4px 10px;
+  gap: 4px;
+  padding: 2px 8px;
   border-radius: 999px;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: .06em;
   text-transform: uppercase;
@@ -2842,12 +2846,12 @@ button.step-dot:hover {
   display: flex;
   gap: 12px;
   align-items: flex-start;
-  padding: 16px 18px;
-  border-radius: 14px;
-  background: var(--tint);
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: var(--grad-soft);
   border: 1px solid var(--line);
   color: var(--ink-2);
-  font-size: 13.5px;
+  font-size: 13px;
 }
 
 .info-note>span {
@@ -2862,7 +2866,7 @@ button.step-dot:hover {
 /* ---------- Modals, toast, tooltip ---------- */
 .modal-content {
   border: 0;
-  border-radius: 22px;
+  border-radius: 16px;
   box-shadow: var(--shadow-lg);
 }
 
@@ -2876,20 +2880,20 @@ button.step-dot:hover {
 }
 
 .modal-body {
-  padding: 28px 28px 8px;
+  padding: 24px 24px 6px;
 }
 
 .modal-footer {
   border: 0;
-  padding: 16px 28px 24px;
+  padding: 14px 24px 20px;
   gap: 8px;
 }
 
 .modal-icon {
-  width: 52px;
-  height: 52px;
-  border-radius: 16px;
-  background: var(--accent-soft);
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--grad-soft);
   color: var(--accent);
   margin-bottom: 16px;
 }
@@ -2902,7 +2906,7 @@ button.step-dot:hover {
 .modal-title-serif {
   font-family: var(--font-display);
   font-weight: 400;
-  font-size: 26px;
+  font-size: 22px;
   margin-bottom: 8px;
 }
 
@@ -3046,7 +3050,7 @@ button.step-dot:hover {
    ========================================================================== */
 @media (max-width: 1100px) {
   :root {
-    --sidebar-w: 230px;
+    --sidebar-w: 216px;
   }
 
   .topbar {
@@ -3054,7 +3058,7 @@ button.step-dot:hover {
   }
 
   .content-wrap {
-    padding: 32px 26px 0;
+    padding: 24px 22px 0;
   }
 
   .stepper-7 .step-sub {
@@ -3126,7 +3130,7 @@ button.step-dot:hover {
   }
 
   .stepper-7 {
-    --dot: 40px;
+    --dot: 34px;
     --gap: 6px;
   }
 
@@ -3177,7 +3181,7 @@ button.step-dot:hover {
   }
 
   .stepper-7 {
-    --dot: 32px;
+    --dot: 28px;
     --gap: 3px;
   }
 
@@ -3190,7 +3194,7 @@ button.step-dot:hover {
   }
 
   .stepper-3 {
-    --dot: 46px;
+    --dot: 38px;
   }
 
   .stepper-3 .step-sub {
@@ -3202,11 +3206,11 @@ button.step-dot:hover {
   }
 
   .stage-panel {
-    padding: 18px 16px;
+    padding: 16px 14px;
   }
 
   .result-card {
-    margin: -18px -16px;
+    margin: -16px -14px;
     padding: 28px 16px 20px;
   }
 
@@ -3256,6 +3260,21 @@ button.step-dot:hover {
 
   .docs-hero .btn {
     width: 100%;
+  }
+
+  .doc-card {
+    flex-wrap: wrap;
+    padding: 12px 14px;
+  }
+
+  .doc-card .doc-desc {
+    white-space: normal;
+  }
+
+  .doc-action {
+    width: 100%;
+    padding-left: 48px;
+    justify-content: flex-start;
   }
 
   .letter .modal-body {
