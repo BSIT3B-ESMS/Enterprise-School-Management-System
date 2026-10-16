@@ -1,5 +1,11 @@
 # Backend Progress
 
+## ❓ Waiting on answers
+
+1. **How should the 8 applicant document cards map to the official requirements (H1)?** Nothing can be submitted from the portal until this is settled. Details under "On hold" below.
+2. **What should happen when a passer doesn't accept or pay by the reservation deadline?** The diagram's "slot deadlines" job can't be automated until this is defined.
+3. **MySQL credentials:** needed to run the migrations and tests against the real database. Everything so far ran on SQLite.
+
 Tracks the backend build on the `backend` branch. Guide: [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md). Architecture: the system architecture diagram (Nginx communication layer → Laravel on EC2 → RDS MySQL; DMS and Enrollment as external systems). UI audit: [docs/UI_BACKEND_MATRIX.md](docs/UI_BACKEND_MATRIX.md).
 
 The system is one module of the university ERP. Other systems (Document Mgmt, Enrollment) connect through REST + API key, so integrations go behind interfaces and are switched on through `.env`.
