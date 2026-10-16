@@ -85,14 +85,14 @@ Wiring: **To do** · **Built** (API exists, tested) · **Wired** (UI uses it).
 
 ## Discrepancies for the team
 
-1. **Two different document lists.** The applicant portal shows 8 cards (Valid ID, Parent/Guardian ID, CTC Grade 11 card, Form 138, Good Moral, PSA, Photo, GCash/Dragonpay payment). The admin panel uses 7 conditional requirements (PSA, Parent ID, Guardianship affidavit, Photo, Form 137, Form 138, Applicant ID). **Decision:** the admin list is official. Applicant cards are mapped onto it (see `config/admission.php`); cards with no matching requirement are reported here until the UI is aligned.
+1. **Two different document lists.** The applicant portal shows 8 cards (Valid ID, Parent/Guardian ID, CTC Grade 11 card, Form 138, Good Moral, PSA, Photo, GCash/Dragonpay payment). The admin panel uses 7 conditional requirements (PSA, Parent ID, Guardianship affidavit, Photo, Form 137, Form 138, Applicant ID). **Decision:** the admin list is official. How the 8 cards map onto it is **on hold** until the team discusses it (PROGRESS.md, H1).
 2. **Applicant form lacks residency, district and barangay**, which the admin record and the plan need. **Decision:** store the form as-is, derive "resident" from the city field, and leave district/barangay empty until the UI has the fields.
 3. **Upload size:** both UIs say 10 MB; the architecture's Nginx cap is 5 MB. **Decision:** 5 MB; the backend returns a clear error message. UI text is unchanged.
 4. **Result screen only handles "Passed".** There is no "Did not pass" view, and the text "Passed · 89th percentile" is hard-coded. Showing a percentile would conflict with NFR-02. The backend never sends a score or percentile.
 5. **Only 2 program choices** in the applicant form; the plan allows up to 3. The backend accepts 1–3.
 6. **Program lists differ** (applicant: 7 full names, admin: 11 codes). The database's program list is used by both.
 7. **Applicant-only items not in the plan:** campus, "accept offer", reservation fee and the application-fee payment upload.
+8. **Admin panel loads all applicants at once** (filtering, charts and CSV run in the browser). This works for the prototype; at ~20,000 applicants it needs server-side paging (Phase 10).
+9. **Office panel doesn't adapt to the signed-in role.** The clinic account sees every screen and the sidebar label always says "Admission personnel". The server refuses actions outside the role (with a message), but the UI should hide them.
 10. **Autosave label says "Saved on this device"** although the form is now saved on the server (UI text, unchanged).
 11. **Applicant "Required documents" card shows 0 of 8** for applicants whose documents went through the server (seeded data), because the cards are still browser-only (H1).
-9. **Office panel doesn't adapt to the signed-in role.** The clinic account sees every screen and the sidebar label always says "Admission personnel". The server refuses actions outside the role (with a message), but the UI should hide them.
-8. **Admin panel loads all applicants at once** (filtering, charts and CSV run in the browser). This works for the prototype; at ~20,000 applicants it needs server-side paging (Phase 10).

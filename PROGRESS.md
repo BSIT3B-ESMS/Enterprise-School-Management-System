@@ -80,7 +80,7 @@ Legend: ✅ done · 🔄 in progress · ⬜ to do · ⏸ deferred
 
 - **Applicant portal wired** (data layer only): sign-in (`portal: applicant`), create account (server errors shown on the matching fields), forgot password, sign-out, session restore. The portal state comes from `GET /api/applicant/portal`; every `save()` sends the form and section progress to the server (debounced). Program options, key dates, the exam schedule, the application number, the offer letter dates, the released result, "Accept offer" and the medical uploads/submit all use the server. A value the server refuses although it looks valid (e.g. an LRN already in use) is shown on its field. **Document cards and "Submit" stay browser-only (H1)**, kept per application in localStorage. Verified in headless Edge: register → fill 3 sections → reload (data back from the server) → sign out → wrong password → passer: accept offer → 3 medical uploads → submit; no page errors.
 
-- Phase 10 (part): `SecurityHeaders` middleware (nosniff, frame, referrer, permissions policy); sample Nginx config for the communication layer in [docs/deploy/nginx.conf](docs/deploy/nginx.conf) (TLS 443, static files, `/api` to PHP-FPM, 6 MB body cap, rate limits, IP allowlist for Pulse, outbound proxy for DMS/Enrollment); GitHub Actions workflow running the test suite. Tests: 48 passing.
+- Phase 10 (part): `SecurityHeaders` middleware (nosniff, frame, referrer, permissions policy); sample Nginx config for the communication layer in [docs/deploy/nginx.conf](docs/deploy/nginx.conf) (TLS 443, static files, `/api` to PHP-FPM, 6 MB body cap, rate limits, IP allowlist for Pulse, outbound proxy for DMS/Enrollment); GitHub Actions workflow running the test suite; unit tests for the status transition rules. Tests: 51 passing.
 
 ## Remaining work
 
@@ -119,7 +119,7 @@ php artisan jwt:secret
 ```
 
 Database, pick one:
-- **SQLite (quickest):** in `.env` set `DB_CONNECTION=sqlite` and delete the other `DB_` lines; Laravel creates `database/database.sqlite`.
+- **SQLite (quickest):** in `.env` set `DB_CONNECTION=sqlite` and delete the other `DB_` lines, then create an empty file `database/database.sqlite` (or answer "yes" when `migrate` offers to create it).
 - **MySQL:** create a database `admission_system` and fill `DB_HOST`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`.
 
 For local use also set `APP_ENV=local`, `MAIL_MAILER=log` (emails go to `storage/logs/laravel.log` instead of being sent) and `QUEUE_CONNECTION=sync` (no worker needed).
