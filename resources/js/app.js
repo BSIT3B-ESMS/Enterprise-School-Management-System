@@ -1,2 +1,13 @@
+import './theme.js';
 import './bootstrap.js';
 import './jquery-ui.js';
+import './login.js';
+import './app-shell.js';
+import './dashboard.js';
+import './employees.js';
+import './employee-form.js';
+import './employee-details.js';
+import './departments.js';
+import './job-titles.js';
+import './recruitment.js';
+import './audit-logs.js';
