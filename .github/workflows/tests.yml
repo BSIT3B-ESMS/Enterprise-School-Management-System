@@ -1,0 +1,19 @@
+name: tests
+
+on:
+  push:
+    branches: [backend, main]
+  pull_request:
+
+jobs:
+  phpunit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_sqlite, fileinfo, mbstring
+      - run: composer install --no-interaction --prefer-dist
+      - run: cp .env.example .env && php artisan key:generate && php artisan jwt:secret --force
+      - run: php artisan test

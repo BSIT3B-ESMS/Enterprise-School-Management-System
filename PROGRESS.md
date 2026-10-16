@@ -32,7 +32,7 @@ Still open (defaults in use): D6 file types, D8 status set (using FR-05 set: dra
 
 ## Environment
 
-- Laravel 13, PHP 8.4 (Herd). MySQL 8 is installed locally but needs credentials; development currently uses SQLite (`database/database.sqlite`) and tests use in-memory SQLite. Migrations are written to run on MySQL too.
+- Laravel 13, PHP 8.4 (Herd). MySQL 8 is installed locally but needs credentials; development currently uses SQLite (`database/database.sqlite`) and tests use in-memory SQLite. Migrations are written for MySQL too (including the append-only triggers) but **have not been run on MySQL yet**.
 - Packages: `php-open-source-saver/jwt-auth`, `spatie/laravel-permission`, `pragmarx/google2fa`, `laravel/pulse`, `laravel/boost` (dev).
 
 ## Phases
@@ -44,15 +44,15 @@ Legend: ✅ done · 🔄 in progress · ⬜ to do · ⏸ deferred
 | 0 | UI audit → [UI_BACKEND_MATRIX](docs/UI_BACKEND_MATRIX.md) | ✅ |
 | 1 | Foundation & data layer: migrations, models, seeders, API response format | ✅ |
 | 2 | Auth & access control: JWT, roles, 2FA, password reset, throttling | ✅ |
-| 3 | Application: profile, draft/autosave, program choices, submit, status service, history | ✅ (UI wiring pending) |
-| 4 | Documents: upload (DocumentStore), review, resubmission | ✅ (applicant cards on hold: H1) |
-| 5 | Programs, slots, requirements, admission period maintenance | ✅ (UI wiring pending) |
-| 6 | Exams: sessions, approval/permit, roster, attendance, reschedule | ✅ (UI wiring pending) |
-| 7 | Results & acceptance: record, release, accept offer (no score to applicants) | ✅ (UI wiring pending) |
-| 7b | Medical requirements (Clinic) | ✅ (built with Phase 4) |
+| 3 | Application: profile, draft/autosave, program choices, submit, status service, history | ✅ Wired (submit button on hold: H1) |
+| 4 | Documents: upload (DocumentStore), review, resubmission | ✅ Staff side wired · applicant cards on hold (H1) |
+| 5 | Programs, slots, requirements, admission period maintenance | ✅ Wired |
+| 6 | Exams: sessions, approval/permit, roster, attendance, reschedule | ✅ Wired |
+| 7 | Results & acceptance: record, release, accept offer (no score to applicants) | ✅ Wired |
+| 7b | Medical requirements (Clinic) | ✅ Wired |
 | 8 | Records, reports, notifications (in-app + email), audit log | ✅ (reports computed in the panel from `/api/admin/state`) |
 | 9 | Enrollment integration, automated document checks | ⏸ |
-| 10 | Hardening, performance (server-side paging), docs, UAT | ⬜ |
+| 10 | Hardening, performance (server-side paging), docs, UAT | 🔄 Security headers, Nginx sample, CI done; rest below |
 
 ## Work log
 
@@ -80,7 +80,69 @@ Legend: ✅ done · 🔄 in progress · ⬜ to do · ⏸ deferred
 
 - **Applicant portal wired** (data layer only): sign-in (`portal: applicant`), create account (server errors shown on the matching fields), forgot password, sign-out, session restore. The portal state comes from `GET /api/applicant/portal`; every `save()` sends the form and section progress to the server (debounced). Program options, key dates, the exam schedule, the application number, the offer letter dates, the released result, "Accept offer" and the medical uploads/submit all use the server. A value the server refuses although it looks valid (e.g. an LRN already in use) is shown on its field. **Document cards and "Submit" stay browser-only (H1)**, kept per application in localStorage. Verified in headless Edge: register → fill 3 sections → reload (data back from the server) → sign out → wrong password → passer: accept offer → 3 medical uploads → submit; no page errors.
 
-## To do next
+- Phase 10 (part): `SecurityHeaders` middleware (nosniff, frame, referrer, permissions policy); sample Nginx config for the communication layer in [docs/deploy/nginx.conf](docs/deploy/nginx.conf) (TLS 443, static files, `/api` to PHP-FPM, 6 MB body cap, rate limits, IP allowlist for Pulse, outbound proxy for DMS/Enrollment); GitHub Actions workflow running the test suite. Tests: 48 passing.
 
-- See "Remaining work" below.
-- Get MySQL credentials and run the migrations against MySQL.
+## Remaining work
+
+| # | Item | Notes |
+|---|---|---|
+| R1 | Wire the applicant document cards and "Submit" | Waiting on H1 |
+| R2 | Run migrations and tests against MySQL | Needs local MySQL credentials; then on RDS |
+| R3 | Server-side paging for the admission office panel | The panel loads every applicant at once (fine for the demo; not for ~20,000). Needs view changes, so the UI team should be involved |
+| R4 | DMS driver against the real API | The request shape is assumed; adjust `DmsDocumentStore` when the DMS publishes its API |
+| R5 | Enrollment integration | Deferred (T9): queued push of the admitted list with `X-API-Key` + `Idempotency-Key`, callback for student numbers |
+| R6 | DB least privilege | App DB user gets INSERT/SELECT only on `audit_logs` and the history tables (triggers already block edits) |
+| R7 | Backups | `artisan` backup command or RDS automated backups (sysadmin, not staff) |
+| R8 | Pulse dashboard access in production | Pulse is installed and recording; its dashboard is allowed only locally by default. Decide who sees it (sysadmin over VPN via the Nginx allowlist) |
+| R9 | Load test before the application deadline | Get a real peak figure from the admission office |
+| R10 | UAT with the admission office on the existing screens | |
+
+## Open questions for the team
+
+1. **H1**: how the portal's 8 document cards map to the official requirements (see above).
+2. **UI gaps** (backend is ready, the UI can't show it yet): 2FA code screen, "new password" screen for the reset link, notification list, a "Did not pass" result screen (failed applicants currently stay on the exam step), hiding admin screens by role (the clinic sees every screen; the server refuses what isn't theirs), district/barangay fields in the applicant form, the unreachable profile view. Full list: [docs/UI_BACKEND_MATRIX.md](docs/UI_BACKEND_MATRIX.md).
+3. The applicant result screen has the hard-coded text "Passed · 89th percentile". The backend never sends a score or percentile (NFR-02), but the text itself should be removed by the UI team.
+4. "Slot deadlines" in the scheduler (architecture diagram): what should happen when a passer doesn't accept or pay by the reservation deadline? Nothing is automated until this is defined.
+5. Who owns sysadmin duties (D7), and the clinic's real medical requirement list (the seeded one is a placeholder)?
+6. What should "Reset demo data" in the panel do on a real server? It currently just reloads.
+
+## How to run
+
+**Needs:** PHP 8.3+ with `pdo_sqlite` (or `pdo_mysql`), Composer. [Laravel Herd](https://herd.laravel.com) on Windows has both.
+
+```bash
+git checkout backend
+composer install
+cp .env.example .env
+php artisan key:generate
+php artisan jwt:secret
+```
+
+Database, pick one:
+- **SQLite (quickest):** in `.env` set `DB_CONNECTION=sqlite` and delete the other `DB_` lines; Laravel creates `database/database.sqlite`.
+- **MySQL:** create a database `admission_system` and fill `DB_HOST`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`.
+
+For local use also set `APP_ENV=local`, `MAIL_MAILER=log` (emails go to `storage/logs/laravel.log` instead of being sent) and `QUEUE_CONNECTION=sync` (no worker needed).
+
+```bash
+php artisan migrate --seed    # tables + programs, requirements, sysadmin; plus demo data when APP_ENV=local
+php artisan serve
+```
+
+Open:
+- Applicant portal: http://127.0.0.1:8000/ (create an account, or sign in as a seeded applicant, e.g. `elijah.aquino14@example.com` / `password123`)
+- Admission office: http://127.0.0.1:8000/admin
+  - Admission personnel: `admissions@plpasig.edu.ph` / `password123`
+  - Clinic: `clinic@plpasig.edu.ph` / `password123`
+
+The sysadmin's password is printed by the seeder (or set `SYSADMIN_PASSWORD` first). Sysadmin work is done from the command line:
+
+```bash
+php artisan user:create name@plpasig.edu.ph "Full Name" admission   # admission | clinic | sysadmin
+php artisan user:active name@plpasig.edu.ph off                     # disable / re-enable (on)
+php artisan user:2fa name@plpasig.edu.ph totp                       # totp | email | off
+```
+
+Tests: `php artisan test`. Start over with fresh demo data: `php artisan migrate:fresh --seed`.
+
+**Production-like setup** (architecture diagram): Nginx in front ([docs/deploy/nginx.conf](docs/deploy/nginx.conf)), PHP-FPM, RDS MySQL, `MAIL_MAILER=failover` with the Gmail and Brevo credentials, `QUEUE_CONNECTION=database`, and two background processes: `php artisan queue:work` (emails) and `php artisan schedule:work` (or cron running `schedule:run` every minute). Keep `.env` out of Git.
