@@ -28,6 +28,14 @@ abstract class TestCase extends BaseTestCase
         return $user;
     }
 
+    /** Each test request starts with no logged-in user, like a real request. */
+    public function call($method, $uri, $parameters = [], $cookies = [], $files = [], $server = [], $content = null)
+    {
+        $this->app['auth']->forgetGuards();
+
+        return parent::call($method, $uri, $parameters, $cookies, $files, $server, $content);
+    }
+
     /** Act as the user through a real JWT, the way the UI calls the API. */
     protected function asUser(User $user): static
     {

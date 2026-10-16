@@ -37,7 +37,7 @@ Legend: ✅ done · 🔄 in progress · ⬜ to do · ⏸ deferred
 |---|---|---|
 | 0 | UI audit → [UI_BACKEND_MATRIX](docs/UI_BACKEND_MATRIX.md) | ✅ |
 | 1 | Foundation & data layer: migrations, models, seeders, API response format | ✅ |
-| 2 | Auth & access control: JWT, roles, 2FA, password reset, throttling | ⬜ |
+| 2 | Auth & access control: JWT, roles, 2FA, password reset, throttling | ✅ |
 | 3 | Application: profile, draft/autosave, program choices, submit, status service, history | ⬜ |
 | 4 | Documents: upload (DocumentStore), review, resubmission | ⬜ |
 | 5 | Programs, slots, requirements, admission period maintenance | ⬜ |
@@ -58,7 +58,9 @@ Legend: ✅ done · 🔄 in progress · ⬜ to do · ⏸ deferred
 
 - Phase 1: schema (periods, programs, generic requirements incl. medical, applicants, applications, choices, versioned documents with storage driver/ref, exam sessions/registrations/results, status history, change history, audit log, notifications). History and audit tables are append-only, enforced by the model **and** by DB triggers (MySQL + SQLite). Seeders: roles, programs, requirements, active period, sysadmin, local demo staff + exam sessions. Mail config: Gmail → Brevo failover. Tests: 4 passing.
 
+- Phase 2: `/api/auth/*` (register, login with `portal` = applicant|office, 2FA verify, me, refresh, logout, forgot/reset password). Each portal only admits its own roles; sysadmin can't use either. Disabled accounts lose access immediately. 2FA: TOTP for staff, email code for applicants (off by default via `APPLICANT_EMAIL_2FA`). Rate limits on login/register. Sysadmin artisan commands: `user:create`, `user:active`, `user:2fa`. Staff logins/logouts audited. Tests: 17 passing.
+
 ## To do next
 
-- Phase 2: JWT auth, roles, 2FA, password reset, throttling.
+- Phase 3: applicant portal API (portal state, autosave, program choices, submit).
 - Get MySQL credentials and run the migrations against MySQL.
