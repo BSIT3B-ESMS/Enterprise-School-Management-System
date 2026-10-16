@@ -79,12 +79,30 @@ return [
             'transport' => 'array',
         ],
 
+        // Decision T3: Gmail SMTP first, Brevo's SMTP relay if Gmail fails
+        'gmail' => [
+            'transport' => 'smtp',
+            'scheme' => 'smtp',
+            'host' => 'smtp.gmail.com',
+            'port' => 587,
+            'username' => env('GMAIL_USERNAME'),
+            'password' => env('GMAIL_APP_PASSWORD'),
+            'timeout' => 15,
+        ],
+
+        'brevo' => [
+            'transport' => 'smtp',
+            'scheme' => 'smtp',
+            'host' => 'smtp-relay.brevo.com',
+            'port' => 587,
+            'username' => env('BREVO_SMTP_USERNAME'),
+            'password' => env('BREVO_SMTP_KEY'),
+            'timeout' => 15,
+        ],
+
         'failover' => [
             'transport' => 'failover',
-            'mailers' => [
-                'smtp',
-                'log',
-            ],
+            'mailers' => explode(',', env('MAIL_FAILOVER_MAILERS', 'smtp,log')),
             'retry_after' => 60,
         ],
 

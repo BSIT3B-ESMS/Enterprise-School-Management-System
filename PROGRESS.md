@@ -36,7 +36,7 @@ Legend: ✅ done · 🔄 in progress · ⬜ to do · ⏸ deferred
 | Phase | Scope | Status |
 |---|---|---|
 | 0 | UI audit → [UI_BACKEND_MATRIX](docs/UI_BACKEND_MATRIX.md) | ✅ |
-| 1 | Foundation & data layer: migrations, models, seeders, API response format | ⬜ |
+| 1 | Foundation & data layer: migrations, models, seeders, API response format | ✅ |
 | 2 | Auth & access control: JWT, roles, 2FA, password reset, throttling | ⬜ |
 | 3 | Application: profile, draft/autosave, program choices, submit, status service, history | ⬜ |
 | 4 | Documents: upload (DocumentStore), review, resubmission | ⬜ |
@@ -56,7 +56,9 @@ Legend: ✅ done · 🔄 in progress · ⬜ to do · ⏸ deferred
 - Phase 0: audited both UIs, wrote the matrix and the discrepancy list, and agreed decisions T1–T11 with the team.
 - Installed the packages above and removed Sanctum (JWT is used instead).
 
+- Phase 1: schema (periods, programs, generic requirements incl. medical, applicants, applications, choices, versioned documents with storage driver/ref, exam sessions/registrations/results, status history, change history, audit log, notifications). History and audit tables are append-only, enforced by the model **and** by DB triggers (MySQL + SQLite). Seeders: roles, programs, requirements, active period, sysadmin, local demo staff + exam sessions. Mail config: Gmail → Brevo failover. Tests: 4 passing.
+
 ## To do next
 
-- Phase 1: schema and seeders.
+- Phase 2: JWT auth, roles, 2FA, password reset, throttling.
 - Get MySQL credentials and run the migrations against MySQL.
