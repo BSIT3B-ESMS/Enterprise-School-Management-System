@@ -1,7 +1,7 @@
-import { Modal, Offcanvas } from 'bootstrap';
+import { Offcanvas } from 'bootstrap';
 import $ from './jquery.js';
 import { formatDateTime } from './format.js';
-import { getShellData, onMockDataChange, recordSignOut, resetMockData } from './mock-data.js';
+import { getShellData, onMockDataChange, recordSignOut } from './mock-data.js';
 import { showQueuedToast, showToast } from './toast.js';
 
 const desktopQuery = window.matchMedia('(min-width: 992px)');
@@ -72,16 +72,6 @@ function initLogout($shell) {
     $shell.on('click', '[data-logout]', () => recordSignOut());
 }
 
-function initResetDemoData() {
-    const $modal = $('#reset-demo-modal');
-
-    $modal.on('click', '[data-reset-demo-confirm]', function () {
-        resetMockData();
-        Modal.getOrCreateInstance($modal[0]).hide();
-        showToast('Demo data restored.');
-    });
-}
-
 $(function () {
     const $shell = $('[data-app-shell]');
 
@@ -94,6 +84,5 @@ $(function () {
     initSidebarToggle($shell);
     initComingSoon($shell);
     initLogout($shell);
-    initResetDemoData();
     showQueuedToast();
 });

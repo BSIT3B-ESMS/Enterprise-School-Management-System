@@ -21,7 +21,7 @@ it('opens the add application form from the toolbar', function () {
         ->assertSee('data-bs-target="#application-form-modal" data-application-add', escape: false);
 });
 
-it('renders the application form with every application field', function () {
+it('renders the application form with every field except a status', function () {
     $this->get(route('recruitment.index'))
         ->assertSeeInOrder([
             'id="application-form-modal"',
@@ -31,9 +31,31 @@ it('renders the application form with every application field', function () {
             'Department', 'name="departmentId"',
             'Position Applied For', 'name="jobTitleId"',
             'Application Date', 'name="appliedOn"',
-            'Application Status', 'name="status"',
             'Cancel', 'Save',
+        ], escape: false)
+        ->assertDontSee('name="status"', escape: false)
+        ->assertDontSee('data-application-status-options', escape: false);
+});
+
+it('shows the recruitment workflow sections in the details modal in order', function () {
+    $this->get(route('recruitment.index'))
+        ->assertSeeInOrder([
+            'id="application-details-modal"',
+            'Application Status', 'Employee Record',
+            'Recruitment Progress', 'data-application-steps',
+            'Next Step', 'Status changes only when a milestone is reached',
+            'data-application-next-actions', 'data-application-activity-form',
+            'name="date"', 'name="time"', 'data-application-confirm',
+            'Screening and Interviews', 'data-application-activities',
+            'Completed Milestones', 'data-application-milestones',
+            'data-application-history-section',
         ], escape: false);
+});
+
+it('does not let the status be picked from the table', function () {
+    $this->get(route('recruitment.index'))
+        ->assertDontSee('data-application-status=', escape: false)
+        ->assertDontSee('application-status-select', escape: false);
 });
 
 it('offers only edit and delete as actions in the details modal', function () {
@@ -58,4 +80,15 @@ it('links recruitment from the sidebar and the pending candidates notification',
         ->assertSee('href="'.route('recruitment.index').'"', escape: false)
         ->assertSee('href="'.route('recruitment.index', ['status' => 'Applied']).'" data-pending-candidates', escape: false)
         ->assertDontSee('data-coming-soon="Recruitment"', escape: false);
+});
+
+it('filters by a single application date picker with no start or end date fields', function () {
+    $this->get(route('recruitment.index'))
+        ->assertSeeInOrder([
+            '<label class="input-group-text" for="application-applied-on-filter">Application Date</label>',
+            'type="date"', 'data-application-filter="appliedOn"',
+            'data-application-clear>Clear Filters</button>',
+        ], escape: false)
+        ->assertDontSee('Start Date')
+        ->assertDontSee('End Date');
 });

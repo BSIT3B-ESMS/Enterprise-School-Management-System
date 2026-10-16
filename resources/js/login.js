@@ -29,7 +29,6 @@ function initLoginPage(root) {
     const password = form.elements.password;
     const passwordToggle = root.querySelector('[data-password-toggle]');
     const passwordToggleLabel = passwordToggle.querySelector('[data-password-toggle-label]');
-    const demoNotice = root.querySelector('[data-login-demo-notice]');
     const forgotPasswordToast = Toast.getOrCreateInstance(root.querySelector('[data-login-toast]'));
 
     passwordToggle.addEventListener('click', () => {
@@ -44,8 +43,6 @@ function initLoginPage(root) {
     });
 
     form.addEventListener('input', (event) => {
-        demoNotice.classList.add('d-none');
-
         if (event.target === email && email.classList.contains('is-invalid')) {
             setFieldError(email, validateEmail(email));
         }
@@ -65,13 +62,8 @@ function initLoginPage(root) {
         setFieldError(password, passwordError);
 
         if (emailError || passwordError) {
-            demoNotice.classList.add('d-none');
             (emailError ? email : password).focus();
-
-            return;
         }
-
-        demoNotice.classList.remove('d-none');
     });
 }
 

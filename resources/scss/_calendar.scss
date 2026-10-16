@@ -1,0 +1,191 @@
+// Calendar page: month grid, event chips, legend swatches, and status pills.
+// Each event type has a color; solid means Approved or Completed, dashed means not final yet
+// (Filed, Pending, Scheduled). On small screens the chips become dots.
+
+$calendar-type-colors: (
+    'leave': #8a5cc2,
+    'screening': #2a62b0,
+    'interview': #c8871f,
+);
+
+@each $type, $color in $calendar-type-colors {
+    .type-#{$type} {
+        --calendar-color: #{$color};
+    }
+}
+
+.type-neutral {
+    --calendar-color: var(--bs-secondary-color);
+}
+
+.calendar-weekdays,
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.calendar-weekdays span {
+    padding: 0.25rem 0.375rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--bs-secondary-color);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.calendar-grid {
+    border-top: 1px solid var(--bs-border-color);
+    border-left: 1px solid var(--bs-border-color);
+}
+
+.calendar-day {
+    min-width: 0;
+    min-height: 6.5rem;
+    padding: 0.25rem;
+    cursor: pointer;
+    border-right: 1px solid var(--bs-border-color);
+    border-bottom: 1px solid var(--bs-border-color);
+
+    &.is-outside {
+        background: var(--ems-subtle-bg);
+
+        .calendar-day-number {
+            color: var(--bs-secondary-color);
+        }
+    }
+
+    &.is-selected {
+        box-shadow: inset 0 0 0 2px var(--bs-primary);
+    }
+
+    &.is-today .calendar-day-number {
+        color: $white;
+        background: var(--bs-primary);
+    }
+}
+
+.calendar-day-number {
+    display: inline-grid;
+    place-items: center;
+    min-width: 1.75rem;
+    height: 1.75rem;
+    padding: 0 0.25rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--bs-body-color);
+    background: none;
+    border: 0;
+    border-radius: 50rem;
+
+    &:hover {
+        background: var(--ems-subtle-bg);
+    }
+}
+
+.calendar-day-events {
+    display: grid;
+    gap: 0.125rem;
+    margin-top: 0.125rem;
+}
+
+.calendar-event {
+    display: block;
+    width: 100%;
+    padding: 0.0625rem 0.375rem;
+    overflow: hidden;
+    font-size: 0.6875rem;
+    color: var(--bs-body-color);
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    background: transparent;
+    border: 1px solid var(--calendar-color);
+    border-radius: 0.25rem;
+
+    &.is-confirmed {
+        background: color-mix(in srgb, var(--calendar-color) 22%, transparent);
+        border-left-width: 0.25rem;
+    }
+
+    &.is-tentative {
+        border-style: dashed;
+    }
+
+    &.is-active {
+        outline: 2px solid var(--bs-primary);
+        outline-offset: 1px;
+    }
+}
+
+.calendar-more {
+    padding: 0 0.375rem;
+    font-size: 0.6875rem;
+    color: var(--bs-link-color);
+    text-align: left;
+    background: none;
+    border: 0;
+}
+
+.calendar-swatch {
+    flex: none;
+    width: 0.875rem;
+    height: 0.875rem;
+    border: 1px solid var(--calendar-color);
+    border-radius: 0.1875rem;
+
+    &.is-confirmed {
+        background: color-mix(in srgb, var(--calendar-color) 45%, transparent);
+    }
+
+    &.is-tentative {
+        background: transparent;
+        border-style: dashed;
+        border-width: 2px;
+    }
+}
+
+@include media-breakpoint-down(md) {
+    .calendar-day {
+        min-height: 3.75rem;
+    }
+
+    .calendar-day-events {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.1875rem;
+    }
+
+    .calendar-event {
+        width: 0.625rem;
+        height: 0.625rem;
+        padding: 0;
+        border-radius: 50%;
+
+        .calendar-event-label {
+            display: none;
+        }
+    }
+
+    .calendar-more {
+        padding: 0;
+        font-size: 0.625rem;
+    }
+}
+
+// Status pills (shape from .status-pill in _recruitment.scss).
+.calendar-status-filed {
+    --bs-progress-bar-bg: #667570;
+}
+
+.calendar-status-pending {
+    --bs-progress-bar-bg: #c8871f;
+}
+
+.calendar-status-approved,
+.calendar-status-completed {
+    --bs-progress-bar-bg: #198a57;
+}
+
+.calendar-status-scheduled {
+    --bs-progress-bar-bg: #2a62b0;
+}

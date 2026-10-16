@@ -1,6 +1,6 @@
 {{--
     Delete confirmation. Opened from a trigger carrying data-employee-delete="EMP-…";
-    handled by resources/js/employee-details.js.
+    handled by resources/js/employee-delete.js.
 --}}
 <div class="modal fade" id="employee-delete-modal" tabindex="-1" role="alertdialog"
     aria-labelledby="employee-delete-modal-title" aria-describedby="employee-delete-modal-body" aria-hidden="true"

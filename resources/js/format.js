@@ -36,3 +36,32 @@ export function initialsOf(name) {
 
     return `${parts[0]?.[0] ?? ''}${parts.length > 1 ? parts[parts.length - 1][0] : ''}`.toUpperCase();
 }
+
+/**
+ * 2048 → "2 KB", 1572864 → "1.5 MB".
+ */
+export function formatFileSize(bytes) {
+    if (bytes < 1024) {
+        return `${bytes} B`;
+    }
+
+    const units = ['KB', 'MB', 'GB'];
+    let size = bytes / 1024;
+    let unit = 0;
+
+    while (size >= 1024 && unit < units.length - 1) {
+        size /= 1024;
+        unit += 1;
+    }
+
+    return `${Number(size.toFixed(1))} ${units[unit]}`;
+}
+
+/**
+ * "14:30" → "2:30 PM" (the value of a time input).
+ */
+export function formatTime(time) {
+    const [hours, minutes] = time.split(':').map(Number);
+
+    return `${hours % 12 || 12}:${String(minutes).padStart(2, '0')} ${hours < 12 ? 'AM' : 'PM'}`;
+}

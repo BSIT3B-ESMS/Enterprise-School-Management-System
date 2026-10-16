@@ -1,5 +1,5 @@
 import $ from './jquery.js';
-import { formatDate, formatDateTime, formatPeso } from './format.js';
+import { formatDate, formatDateTime } from './format.js';
 import { getDashboardData, onMockDataChange } from './mock-data.js';
 import { renderPipelineBar } from './pipeline.js';
 
@@ -9,6 +9,11 @@ function sum(numbers) {
 
 function percentOf(value, total) {
     return `${Math.round((value / total) * 10000) / 100}%`;
+}
+
+// "92%" — a whole-number share, or "0%" when there is nothing to divide by.
+function sharePercent(value, total) {
+    return `${total ? Math.round((value / total) * 100) : 0}%`;
 }
 
 function greetingForHour(hour) {
@@ -29,33 +34,31 @@ function renderGreeting($root, currentUser) {
 }
 
 function renderKpis($root, data) {
-    const totalEmployees = sum(data.departmentHeadcounts.map((department) => department.headcount));
+    const { total: totalEmployees, active, onLeave } = data.employeeCounts;
     const totalCandidates = sum(data.candidateStages.map((entry) => entry.count));
     const openApplications = totalCandidates
         - countForStage(data.candidateStages, 'Hired')
         - countForStage(data.candidateStages, 'Rejected');
     const kpis = [
         {
-            label: 'Total employees',
-            value: totalEmployees.toLocaleString('en-PH'),
-            caption: `across ${data.departmentHeadcounts.length} departments`,
+            label: 'Active',
+            value: active.toLocaleString('en-PH'),
+            caption: `${sharePercent(active, totalEmployees)} of ${totalEmployees.toLocaleString('en-PH')} employees`,
         },
         {
-            label: 'Monthly base payroll',
-            value: formatPeso(data.monthlyPayroll),
-            caption: `avg ${formatPeso(data.monthlyPayroll / totalEmployees)} per head`,
+            label: 'On-Leave',
+            value: onLeave.toLocaleString('en-PH'),
+            caption: `${sharePercent(onLeave, totalEmployees)} of employees`,
         },
         {
-            label: 'Open applications',
+            label: 'Open Positions',
+            value: data.openPositions.total.toLocaleString('en-PH'),
+            caption: `across ${data.openPositions.jobTitleCount} ${data.openPositions.jobTitleCount === 1 ? 'job title' : 'job titles'}`,
+        },
+        {
+            label: 'Applicants',
             value: String(openApplications),
             caption: `${countForStage(data.candidateStages, 'Applied')} not yet screened`,
-        },
-        {
-            label: 'Job titles',
-            value: String(data.jobTitleSalaries.length),
-            caption: data.jobTitleSalaries.length
-                ? `avg base ${formatPeso(sum(data.jobTitleSalaries) / data.jobTitleSalaries.length)}`
-                : 'none defined yet',
         },
     ];
 
@@ -154,12 +157,9 @@ function renderRecentHires($root, recentHires) {
     $root.find('[data-dashboard-recent-hires]').empty().append(...recentHires.map((hire) => (
         $('<li>', { class: 'list-group-item d-flex justify-content-between align-items-center gap-3' }).append(
             $('<div>', { class: 'min-w-0' }).append(
-                $('<button>', {
-                    type: 'button',
+                $('<a>', {
                     class: 'btn btn-link p-0 text-start text-truncate mw-100',
-                    'data-bs-toggle': 'modal',
-                    'data-bs-target': '#employee-details-modal',
-                    'data-employee-id': hire.id,
+                    href: `${$root.attr('data-employees-url')}/${encodeURIComponent(hire.id)}`,
                     'aria-label': `View ${hire.name}`,
                     text: hire.name,
                 }),

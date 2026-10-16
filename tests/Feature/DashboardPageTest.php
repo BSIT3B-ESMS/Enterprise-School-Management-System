@@ -38,17 +38,17 @@ it('links Add Employee to the new employee page', function () {
         ->assertDontSee('data-bs-target="#employee-form-modal">', escape: false);
 });
 
-it('includes the edit employee modal for records opened from Recent Hires', function () {
+it('links Recent Hires to employee pages instead of opening modals', function () {
     $this->get(route('dashboard'))
-        ->assertSee('id="employee-form-modal"', escape: false)
-        ->assertSee('Edit Employee');
+        ->assertSee('data-employees-url="'.url('/employees').'"', escape: false)
+        ->assertDontSee('id="employee-form-modal"', escape: false)
+        ->assertDontSee('id="employee-details-modal"', escape: false);
 });
 
-it('renders the employee details and reset demo data modals', function () {
+it('does not offer resetting the demo data from the account menu', function () {
     $this->get(route('dashboard'))
-        ->assertSee('id="employee-details-modal"', escape: false)
-        ->assertSee('data-bs-target="#reset-demo-modal"', escape: false)
-        ->assertSee('id="reset-demo-modal"', escape: false);
+        ->assertDontSee('Reset demo data')
+        ->assertDontSee('reset-demo-modal', escape: false);
 });
 
 it('marks the dashboard sidebar link as the current page', function () {

@@ -1,23 +1,22 @@
 import { Modal } from 'bootstrap';
 import $ from './jquery.js';
-import { isInDateRange, syncDateRange } from './date-filter.js';
-import { formatDate, formatDateTime, initialsOf } from './format.js';
+import { initApplicationDetails } from './application-details.js';
+import { formatDate, formatTime, initialsOf } from './format.js';
 import {
     addApplication,
     applicationStatuses,
     deleteApplication,
     findApplication,
-    getApplicationHistory,
     getEmployeeFormOptions,
     isDuplicateApplication,
     listApplications,
     listJobTitles,
     onMockDataChange,
-    setApplicationStatus,
     updateApplication,
 } from './mock-data.js';
 import { renderPagination } from './pagination.js';
 import { renderPipelineBar } from './pipeline.js';
+import { statusClass, workflowFor } from './recruitment-workflow.js';
 import { showToast } from './toast.js';
 
 const pageSize = 8;
@@ -35,7 +34,7 @@ const sortValue = {
 };
 
 // Table view state: search text, filters, sort column and direction (1 ascending, -1 descending), page.
-const view = { query: '', status: '', departmentId: '', startDate: '', endDate: '', sortKey: 'appliedOn', sortDirection: -1, page: 1 };
+const view = { query: '', status: '', departmentId: '', appliedOn: '', sortKey: 'appliedOn', sortDirection: -1, page: 1 };
 
 function plural(count, noun) {
     return `${count} ${noun}${count === 1 ? '' : 's'}`;
@@ -47,10 +46,6 @@ function todayIsoDate() {
     const day = String(today.getDate()).padStart(2, '0');
 
     return `${today.getFullYear()}-${month}-${day}`;
-}
-
-function statusClass(status) {
-    return `stage-${status.toLowerCase()}`;
 }
 
 /**
@@ -65,7 +60,7 @@ function visibleApplications() {
             .join(' ').toLowerCase().includes(query))
         .filter((application) => !view.status || application.status === view.status)
         .filter((application) => !view.departmentId || application.departmentId === view.departmentId)
-        .filter((application) => isInDateRange(application.appliedOn, view.startDate, view.endDate))
+        .filter((application) => !view.appliedOn || application.appliedOn === view.appliedOn)
         .sort((first, second) => {
             const firstValue = valueOf(first);
             const secondValue = valueOf(second);
@@ -132,12 +127,22 @@ function renderPipeline($root) {
     )));
 }
 
-function statusSelectFor(application) {
-    return $('<select>', {
-        class: `form-select form-select-sm application-status-select ${statusClass(application.status)}`,
-        'aria-label': `Status for ${application.name}`,
-        'data-application-status': application.id,
-    }).append(...statusOptions()).val(application.status);
+/**
+ * The status as a label (it follows the recruitment workflow, so it is not editable here), with the
+ * upcoming screening or interview underneath.
+ */
+function statusCellFor(application) {
+    const { pendingActivity } = workflowFor(application);
+
+    return $('<td>').append(
+        $('<span>', { class: `status-pill ${statusClass(application.status)}`, text: application.status }),
+        ...(pendingActivity
+            ? [$('<small>', {
+                class: 'd-block text-body-secondary mt-1',
+                text: `${pendingActivity.type} ${formatDate(pendingActivity.date)}, ${formatTime(pendingActivity.time)}`,
+            })]
+            : []),
+    );
 }
 
 function rowFor(application) {
@@ -162,7 +167,7 @@ function rowFor(application) {
             $('<small>', { class: 'text-body-secondary', text: application.department }),
         ),
         $('<td>', { class: 'tabular-nums text-nowrap', text: formatDate(application.appliedOn) }),
-        $('<td>').append(statusSelectFor(application)),
+        statusCellFor(application),
     );
 }
 
@@ -191,7 +196,7 @@ function renderTable($root) {
     } else {
         $root.find('[data-application-empty]').removeClass('d-none');
         $root.find('[data-application-empty-hint]').text(
-            view.query.trim() || view.status || view.departmentId || view.startDate || view.endDate
+            view.query.trim() || view.status || view.departmentId || view.appliedOn
                 ? 'Try a different search or clear the filters.'
                 : 'Add an application to get started.',
         );
@@ -221,8 +226,7 @@ function showPageWith(applicationId) {
 }
 
 /**
- * Row clicks and Enter/Space open the details modal; clicks on controls inside a row (the status
- * dropdown) are left alone. Rows are re-rendered after every change, so focus returns to the row
+ * Row clicks and Enter/Space open the details modal; clicks on controls inside a row are left alone. Rows are re-rendered after every change, so focus returns to the row
  * (found again by its ID) once no modal is open.
  */
 function initRowDetails($root) {
@@ -270,83 +274,6 @@ function initRowDetails($root) {
 
     $root.on('click', '[data-application-add]', () => {
         lastOpenedId = null;
-    });
-}
-
-/**
- * The row's status dropdown saves on change. The table re-renders (the row may leave the current
- * filter), so focus moves back to the same dropdown when its row is still shown.
- */
-function initInlineStatus($root) {
-    $root.on('change', '[data-application-status]', function () {
-        const id = $(this).attr('data-application-status');
-        const status = String($(this).val());
-        const application = setApplicationStatus(id, status);
-
-        if (!application) {
-            showToast('That application no longer exists.', { isError: true });
-            renderPage($root);
-
-            return;
-        }
-
-        showToast(`${application.name} moved to ${status}.`);
-        $root.find(`[data-application-status="${id}"]`).trigger('focus');
-    });
-}
-
-function renderHistory($modal, history) {
-    const $section = $modal.find('[data-application-history-section]');
-
-    if (!history.length) {
-        $section.addClass('d-none');
-
-        return;
-    }
-
-    $section.removeClass('d-none');
-    $modal.find('[data-application-history]').empty().append(...history.map((entry) => (
-        $('<li>', { class: 'list-group-item d-flex justify-content-between align-items-center gap-3' }).append(
-            $('<div>', { class: 'min-w-0' }).append(
-                $('<div>', { text: entry.detail }),
-                $('<small>', { class: 'text-body-secondary', text: `by ${entry.user}` }),
-            ),
-            $('<small>', { class: 'text-body-secondary text-nowrap', text: formatDateTime(entry.at) }),
-        )
-    )));
-}
-
-function initDetailsModal($modal) {
-    $modal.on('show.bs.modal', function (event) {
-        const application = findApplication($(event.relatedTarget).attr('data-application-row'));
-
-        if (!application) {
-            event.preventDefault();
-            showToast('That application no longer exists.', { isError: true });
-
-            return;
-        }
-
-        const values = {
-            name: application.name,
-            email: application.email,
-            phone: application.phone,
-            jobTitle: application.jobTitle,
-            department: application.department,
-            appliedOn: formatDate(application.appliedOn),
-            status: application.status,
-        };
-
-        Object.entries(values).forEach(([field, value]) => {
-            $modal.find(`[data-application-field="${field}"]`).text(value);
-        });
-
-        $modal.find('[data-application-status-pill]')
-            .attr('class', `status-pill ${statusClass(application.status)}`)
-            .text(application.status);
-        $modal.find('[data-application-edit]').attr('data-application-edit', application.id);
-        $modal.find('[data-application-delete]').attr('data-application-delete', application.id);
-        renderHistory($modal, getApplicationHistory(application.id));
     });
 }
 
@@ -402,7 +329,6 @@ function validationRules($form, editingId) {
 
             return value > todayIsoDate() ? 'The application date cannot be in the future.' : '';
         },
-        status: (value) => (applicationStatuses.includes(value) ? '' : 'Select a status.'),
     };
 }
 
@@ -455,7 +381,6 @@ function prepareForm($form, application) {
     $form.find('.is-invalid').removeClass('is-invalid').removeAttr('aria-invalid');
     $form.find('.invalid-feedback').text('');
     $form.find('[data-application-department-options]').empty().append(...departmentOptions('Select department'));
-    $form.find('[data-application-status-options]').empty().append(...statusOptions());
     $form.find('[data-application-date]').attr('max', todayIsoDate());
 
     fieldFor($form, 'name').val(application?.name ?? '');
@@ -464,7 +389,6 @@ function prepareForm($form, application) {
     fieldFor($form, 'departmentId').val(application?.departmentId ?? '');
     renderPositionOptions($form, application?.jobTitleId ?? '');
     fieldFor($form, 'appliedOn').val(application?.appliedOn ?? todayIsoDate());
-    fieldFor($form, 'status').val(application?.status ?? 'Applied');
 }
 
 function readApplication($form) {
@@ -477,7 +401,6 @@ function readApplication($form) {
         departmentId: value('departmentId'),
         jobTitleId: value('jobTitleId'),
         appliedOn: value('appliedOn'),
-        status: value('status'),
     };
 }
 
@@ -633,17 +556,15 @@ $(function () {
 
         view[$(this).attr('data-application-filter')] = String($(this).val());
         view.page = 1;
-        syncDateRange($recruitment);
         renderTable($recruitment);
     });
 
     // Clears the search, every filter (including the pipeline stage and any status linked from the
     // header), and returns to page 1.
     $recruitment.on('click', '[data-application-clear]', function () {
-        Object.assign(view, { query: '', status: '', departmentId: '', startDate: '', endDate: '', page: 1 });
+        Object.assign(view, { query: '', status: '', departmentId: '', appliedOn: '', page: 1 });
         $recruitment.find('[data-application-search], [data-application-filter]').val('');
         window.history.replaceState(null, '', window.location.pathname);
-        syncDateRange($recruitment);
         renderPage($recruitment);
     });
 
@@ -674,8 +595,7 @@ $(function () {
     });
 
     initRowDetails($recruitment);
-    initInlineStatus($recruitment);
-    initDetailsModal($('[data-application-details-modal]'));
+    initApplicationDetails($('[data-application-details-modal]'));
     initFormModal($('[data-application-form-modal]'), $recruitment);
     initDeleteModal($('[data-application-delete-modal]'));
 

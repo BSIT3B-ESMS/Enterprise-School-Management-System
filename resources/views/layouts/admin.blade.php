@@ -26,8 +26,6 @@
             </main>
         </div>
 
-        <x-reset-demo-modal />
-
         <div class="toast-container position-fixed bottom-0 end-0 p-3">
             <div class="toast app-toast" role="status" aria-live="polite" aria-atomic="true" data-app-toast>
                 <div class="d-flex">

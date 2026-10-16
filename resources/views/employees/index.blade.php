@@ -14,19 +14,21 @@
 
 {{--
     Rows, filter options, sorting, and pagination are rendered by resources/js/employees.js from resources/js/mock-data.js.
-    Clicking a row (or pressing Enter/Space on it) opens the employee details modal.
+    Clicking a row (or its name) opens the employee's full-screen profile, carrying the table's current
+    search, filters, sort, and page so Back to Employees restores them.
 --}}
 @section('content')
-    <div class="d-grid gap-4" data-page="employees">
+    <div class="d-grid gap-4" data-page="employees" data-profile-base="{{ url('/employees') }}">
         <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
             <h1 class="page-title">Employees</h1>
 
             <div class="d-flex gap-2 flex-wrap">
-                <button type="button" class="btn btn-outline-secondary d-inline-flex align-items-center gap-2"
-                    data-copy-csv>
-                    <x-icon name="copy" />
-                    Copy CSV
-                </button>
+                {{-- employees.js appends the table's current search, filters, sort, and page to this link. --}}
+                <a class="btn btn-outline-secondary d-inline-flex align-items-center gap-2" href="{{ route('employees.report') }}"
+                    data-employee-report-link data-report-url="{{ route('employees.report') }}">
+                    <x-icon name="report" />
+                    Generate Report
+                </a>
                 <a class="btn btn-primary d-inline-flex align-items-center gap-2" href="{{ route('employees.create') }}">
                     <x-icon name="plus" />
                     Add Employee
@@ -36,7 +38,7 @@
 
         <div class="card employees-filters">
             <div class="row g-3">
-                <div class="col-md-4">
+                <div class="col-md-6 col-xl-3">
                     <label for="employee-search" class="visually-hidden">Search employees</label>
                     <div class="search-field">
                         <x-icon name="search" />
@@ -44,15 +46,26 @@
                             autocomplete="off" data-employee-search>
                     </div>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-6 col-xl-3">
                     <label for="employee-job-title-filter" class="visually-hidden">Job title</label>
                     <select class="form-select" id="employee-job-title-filter" data-employee-filter="jobTitleId"></select>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-6 col-xl-3">
                     <label for="employee-department-filter" class="visually-hidden">Department</label>
                     <select class="form-select" id="employee-department-filter" data-employee-filter="departmentId"></select>
                 </div>
-                <x-date-range-filters name="employee" subject="Date Hired" />
+                {{-- One date: shows employees hired on exactly that day. Empty means no date restriction. --}}
+                <div class="col-md-6 col-xl-3">
+                    <div class="input-group">
+                        <label class="input-group-text" for="employee-hired-on-filter">Date Hired</label>
+                        <input type="date" class="form-control" id="employee-hired-on-filter"
+                            title="Show employees hired on this date" data-employee-filter="hiredOn">
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-end mt-3">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-employee-clear>Clear Filters</button>
             </div>
         </div>
 
@@ -89,8 +102,4 @@
             </div>
         </div>
     </div>
-
-    <x-employee-form-modal />
-    <x-employee-details-modal />
-    <x-employee-delete-modal />
 @endsection

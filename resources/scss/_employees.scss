@@ -161,3 +161,94 @@ th[aria-sort="descending"] .sort-icon-descending {
         }
     }
 }
+
+// Generate Report modal
+
+.report-formats .btn {
+    flex: 1 1 0;
+}
+
+.report-field-group {
+    height: 100%;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 0.5rem;
+
+    legend {
+        float: none;
+        width: auto;
+        padding: 0;
+        font-size: inherit;
+    }
+}
+
+.report-preview-table {
+    --bs-table-bg: transparent;
+
+    font-size: 0.8125rem;
+
+    th {
+        font-size: 0.72rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        white-space: nowrap;
+        background: var(--ems-subtle-bg);
+    }
+
+    td {
+        white-space: nowrap;
+    }
+}
+
+// Employee profile (201 file)
+
+.profile-avatar {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 3.5rem;
+    height: 3.5rem;
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--bs-link-color);
+    background: var(--ems-accent-soft);
+    border-radius: 50%;
+}
+
+// Nine tabs: keep them on one line and let the strip scroll sideways on narrow screens.
+.profile-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    white-space: nowrap;
+    border-bottom: 1px solid var(--bs-border-color);
+
+    .nav-link {
+        padding-inline: 0.25rem;
+        font-size: 0.875rem;
+    }
+}
+
+// Security card on My Profile; the menu's Security link scrolls to it, clear of the sticky header.
+.hr-security {
+    scroll-margin-top: 5rem;
+}
+
+.profile-empty {
+    padding: 1.5rem 1rem;
+}
+
+// 201 file document lists (employee form and profile); hidden until a file is listed.
+.document-list:empty {
+    display: none;
+}
+
+// Employment status pill colors (the pill itself is .status-pill in _recruitment.scss).
+.employment-active {
+    --bs-progress-bar-bg: #198a57;
+}
+
+.employment-on-leave {
+    --bs-progress-bar-bg: #c8871f;
+}

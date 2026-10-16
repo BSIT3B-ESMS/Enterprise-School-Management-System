@@ -1,11 +1,12 @@
 @props(['headingTag' => 'h3'])
 
 {{--
-    Shared employee fields for the New Employee page and the Edit Employee modal.
-    Options, defaults, validation, and submission are handled by resources/js/employee-form.js.
+    Shared employee fields for the New Employee page and the edit mode of the employee profile. Sections follow the
+    employee profile (201 file) tabs. Options, defaults, validation, documents, and submission are
+    handled by resources/js/employee-form.js.
 --}}
 <section class="mb-4">
-    <{{ $headingTag }} class="employee-form-section">Personal and Contact</{{ $headingTag }}>
+    <{{ $headingTag }} class="employee-form-section">Personal Information</{{ $headingTag }}>
 
     <div class="row g-3">
         <div class="col-md-6">
@@ -38,28 +39,11 @@
                 <option>Separated</option>
             </select>
         </div>
-
-        <div class="col-md-6">
-            <label for="employee-email" class="form-label">Email</label>
-            <input type="email" class="form-control" id="employee-email" name="email" autocomplete="off"
-                aria-describedby="employee-email-error" required>
-            <div class="invalid-feedback" id="employee-email-error"></div>
-        </div>
-
-        <div class="col-md-6">
-            <label for="employee-phone" class="form-label">Phone</label>
-            <input type="tel" class="form-control" id="employee-phone" name="phone" placeholder="+63 9XX XXX XXXX">
-        </div>
-
-        <div class="col-12">
-            <label for="employee-address" class="form-label">Address</label>
-            <input type="text" class="form-control" id="employee-address" name="address">
-        </div>
     </div>
 </section>
 
 <section class="mb-4">
-    <{{ $headingTag }} class="employee-form-section">Employment</{{ $headingTag }}>
+    <{{ $headingTag }} class="employee-form-section">Employment Information</{{ $headingTag }}>
 
     <div class="row g-3">
         <div class="col-md-6">
@@ -88,6 +72,60 @@
             <div class="invalid-feedback" id="employee-hired-on-error"></div>
         </div>
 
+        <x-employee-document-field document="hiringRequirements" label="Hiring Requirements" />
+    </div>
+</section>
+
+<section class="mb-4">
+    <{{ $headingTag }} class="employee-form-section">Contact Information</{{ $headingTag }}>
+
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label for="employee-email" class="form-label">Email</label>
+            <input type="email" class="form-control" id="employee-email" name="email" autocomplete="off"
+                aria-describedby="employee-email-error" required>
+            <div class="invalid-feedback" id="employee-email-error"></div>
+        </div>
+
+        <div class="col-md-6">
+            <label for="employee-phone" class="form-label">Phone</label>
+            <input type="tel" class="form-control" id="employee-phone" name="phone" placeholder="+63 9XX XXX XXXX">
+        </div>
+
+        <div class="col-12">
+            <label for="employee-address" class="form-label">Address</label>
+            <input type="text" class="form-control" id="employee-address" name="address">
+        </div>
+    </div>
+</section>
+
+<section class="mb-4">
+    <{{ $headingTag }} class="employee-form-section">Government and Tax</{{ $headingTag }}>
+
+    <div class="row g-3">
+        @foreach ([
+            'sssNumber' => ['sss-number', 'SSS Number'],
+            'philhealthNumber' => ['philhealth-number', 'PhilHealth Number'],
+            'pagibigNumber' => ['pagibig-number', 'Pag-IBIG (HDMF) Number'],
+            'tin' => ['tin', 'Tax Identification Number (TIN)'],
+            'birNumber' => ['bir-number', 'BIR Number'],
+        ] as $name => [$id, $label])
+            <div class="col-md-6">
+                <label for="employee-{{ $id }}" class="form-label">{{ $label }}</label>
+                <input type="text" class="form-control tabular-nums" id="employee-{{ $id }}" name="{{ $name }}"
+                    inputmode="numeric" autocomplete="off" aria-describedby="employee-{{ $id }}-error">
+                <div class="invalid-feedback" id="employee-{{ $id }}-error"></div>
+            </div>
+        @endforeach
+
+        <x-employee-document-field document="birForm2316" label="BIR Form 2316" />
+    </div>
+</section>
+
+<section class="mb-4">
+    <{{ $headingTag }} class="employee-form-section">Compensation and Benefits</{{ $headingTag }}>
+
+    <div class="row g-3">
         <div class="col-md-6">
             <label for="employee-salary" class="form-label">Base Salary (monthly, ₱)</label>
             <input type="number" class="form-control" id="employee-salary" name="salary" min="0" step="0.01"
@@ -95,13 +133,39 @@
             <div class="form-text" id="employee-salary-hint">Defaults from the selected job title. You may edit it.</div>
             <div class="invalid-feedback" id="employee-salary-error"></div>
         </div>
+
+        <div class="col-12">
+            <div class="form-label">
+                Benefits <small class="text-body-secondary">Pre-selected from the job title. You may edit them.</small>
+            </div>
+            <div class="row row-cols-1 row-cols-md-2 g-2" data-benefit-options></div>
+        </div>
+    </div>
+</section>
+
+<section class="mb-4">
+    <{{ $headingTag }} class="employee-form-section">Education and Work History</{{ $headingTag }}>
+
+    <div class="row g-3">
+        <x-employee-document-field document="education" label="Education Transcripts or Diplomas" />
+        <x-employee-document-field document="workHistory" label="Work History" />
+    </div>
+</section>
+
+<section class="mb-4">
+    <{{ $headingTag }} class="employee-form-section">Performance</{{ $headingTag }}>
+
+    <div class="row g-3">
+        <x-employee-document-field document="performance" label="Performance Assessments" />
     </div>
 </section>
 
 <section>
-    <{{ $headingTag }} class="employee-form-section">
-        Benefits <small>Pre-selected from the job title. You may edit them.</small>
-    </{{ $headingTag }}>
+    <{{ $headingTag }} class="employee-form-section">Disciplinary and Separation</{{ $headingTag }}>
 
-    <div class="row row-cols-1 row-cols-md-2 g-2" data-benefit-options></div>
+    <div class="row g-3">
+        <x-employee-document-field document="correctiveActions" label="Corrective Actions" />
+        <x-employee-document-field document="clearances" label="Clearances" />
+        <x-employee-document-field document="postEmployment" label="Post-Employment Information" />
+    </div>
 </section>

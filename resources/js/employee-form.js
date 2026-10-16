@@ -1,9 +1,13 @@
-import { Modal } from 'bootstrap';
 import $ from './jquery.js';
+import { documentItem } from './employee-documents.js';
 import { addEmployee, findEmployee, getEmployeeFormOptions, updateEmployee } from './mock-data.js';
 import { queueToast, showToast } from './toast.js';
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const idNumberPattern = /^[0-9][0-9 -]*$/;
+
+// Government and tax ID numbers are optional; when given they are digits with dashes or spaces.
+const idNumberRule = (value) => (!value.trim() || idNumberPattern.test(value.trim()) ? '' : 'Use numbers, dashes, and spaces only.');
 
 // Each rule returns an error message, or '' when the value is valid.
 const validationRules = {
@@ -12,8 +16,19 @@ const validationRules = {
     departmentId: (value) => (value ? '' : 'Select a department.'),
     jobTitleId: (value) => (value ? '' : 'Select a job title.'),
     hiredOn: (value) => (value ? '' : 'Enter the date hired.'),
+    sssNumber: idNumberRule,
+    philhealthNumber: idNumberRule,
+    pagibigNumber: idNumberRule,
+    tin: idNumberRule,
+    birNumber: idNumberRule,
     salary: (value) => (value !== '' && Number(value) >= 0 ? '' : 'Enter a base salary of 0 or more.'),
 };
+
+// Text and select fields copied to and from the employee record as-is.
+const recordFields = [
+    'name', 'birthdate', 'sex', 'civilStatus', 'departmentId', 'jobTitleId', 'hiredOn', 'email', 'phone', 'address',
+    'sssNumber', 'philhealthNumber', 'pagibigNumber', 'tin', 'birNumber',
+];
 
 function todayIsoDate() {
     const today = new Date();
@@ -42,6 +57,19 @@ function setFieldError($field, message) {
 
 function fieldFor($form, name) {
     return $form.find(`[name="${name}"]`);
+}
+
+// The form's document lists ({ key: [{ name, size, addedOn }] }), kept until the form is saved.
+function documentsOf($form) {
+    return $form.data('documents');
+}
+
+function renderDocuments($form) {
+    $form.find('[data-document-field]').each(function () {
+        const files = documentsOf($form)[$(this).attr('data-document-field')];
+
+        $(this).find('[data-document-list]').empty().append(...files.map((file, index) => documentItem(file, index)));
+    });
 }
 
 /**
@@ -74,12 +102,21 @@ function prepareForm($form, employee) {
     )));
 
     if (isEditing) {
-        ['name', 'birthdate', 'sex', 'civilStatus', 'email', 'phone', 'address', 'departmentId', 'jobTitleId', 'hiredOn', 'salary']
-            .forEach((name) => fieldFor($form, name).val(employee[name] ?? ''));
+        [...recordFields, 'salary'].forEach((name) => fieldFor($form, name).val(employee[name] ?? ''));
         $form.find('[name="benefits"]').each(function () {
             $(this).prop('checked', employee.benefits.includes($(this).val()));
         });
     }
+
+    const documents = {};
+
+    $form.find('[data-document-field]').each(function () {
+        const key = $(this).attr('data-document-field');
+
+        documents[key] = (employee?.documents?.[key] ?? []).map((file) => ({ ...file }));
+    });
+    $form.data('documents', documents);
+    renderDocuments($form);
 }
 
 function applyJobTitleDefaults($form, jobTitleId) {
@@ -120,20 +157,12 @@ function readEmployee($form) {
     const value = (name) => String(fieldFor($form, name).val() ?? '').trim();
 
     return {
-        name: value('name'),
-        birthdate: value('birthdate'),
-        sex: value('sex'),
-        civilStatus: value('civilStatus'),
-        email: value('email'),
-        phone: value('phone'),
-        address: value('address'),
-        departmentId: value('departmentId'),
-        jobTitleId: value('jobTitleId'),
-        hiredOn: value('hiredOn'),
+        ...Object.fromEntries(recordFields.map((name) => [name, value(name)])),
         salary: Number(value('salary')),
         benefits: $form.find('[name="benefits"]:checked').map(function () {
             return $(this).val();
         }).get(),
+        documents: documentsOf($form),
     };
 }
 
@@ -151,6 +180,27 @@ function bindForm($form, onValid) {
         const name = $(this).attr('name');
 
         setFieldError($(this), validationRules[name](String($(this).val() ?? '')));
+    });
+
+    // Chosen files are listed by name only; the input is cleared so the same file can be picked again later.
+    $form.on('change', '[data-document-input]', function () {
+        const files = documentsOf($form)[$(this).closest('[data-document-field]').attr('data-document-field')];
+
+        Array.from(this.files ?? []).forEach((file) => {
+            if (!files.some((listed) => listed.name === file.name && listed.size === file.size)) {
+                files.push({ name: file.name, size: file.size, addedOn: todayIsoDate() });
+            }
+        });
+        this.value = '';
+        renderDocuments($form);
+    });
+
+    $form.on('click', '[data-document-remove]', function () {
+        const $field = $(this).closest('[data-document-field]');
+
+        documentsOf($form)[$field.attr('data-document-field')].splice(Number($(this).attr('data-document-remove')), 1);
+        renderDocuments($form);
+        $field.find('[data-document-input]').trigger('focus');
     });
 
     $form.on('submit', function (event) {
@@ -180,41 +230,63 @@ function initCreatePage($form) {
     });
 }
 
-// Edit modal, opened from the details modal's Edit button (data-employee-edit="EMP-…").
-function initEditModal($modal) {
-    const $form = $modal.find('[data-employee-form]');
-    let editingId = null;
+// Employee profile: Edit swaps the 201 file tabs for this form, prefilled; Save Changes and Cancel both
+// return to the tabs, and Cancel leaves the record untouched.
+function initProfileEdit($page) {
+    const $form = $page.find('[data-profile-edit-form]');
+    const $view = $page.find('[data-profile-view]');
+    const $actions = $page.find('[data-profile-actions]');
+    const $editButton = $page.find('[data-profile-edit-start]');
 
-    $modal.on('show.bs.modal', function (event) {
-        const employee = findEmployee($(event.relatedTarget).attr('data-employee-edit'));
+    function setEditing(isEditing) {
+        $form.toggleClass('d-none', !isEditing);
+        $view.toggleClass('d-none', isEditing);
+        $actions.toggleClass('d-none', isEditing);
+    }
+
+    function stopEditing() {
+        setEditing(false);
+        $editButton.trigger('focus');
+    }
+
+    $editButton.on('click', function () {
+        const employee = findEmployee($page.attr('data-employee-id'));
 
         if (!employee) {
-            event.preventDefault();
+            showToast('That employee no longer exists.', { isError: true });
 
             return;
         }
 
-        editingId = employee.id;
         prepareForm($form, employee);
+        setEditing(true);
+        $form[0].scrollIntoView?.({ block: 'start' });
+        fieldFor($form, 'name').trigger('focus');
     });
-    $modal.on('shown.bs.modal', () => fieldFor($form, 'name').trigger('focus'));
+
+    $form.on('click', '[data-profile-edit-cancel]', stopEditing);
 
     bindForm($form, (details) => {
-        updateEmployee(editingId, details);
-        Modal.getOrCreateInstance($modal[0]).hide();
+        if (!updateEmployee($page.attr('data-employee-id'), details)) {
+            showToast('That employee no longer exists.', { isError: true });
+
+            return;
+        }
+
+        stopEditing();
         showToast('Changes saved.');
     });
 }
 
 $(function () {
     const $createForm = $('[data-page="employee-create"] [data-employee-form]');
-    const $editModal = $('[data-employee-form-modal]');
+    const $profile = $('[data-page="employee-profile"]');
 
     if ($createForm.length) {
         initCreatePage($createForm);
     }
 
-    if ($editModal.length) {
-        initEditModal($editModal);
+    if ($profile.length) {
+        initProfileEdit($profile);
     }
 });

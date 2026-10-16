@@ -1,7 +1,8 @@
 {{--
     Add and edit form. Opened from Add Application (data-application-add), or from the details modal's
     Edit button (data-application-edit="c…") to edit that application; options, validation, and saving
-    are handled by resources/js/recruitment.js.
+    are handled by resources/js/recruitment.js. There is no status field: new applications start as Applied
+    and the status then follows the recruitment workflow (see the details modal).
 --}}
 <div class="modal fade" id="application-form-modal" tabindex="-1" aria-labelledby="application-form-modal-title"
     aria-hidden="true" data-application-form-modal>
@@ -67,13 +68,6 @@
                             <input type="date" class="form-control" id="application-applied-on" name="appliedOn"
                                 aria-describedby="application-applied-on-error" required data-application-date>
                             <div class="invalid-feedback" id="application-applied-on-error"></div>
-                        </div>
-
-                        <div class="col-md-6">
-                            <label for="application-status" class="form-label">Application Status</label>
-                            <select class="form-select" id="application-status" name="status"
-                                aria-describedby="application-status-error" required data-application-status-options></select>
-                            <div class="invalid-feedback" id="application-status-error"></div>
                         </div>
                     </div>
                 </section>

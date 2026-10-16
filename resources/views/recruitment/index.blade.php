@@ -14,7 +14,8 @@
 {{--
     The pipeline, rows, filter options, sorting, and pagination are rendered by resources/js/recruitment.js
     from resources/js/mock-data.js. Clicking a row (or pressing Enter/Space on it) opens the application
-    details modal, which offers Edit and Delete; each row's status dropdown changes the status in place.
+    details modal, which shows the recruitment workflow and offers Edit and Delete. The status follows the
+    workflow (scheduled and completed screenings and interviews, offer, hiring), so it is only displayed here.
 --}}
 @section('content')
     <div class="d-grid gap-4" data-page="recruitment">
@@ -44,7 +45,7 @@
 
         <div class="card employees-filters">
             <div class="row g-3">
-                <div class="col-md-4">
+                <div class="col-md-6 col-xl-3">
                     <label for="application-search" class="visually-hidden">Search applications</label>
                     <div class="search-field">
                         <x-icon name="search" />
@@ -52,15 +53,26 @@
                             autocomplete="off" data-application-search>
                     </div>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-6 col-xl-3">
                     <label for="application-status-filter" class="visually-hidden">Status</label>
                     <select class="form-select" id="application-status-filter" data-application-filter="status"></select>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-6 col-xl-3">
                     <label for="application-department-filter" class="visually-hidden">Department</label>
                     <select class="form-select" id="application-department-filter" data-application-filter="departmentId"></select>
                 </div>
-                <x-date-range-filters name="application" subject="Application Date" />
+                {{-- One date: shows applications received on exactly that day. Empty means no date restriction. --}}
+                <div class="col-md-6 col-xl-3">
+                    <div class="input-group">
+                        <label class="input-group-text" for="application-applied-on-filter">Application Date</label>
+                        <input type="date" class="form-control" id="application-applied-on-filter"
+                            title="Show applications received on this date" data-application-filter="appliedOn">
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-end mt-3">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-application-clear>Clear Filters</button>
             </div>
         </div>
 
