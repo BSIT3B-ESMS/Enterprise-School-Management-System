@@ -1,42 +1,21 @@
-import { Modal } from 'bootstrap';
 import $ from './jquery.js';
-import { isInDateRange, syncDateRange } from './date-filter.js';
 import { formatDate, initialsOf } from './format.js';
-import { getEmployeeFormOptions, listEmployees, onMockDataChange } from './mock-data.js';
+import { defaultSortDirection, employeeViewQuery, filterAndSortEmployees, readEmployeeView } from './employee-list.js';
+import { getEmployeeFormOptions, onMockDataChange } from './mock-data.js';
 import { renderPagination } from './pagination.js';
-import { showToast } from './toast.js';
 
 const pageSize = 8;
 
-const sortValue = {
-    id: (employee) => employee.id,
-    name: (employee) => employee.name.toLowerCase(),
-    department: (employee) => employee.department,
-    jobTitle: (employee) => employee.jobTitle,
-    hiredOn: (employee) => employee.hiredOn,
-};
-
-// Table view state: search text, filters, sort column and direction (1 ascending, -1 descending), page.
-const view = { query: '', jobTitleId: '', departmentId: '', startDate: '', endDate: '', sortKey: 'hiredOn', sortDirection: -1, page: 1 };
+// Table view state: search text, Date Hired, filters, sort column and direction (1 ascending,
+// -1 descending), and page. Read from the URL, so returning from Generate Report (or pressing
+// browser Back) restores it.
+const view = readEmployeeView(window.location.search);
 
 /**
  * Employees matching the search and filters, in the current sort order.
  */
 function visibleEmployees() {
-    const query = view.query.trim().toLowerCase();
-    const valueOf = sortValue[view.sortKey];
-
-    return listEmployees()
-        .filter((employee) => !query || `${employee.name} ${employee.id} ${employee.email}`.toLowerCase().includes(query))
-        .filter((employee) => !view.jobTitleId || employee.jobTitleId === view.jobTitleId)
-        .filter((employee) => !view.departmentId || employee.departmentId === view.departmentId)
-        .filter((employee) => isInDateRange(employee.hiredOn, view.startDate, view.endDate))
-        .sort((first, second) => {
-            const firstValue = valueOf(first);
-            const secondValue = valueOf(second);
-
-            return (firstValue < secondValue ? -1 : firstValue > secondValue ? 1 : 0) * view.sortDirection;
-        });
+    return filterAndSortEmployees(view);
 }
 
 function renderFilterOptions($root) {
@@ -70,19 +49,27 @@ function renderSortHeaders($root) {
     });
 }
 
-function rowFor(employee) {
+/**
+ * The employee's profile page. The table's query string rides along so Back to Employees can restore it.
+ */
+function profileUrl(employeeId, query) {
+    return `${$('[data-page="employees"]').attr('data-profile-base')}/${encodeURIComponent(employeeId)}${query}`;
+}
+
+function rowFor(employee, query) {
+    const url = profileUrl(employee.id, query);
+
     return $('<tr>', {
         class: 'employee-row',
-        tabindex: 0,
-        'aria-haspopup': 'dialog',
         title: `View ${employee.name}`,
         'data-employee-id': employee.id,
+        'data-profile-url': url,
     }).append(
         $('<td>', { class: 'tabular-nums', text: employee.id }),
         $('<td>').append(
             $('<div>', { class: 'd-flex align-items-center gap-2 fw-medium' }).append(
                 $('<span>', { class: 'ems-avatar-sm', 'aria-hidden': 'true', text: initialsOf(employee.name) }),
-                document.createTextNode(employee.name),
+                $('<a>', { class: 'text-reset text-decoration-none', href: url, text: employee.name }),
             ),
         ),
         $('<td>', { text: employee.department }),
@@ -92,41 +79,16 @@ function rowFor(employee) {
 }
 
 /**
- * Row clicks and Enter/Space open the details modal; clicks on controls inside a row are left alone.
+ * A click anywhere on a row opens that employee's profile; the name inside it is a real link, so
+ * keyboard users and open-in-new-tab work too.
  */
-function initRowDetails($root) {
-    const $detailsModal = $('[data-employee-details-modal]');
-    const interactiveSelector = 'a, button, input, select, textarea, label, [data-bs-toggle]';
-    let lastOpenedId = null;
-
-    function openDetails(row) {
-        lastOpenedId = $(row).attr('data-employee-id');
-        Modal.getOrCreateInstance($detailsModal[0]).show(row);
-    }
-
+function initRowLinks($root) {
     $root.on('click', 'tr[data-employee-id]', function (event) {
-        if ($(event.target).closest(interactiveSelector).length) {
+        if ($(event.target).closest('a, button, input, select, textarea, label').length) {
             return;
         }
 
-        openDetails(this);
-    });
-
-    $root.on('keydown', 'tr[data-employee-id]', function (event) {
-        if (event.target !== this || (event.key !== 'Enter' && event.key !== ' ')) {
-            return;
-        }
-
-        event.preventDefault();
-        openDetails(this);
-    });
-
-    // Return focus to the row once no modal is open (edit and delete open from the details modal).
-    $(document).on('hidden.bs.modal', '.modal', function () {
-        if (lastOpenedId && !$('.modal.show').length) {
-            $root.find(`tr[data-employee-id="${lastOpenedId}"]`).trigger('focus');
-            lastOpenedId = null;
-        }
+        window.location.assign($(this).attr('data-profile-url'));
     });
 }
 
@@ -138,8 +100,9 @@ function renderTable($root) {
 
     const start = (view.page - 1) * pageSize;
     const pageRows = employees.slice(start, start + pageSize);
+    const query = employeeViewQuery(view);
 
-    $root.find('[data-employee-rows]').empty().append(...pageRows.map(rowFor));
+    $root.find('[data-employee-rows]').empty().append(...pageRows.map((employee) => rowFor(employee, query)));
 
     if (pageRows.length) {
         $root.find('[data-employee-empty]').addClass('d-none');
@@ -152,32 +115,18 @@ function renderTable($root) {
     );
     renderSortHeaders($root);
     renderPagination($root.find('[data-employee-pagination]'), view.page, pageCount);
+    syncUrl($root);
 }
 
-function toCsv(employees) {
-    const header = ['Employee ID', 'Name', 'Department', 'Job Title', 'Date Hired', 'Email', 'Base Salary'];
-    const rows = employees.map((employee) => [
-        employee.id, employee.name, employee.department, employee.jobTitle, employee.hiredOn, employee.email, employee.salary,
-    ]);
+/**
+ * Keeps the URL (and the Generate Report link) in step with the table, without adding history
+ * entries, so Back from the report or a reload shows the same search, filters, sort, and page.
+ */
+function syncUrl($root) {
+    const query = employeeViewQuery(view);
 
-    return [header, ...rows]
-        .map((row) => row.map((cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(','))
-        .join('\n');
-}
-
-function copyCsv() {
-    const employees = visibleEmployees();
-
-    if (!navigator.clipboard?.writeText) {
-        showToast('Copy is not available in this browser.', { isError: true });
-
-        return;
-    }
-
-    navigator.clipboard.writeText(toCsv(employees)).then(
-        () => showToast(`Copied ${employees.length} rows as CSV.`),
-        () => showToast('Copy was blocked by the browser.', { isError: true }),
-    );
+    window.history.replaceState(window.history.state, '', `${window.location.pathname}${query}`);
+    $root.find('[data-employee-report-link]').attr('href', `${$root.find('[data-employee-report-link]').attr('data-report-url')}${query}`);
 }
 
 $(function () {
@@ -196,16 +145,14 @@ $(function () {
     $employees.on('change', '[data-employee-filter]', function () {
         view[$(this).attr('data-employee-filter')] = String($(this).val());
         view.page = 1;
-        syncDateRange($employees);
         renderTable($employees);
     });
 
-    // Clears the search, every filter (including any linked from another page), and returns to page 1.
+    // Clears the search, the date, and every filter (including any linked from another page) and
+    // returns to page 1; the sort order is kept.
     $employees.on('click', '[data-employee-clear]', function () {
-        Object.assign(view, { query: '', jobTitleId: '', departmentId: '', startDate: '', endDate: '', page: 1 });
+        Object.assign(view, { query: '', hiredOn: '', jobTitleId: '', departmentId: '', page: 1 });
         $employees.find('[data-employee-search], [data-employee-filter]').val('');
-        window.history.replaceState(null, '', window.location.pathname);
-        syncDateRange($employees);
         renderTable($employees);
     });
 
@@ -216,7 +163,7 @@ $(function () {
             view.sortDirection *= -1;
         } else {
             view.sortKey = key;
-            view.sortDirection = key === 'hiredOn' ? -1 : 1;
+            view.sortDirection = defaultSortDirection(key);
         }
 
         view.page = 1;
@@ -228,14 +175,11 @@ $(function () {
         renderTable($employees);
     });
 
-    $employees.on('click', '[data-copy-csv]', copyCsv);
-    initRowDetails($employees);
+    initRowLinks($employees);
 
-    // The Departments and Job Titles pages link here with ?department=<id> or ?jobTitle=<id>.
-    const linkedFilters = new URLSearchParams(window.location.search);
-
-    view.departmentId = linkedFilters.get('department') ?? '';
-    view.jobTitleId = linkedFilters.get('jobTitle') ?? '';
+    // Show the restored search and date in their inputs (the selects are filled below).
+    $employees.find('[data-employee-search]').val(view.query);
+    $employees.find('[data-employee-filter="hiredOn"]').val(view.hiredOn);
 
     renderFilterOptions($employees);
     renderTable($employees);

@@ -1,27 +1,13 @@
 <?php
 
-it('renders inclusive start and end date filters with a clear button on the :route page', function (string $route, string $name) {
-    $this->get(route($route))
+it('filters audit logs by a single date picker with no start or end date fields', function () {
+    $this->get(route('audit.index'))
         ->assertSeeInOrder([
-            'for="'.$name.'-start-date"', 'Start Date',
-            'type="date"', 'data-'.$name.'-filter="startDate"',
-            'for="'.$name.'-end-date"', 'End Date',
-            'data-'.$name.'-filter="endDate"',
-            'data-'.$name.'-clear>Clear Filters</button>',
-            'data-date-range-error',
-        ], escape: false);
-})->with([
-    'employees' => ['employees.index', 'employee'],
-    'recruitment' => ['recruitment.index', 'application'],
-    'audit logs' => ['audit.index', 'audit'],
-]);
-
-it('describes the date being filtered on each page', function (string $route, string $subject) {
-    $this->get(route($route))
-        ->assertSee('Show records with a '.$subject.' on or after this date', escape: false)
-        ->assertSee('Show records with a '.$subject.' on or before this date', escape: false);
-})->with([
-    'employees' => ['employees.index', 'Date Hired'],
-    'recruitment' => ['recruitment.index', 'Application Date'],
-    'audit logs' => ['audit.index', 'Activity Date and Time'],
-]);
+            '<label class="input-group-text" for="audit-date-filter">Date</label>',
+            'type="date"', 'data-audit-filter="date"',
+            'data-audit-clear>Clear Filters</button>',
+        ], escape: false)
+        ->assertSee('Show entries recorded on this date')
+        ->assertDontSee('Start Date')
+        ->assertDontSee('End Date');
+});

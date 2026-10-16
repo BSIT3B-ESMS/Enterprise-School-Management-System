@@ -55,10 +55,33 @@
             </button>
 
             <div class="dropdown-menu dropdown-menu-end app-menu">
-                <div class="app-menu-note border-0">
-                    <strong data-user-name></strong>
-                    <small data-user-email></small>
+                <div class="app-menu-profile">
+                    <span class="app-avatar app-avatar-lg" data-user-initials></span>
+                    <div class="min-w-0">
+                        <strong class="d-block text-truncate" data-user-name></strong>
+                        <small class="d-block text-truncate" data-user-email></small>
+                        <span class="ems-chip d-inline-block mt-1" data-user-role></span>
+                    </div>
                 </div>
+
+                <hr class="dropdown-divider my-0">
+
+                @php($isProfilePage = request()->routeIs('profile.show'))
+                <a class="dropdown-item d-flex align-items-center gap-2 py-2{{ $isProfilePage ? ' active' : '' }}"
+                    aria-current="{{ $isProfilePage ? 'page' : 'false' }}" href="{{ route('profile.show') }}">
+                    <x-icon name="user" />
+                    My Profile
+                </a>
+
+                {{-- Not built yet, so it is shown but cannot be used. --}}
+                <button type="button" class="dropdown-item d-flex align-items-center gap-2 py-2" disabled>
+                    <x-icon name="settings" />
+                    Account Settings
+                </button>
+                <a class="dropdown-item d-flex align-items-center gap-2 py-2" href="{{ route('profile.show') }}#security">
+                    <x-icon name="lock" />
+                    Security
+                </a>
 
                 <hr class="dropdown-divider my-0">
 
@@ -69,15 +92,9 @@
                     <span class="theme-when-light">Dark mode</span>
                 </button>
 
-                <button type="button" class="dropdown-item d-flex align-items-center gap-2 py-2" data-bs-toggle="modal"
-                    data-bs-target="#reset-demo-modal">
-                    <x-icon name="audit" />
-                    Reset demo data
-                </button>
-
                 <a class="dropdown-item d-flex align-items-center gap-2 py-2" href="{{ route('login') }}" data-logout>
                     <x-icon name="logout" />
-                    Logout
+                    Log Out
                 </a>
             </div>
         </div>

@@ -1,9 +1,12 @@
-// Frontend-only sample data. Employees, departments, job titles, applications, and activity are
-// saved in localStorage so changes carry across pages; everything else is fixed for now. In a future phase, replace this
+// Frontend-only sample data. Employees, departments, job titles, applications, leave requests, and
+// activity are saved in localStorage so changes carry across pages; everything else is fixed for now. In a future phase, replace this
 // module with backend calls that return the same shapes.
 
+import { formatDate, formatTime, initialsOf } from './format.js';
+import { progressForStatus, statusAfterCompleting, workflowFor } from './recruitment-workflow.js';
+
 const storageKey = 'ems-mock-data';
-const storageVersion = 5;
+const storageVersion = 9;
 
 const benefitNames = [
     'SSS',
@@ -16,10 +19,10 @@ const benefitNames = [
     'Research Allowance',
 ];
 
-const currentUser = {
+// The signed-in HR user's account. Kept apart from the employee and applicant records; `state.hrProfile`
+// starts from this and holds the user's edits.
+const seedHrProfile = {
     name: 'Maria Santos',
-    firstName: 'Maria',
-    initials: 'MS',
     email: 'maria.santos@company.com',
     role: 'Admin',
 };
@@ -35,17 +38,18 @@ const seedDepartments = [
     { id: 'd8', name: 'Languages & Literature' },
 ];
 
+// `openings` is the number of open vacancies for the position.
 const seedJobTitles = [
-    { id: 't1', name: 'College Dean', departmentId: 'd5', salary: 110000, benefits: benefitNames.slice(0, 8) },
-    { id: 't2', name: 'Department Chair', departmentId: 'd2', salary: 92000, benefits: benefitNames.slice(0, 8) },
-    { id: 't3', name: 'Professor', departmentId: 'd6', salary: 88000, benefits: benefitNames.slice(0, 7) },
-    { id: 't4', name: 'Associate Professor', departmentId: 'd1', salary: 72000, benefits: benefitNames.slice(0, 7) },
-    { id: 't5', name: 'Assistant Professor', departmentId: 'd1', salary: 58000, benefits: benefitNames.slice(0, 6) },
-    { id: 't6', name: 'Senior Lecturer', departmentId: 'd3', salary: 48000, benefits: benefitNames.slice(0, 6) },
-    { id: 't7', name: 'Instructor', departmentId: 'd4', salary: 36000, benefits: benefitNames.slice(0, 5) },
-    { id: 't8', name: 'Visiting Professor', departmentId: 'd7', salary: 65000, benefits: benefitNames.slice(0, 5) },
-    { id: 't9', name: 'Lecturer', departmentId: 'd8', salary: 40000, benefits: benefitNames.slice(0, 5) },
-    { id: 't10', name: 'Research Associate', departmentId: 'd2', salary: 45000, benefits: benefitNames.slice(0, 6) },
+    { id: 't1', name: 'College Dean', departmentId: 'd5', salary: 110000, benefits: benefitNames.slice(0, 8), openings: 0 },
+    { id: 't2', name: 'Department Chair', departmentId: 'd2', salary: 92000, benefits: benefitNames.slice(0, 8), openings: 1 },
+    { id: 't3', name: 'Professor', departmentId: 'd6', salary: 88000, benefits: benefitNames.slice(0, 7), openings: 3 },
+    { id: 't4', name: 'Associate Professor', departmentId: 'd1', salary: 72000, benefits: benefitNames.slice(0, 7), openings: 2 },
+    { id: 't5', name: 'Assistant Professor', departmentId: 'd1', salary: 58000, benefits: benefitNames.slice(0, 6), openings: 4 },
+    { id: 't6', name: 'Senior Lecturer', departmentId: 'd3', salary: 48000, benefits: benefitNames.slice(0, 6), openings: 1 },
+    { id: 't7', name: 'Instructor', departmentId: 'd4', salary: 36000, benefits: benefitNames.slice(0, 5), openings: 2 },
+    { id: 't8', name: 'Visiting Professor', departmentId: 'd7', salary: 65000, benefits: benefitNames.slice(0, 5), openings: 0 },
+    { id: 't9', name: 'Lecturer', departmentId: 'd8', salary: 40000, benefits: benefitNames.slice(0, 5), openings: 1 },
+    { id: 't10', name: 'Research Associate', departmentId: 'd2', salary: 45000, benefits: benefitNames.slice(0, 6), openings: 2 },
 ];
 
 // Every action an activity (audit log) entry can record.
@@ -121,6 +125,11 @@ function isoDateOf(date) {
     const pad = (number) => String(number).padStart(2, '0');
 
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+// Every twelfth sample employee is on leave today (they get an approved leave that covers today).
+function employmentStatusFor(index) {
+    return index % 12 === 5 ? 'On Leave' : 'Active';
 }
 
 function findById(items, id) {
@@ -209,13 +218,14 @@ function seedDepartmentState() {
 }
 
 function seedApplicationState() {
+    const today = isoDateOf(new Date());
     const applications = seedApplications.map(([name, jobTitleId, status, daysAgo], index) => {
         const appliedOn = new Date();
         const nameParts = name.toLowerCase().split(' ');
 
         appliedOn.setDate(appliedOn.getDate() - daysAgo);
 
-        return {
+        return progressForStatus({
             id: `c${index + 1}`,
             name,
             email: `${nameParts[0]}.${nameParts[nameParts.length - 1]}@mail.com`,
@@ -224,8 +234,16 @@ function seedApplicationState() {
             departmentId: findById(seedJobTitles, jobTitleId).departmentId,
             appliedOn: isoDateOf(appliedOn),
             status,
-        };
+        }, today);
     });
+
+    // Upcoming activities (scheduled, not completed, so the statuses above stay as they are).
+    [['c1', 'Screening', 2, '10:00'], ['c10', 'Screening', 1, '09:00'], ['c2', 'Interview', 3, '14:00'], ['c8', 'Interview', 6, '10:30']]
+        .forEach(([id, type, days, time]) => {
+            const application = findById(applications, id);
+
+            application.activities.push({ id: `a${application.activities.length + 1}`, type, date: addDaysIso(today, days), time, status: 'Scheduled' });
+        });
 
     return { applications, nextApplicationNumber: applications.length + 1 };
 }
@@ -241,19 +259,74 @@ function withActivityIds({ activity, nextActivityNumber = 1 }) {
     return { activity: numbered, nextActivityNumber: next };
 }
 
+const leaveTypes = ['Vacation Leave', 'Sick Leave', 'Emergency Leave', 'Vacation Leave'];
+
+// Other sample leave, by order: days from today it starts, how many days, and its status. Only
+// future requests are still Filed or Pending.
+const otherLeavePlan = [
+    [-20, 2, 'Approved'], [-9, 3, 'Approved'], [4, 2, 'Filed'], [9, 3, 'Pending'], [13, 1, 'Approved'],
+    [17, 2, 'Filed'], [22, 3, 'Pending'], [27, 2, 'Approved'], [-3, 2, 'Approved'],
+];
+
+/**
+ * Sample leave requests: the approved leave of everyone on leave today, plus filed, pending, upcoming
+ * approved (scheduled), and past leave for a few others. Dates are relative to today.
+ */
+function seedLeaveState(employees, today) {
+    const leaveRequests = [];
+    const add = (employee, type, startOffset, days, status) => {
+        const startDate = addDaysIso(today, startOffset);
+
+        leaveRequests.push({
+            id: `lv${leaveRequests.length + 1}`,
+            employeeId: employee.id,
+            type,
+            startDate,
+            endDate: addDaysIso(startDate, days - 1),
+            status,
+            filedOn: addDaysIso(today, Math.min(startOffset, 0) - 7),
+        });
+    };
+    let onLeaveCount = 0;
+    let otherCount = 0;
+
+    employees.forEach((employee, index) => {
+        if ((employee.status ?? employmentStatusFor(index)) === 'On Leave') {
+            add(employee, leaveTypes[onLeaveCount % leaveTypes.length], -(onLeaveCount % 4), 3 + (onLeaveCount % 5) + (onLeaveCount % 4), 'Approved');
+            onLeaveCount += 1;
+        } else if (index % 17 === 3) {
+            const [startOffset, days, status] = otherLeavePlan[otherCount % otherLeavePlan.length];
+
+            add(employee, leaveTypes[(otherCount + 1) % leaveTypes.length], startOffset, days, status);
+            otherCount += 1;
+        }
+    });
+
+    return { leaveRequests, nextLeaveNumber: leaveRequests.length + 1 };
+}
+
+function addDaysIso(isoDate, days) {
+    const [year, month, day] = isoDate.split('-').map(Number);
+
+    return isoDateOf(new Date(year, month - 1, day + days));
+}
+
 function createInitialState() {
     const now = Date.now();
     const hoursAgo = (hours) => Math.round(now - hours * 3600000);
-    const entry = (action, entity, detail, hours) => ({ action, entity, detail, user: currentUser.name, at: hoursAgo(hours) });
+    const entry = (action, entity, detail, hours) => ({ action, entity, detail, user: seedHrProfile.name, at: hoursAgo(hours) });
     const employees = generateRoster();
+    const today = isoDateOf(new Date());
 
     return {
         version: storageVersion,
+        hrProfile: { ...seedHrProfile },
         employees,
         nextEmployeeNumber: 1001 + employees.length,
         ...seedDepartmentState(),
         ...seedJobTitleState(),
         ...seedApplicationState(),
+        ...seedLeaveState(employees, today),
         // Newest first; `at` is a timestamp in milliseconds.
         ...withActivityIds({ activity: [
             entry('Login', 'Session', 'Signed in', 0.2),
@@ -294,13 +367,36 @@ function loadState() {
 
         // Earlier versions kept departments (1), job titles (2), and applications (3) fixed, and
         // activity had no IDs (4); carry the saved records over and fill in what is missing.
-        return {
+        const migrated = {
             ...saved,
             ...(Array.isArray(saved.departments) ? {} : seedDepartmentState()),
             ...(Array.isArray(saved.jobTitles) ? {} : seedJobTitleState()),
             ...(Array.isArray(saved.applications) ? {} : seedApplicationState()),
             ...withActivityIds(saved),
+            // The HR profile (8 and earlier) starts from the sample account.
+            hrProfile: saved.hrProfile?.name ? saved.hrProfile : { ...seedHrProfile },
             version: storageVersion,
+        };
+        const today = isoDateOf(new Date());
+
+        // Employment status (5 and earlier) and job title openings (5 and earlier) start from the
+        // sample values, so saved employees and job titles keep their edits.
+        const employees = migrated.employees.map((employee) => (employee.status
+            ? employee
+            : { ...employee, status: employmentStatusFor(Number(String(employee.id).replace(/\D/g, '')) - 1001) }));
+
+        return {
+            ...migrated,
+            employees,
+            // Leave requests (7 and earlier) start from the sample, covering whoever was on leave.
+            ...(Array.isArray(migrated.leaveRequests) ? {} : seedLeaveState(employees, today)),
+            jobTitles: migrated.jobTitles.map((jobTitle) => (jobTitle.openings === undefined
+                ? { ...jobTitle, openings: findById(seedJobTitles, jobTitle.id)?.openings ?? 0 }
+                : jobTitle)),
+            // Applications saved before the workflow (6 and earlier) get milestones that match their status.
+            applications: migrated.applications.map((application) => (
+                Array.isArray(application.milestones) ? application : progressForStatus(application, today)
+            )),
         };
     } catch {
         // Missing, unreadable, or blocked storage falls through to fresh sample data.
@@ -344,7 +440,7 @@ function logActivity(action, entity, detail) {
         action,
         entity,
         detail,
-        user: currentUser.name,
+        user: state.hrProfile.name,
         at: Date.now(),
     });
     state.nextActivityNumber += 1;
@@ -354,11 +450,24 @@ function activityWithDates(entries) {
     return entries.map((entry) => ({ ...entry, at: new Date(entry.at) }));
 }
 
+/**
+ * Whether the employee has approved leave covering today. This is what "On Leave" means everywhere
+ * (Employees, profiles, reports, and the Dashboard), so it always agrees with the Calendar.
+ */
+function isOnLeaveToday(employeeId) {
+    const today = isoDateOf(new Date());
+
+    return state.leaveRequests.some((leave) => (
+        leave.employeeId === employeeId && leave.status === 'Approved' && leave.startDate <= today && today <= leave.endDate
+    ));
+}
+
 function withNames(employee) {
     return {
         ...employee,
         jobTitle: findById(state.jobTitles, employee.jobTitleId)?.name ?? '—',
         department: findById(state.departments, employee.departmentId)?.name ?? '—',
+        status: isOnLeaveToday(employee.id) ? 'On Leave' : 'Active',
     };
 }
 
@@ -374,11 +483,48 @@ export function onMockDataChange(listener) {
 }
 
 /**
+ * The HR user as the header, the Dashboard greeting, and the profile page show them.
+ */
+function currentUserView() {
+    const { name, email, role } = state.hrProfile;
+
+    return { name, firstName: name.split(/\s+/)[0], initials: initialsOf(name), email, role };
+}
+
+/**
+ * The HR user's account: name, initials, email, and role.
+ */
+export function getHrProfile() {
+    return currentUserView();
+}
+
+/**
+ * Saves the HR user's name and email. The role is not editable here. Shown everywhere the account
+ * appears (the header menu, the Dashboard greeting) and logged as account activity.
+ */
+export function updateHrProfile({ name, email }) {
+    state.hrProfile = { ...state.hrProfile, name: name.trim(), email: email.trim() };
+    logActivity('Updated', `Account · ${state.hrProfile.name}`, 'Profile details updated');
+    commitChange();
+
+    return currentUserView();
+}
+
+/**
+ * Records that the HR user changed their password. Nothing about the password is kept (the sign-in
+ * here is a demo with no passwords to check or store); only the fact that it changed is logged.
+ */
+export function recordPasswordChange() {
+    logActivity('Updated', `Account · ${state.hrProfile.name}`, 'Password changed');
+    commitChange();
+}
+
+/**
  * Data every page inside the app shell (header and sidebar) needs.
  */
 export function getShellData() {
     return {
-        currentUser,
+        currentUser: currentUserView(),
         pendingCandidates: countForStatus('Applied'),
         notifications: activityWithDates(state.activity.slice(0, 4)),
     };
@@ -394,9 +540,16 @@ export function getDashboardData() {
     });
 
     return {
-        currentUser,
-        monthlyPayroll: state.employees.reduce((total, employee) => total + Number(employee.salary || 0), 0),
-        jobTitleSalaries: state.jobTitles.map((jobTitle) => jobTitle.salary),
+        currentUser: currentUserView(),
+        employeeCounts: {
+            total: state.employees.length,
+            active: state.employees.filter((employee) => !isOnLeaveToday(employee.id)).length,
+            onLeave: state.employees.filter((employee) => isOnLeaveToday(employee.id)).length,
+        },
+        openPositions: {
+            total: state.jobTitles.reduce((total, jobTitle) => total + Number(jobTitle.openings || 0), 0),
+            jobTitleCount: state.jobTitles.filter((jobTitle) => Number(jobTitle.openings || 0) > 0).length,
+        },
         departmentHeadcounts: state.departments
             .map(({ id, name }) => ({
                 name,
@@ -487,6 +640,7 @@ export function deleteEmployee(id) {
     }
 
     state.employees = state.employees.filter((candidate) => candidate.id !== id);
+    state.leaveRequests = state.leaveRequests.filter((leave) => leave.employeeId !== id);
     logActivity('Deleted', `Employee · ${employee.name} (${id})`, 'Employee record deleted');
     commitChange();
 
@@ -764,11 +918,74 @@ export function isDuplicateApplication(email, jobTitleId, exceptId = null) {
     ));
 }
 
+function todayIso() {
+    return isoDateOf(new Date());
+}
+
+function failure(error, errors = {}) {
+    return { ok: false, error, errors };
+}
+
+function success(application, extra = {}) {
+    return { ok: true, application: withApplicationNames(application), ...extra };
+}
+
 /**
- * @param {{ name: string, email: string, phone: string, jobTitleId: string, departmentId: string, appliedOn: string, status: string }} details
+ * Field errors for a screening or interview slot (empty when valid): a date from today on, and a time.
+ *
+ * @returns {{ date?: string, time?: string }}
+ */
+export function validateActivitySlot({ date, time }) {
+    const errors = {};
+
+    if (!date) {
+        errors.date = 'Choose a date.';
+    } else if (date < todayIso()) {
+        errors.date = 'Choose today or a later date.';
+    }
+
+    if (!time) {
+        errors.time = 'Choose a time.';
+    }
+
+    return errors;
+}
+
+function slotText({ date, time }) {
+    return `${formatDate(date)} at ${formatTime(time)}`;
+}
+
+function nextActivityId(application) {
+    return `a${Math.max(0, ...application.activities.map((activity) => Number(activity.id.slice(1)) || 0)) + 1}`;
+}
+
+function addMilestone(application, key) {
+    if (!application.milestones.some((milestone) => milestone.key === key)) {
+        application.milestones.push({ key, at: todayIso() });
+    }
+}
+
+/**
+ * Moves an application to a new status and logs it.
+ */
+function moveTo(application, status, action, detail) {
+    const previous = application.status;
+
+    application.status = status;
+    logActivity(action, applicationEntity(application), `${detail}; stage changed from ${previous} to ${status}`);
+}
+
+/**
+ * New applications always start as Applied.
+ *
+ * @param {{ name: string, email: string, phone: string, jobTitleId: string, departmentId: string, appliedOn: string }} details
  */
 export function addApplication(details) {
-    const application = { id: `c${state.nextApplicationNumber}`, ...details };
+    const { name, email, phone, jobTitleId, departmentId, appliedOn } = details;
+    const application = progressForStatus(
+        { id: `c${state.nextApplicationNumber}`, name, email, phone, jobTitleId, departmentId, appliedOn, status: 'Applied' },
+        todayIso(),
+    );
     const jobTitle = findById(state.jobTitles, application.jobTitleId);
 
     state.nextApplicationNumber += 1;
@@ -776,7 +993,7 @@ export function addApplication(details) {
     logActivity(
         'Created',
         applicationEntity(application),
-        `Added to Recruitment as ${application.status} for ${jobTitle?.name ?? 'a position'}`,
+        `Added to Recruitment as Applied for ${jobTitle?.name ?? 'a position'}`,
     );
     commitChange();
 
@@ -784,48 +1001,279 @@ export function addApplication(details) {
 }
 
 /**
- * @param {{ name: string, email: string, phone: string, jobTitleId: string, departmentId: string, appliedOn: string, status: string }} details
+ * Edits the applicant's details. The status, milestones, and activities are not editable here: they
+ * change only through the workflow actions below.
+ *
+ * @param {{ name: string, email: string, phone: string, jobTitleId: string, departmentId: string, appliedOn: string }} details
  */
 export function updateApplication(id, details) {
-    const index = state.applications.findIndex((application) => application.id === id);
+    const application = findById(state.applications, id);
 
-    if (index === -1) {
+    if (!application) {
         return undefined;
     }
 
-    const previous = state.applications[index];
-    const application = { ...previous, ...details, id };
+    const { name, email, phone, jobTitleId, departmentId, appliedOn } = details;
 
-    state.applications[index] = application;
-    logActivity(
-        'Updated',
-        applicationEntity(application),
-        previous.status === application.status
-            ? 'Application updated'
-            : `Application updated, stage changed from ${previous.status} to ${application.status}`,
-    );
+    Object.assign(application, { name, email, phone, jobTitleId, departmentId, appliedOn });
+
+    const received = application.milestones.find((milestone) => milestone.key === 'applied');
+
+    if (received) {
+        received.at = appliedOn;
+    }
+
+    logActivity('Updated', applicationEntity(application), 'Application updated');
     commitChange();
 
     return application;
 }
 
 /**
- * Moves an application to another pipeline status. Returns undefined when it no longer exists.
+ * Puts a screening or interview on the calendar. This does not change the status: that happens when
+ * the activity is completed.
+ *
+ * @param {{ type: string, date: string, time: string }} slot
  */
-export function setApplicationStatus(id, status) {
+export function scheduleActivity(id, { type, date, time }) {
     const application = findById(state.applications, id);
 
-    if (!application || !applicationStatuses.includes(status)) {
-        return undefined;
+    if (!application) {
+        return failure('That application no longer exists.');
     }
 
-    if (application.status !== status) {
-        logActivity('Updated', applicationEntity(application), `Stage changed from ${application.status} to ${status}`);
-        application.status = status;
-        commitChange();
+    const workflow = workflowFor(application);
+
+    if (workflow.scheduleType !== type) {
+        return failure(workflow.pendingActivity
+            ? `Complete or cancel the scheduled ${workflow.pendingActivity.type.toLowerCase()} first.`
+            : `A ${type.toLowerCase()} cannot be scheduled while the application is ${application.status}.`);
     }
 
-    return application;
+    const errors = validateActivitySlot({ date, time });
+
+    if (Object.keys(errors).length) {
+        return failure(Object.values(errors)[0], errors);
+    }
+
+    const activity = { id: nextActivityId(application), type, date, time, status: 'Scheduled' };
+
+    application.activities.push(activity);
+    logActivity('Updated', applicationEntity(application), `${type} scheduled for ${slotText(activity)}`);
+    commitChange();
+
+    return success(application, { activity });
+}
+
+/**
+ * Changes the date and time of a scheduled (not yet completed) activity.
+ */
+export function rescheduleActivity(id, activityId, { date, time }) {
+    const application = findById(state.applications, id);
+    const activity = application?.activities.find((candidate) => candidate.id === activityId);
+
+    if (!application || !activity) {
+        return failure('That activity no longer exists.');
+    }
+
+    if (activity.status !== 'Scheduled') {
+        return failure(`This ${activity.type.toLowerCase()} is already completed and cannot be rescheduled.`);
+    }
+
+    const errors = validateActivitySlot({ date, time });
+
+    if (Object.keys(errors).length) {
+        return failure(Object.values(errors)[0], errors);
+    }
+
+    Object.assign(activity, { date, time });
+    logActivity('Updated', applicationEntity(application), `${activity.type} rescheduled to ${slotText(activity)}`);
+    commitChange();
+
+    return success(application, { activity });
+}
+
+/**
+ * Removes a scheduled activity that has not happened, so the next one can be scheduled.
+ */
+export function cancelActivity(id, activityId) {
+    const application = findById(state.applications, id);
+    const activity = application?.activities.find((candidate) => candidate.id === activityId);
+
+    if (!application || !activity) {
+        return failure('That activity no longer exists.');
+    }
+
+    if (activity.status !== 'Scheduled') {
+        return failure(`This ${activity.type.toLowerCase()} is already completed and cannot be cancelled.`);
+    }
+
+    application.activities = application.activities.filter((candidate) => candidate.id !== activityId);
+    logActivity('Updated', applicationEntity(application), `${activity.type} on ${slotText(activity)} cancelled`);
+    commitChange();
+
+    return success(application);
+}
+
+/**
+ * Marks a scheduled activity as having happened. This is the milestone that advances the status:
+ * a completed screening moves Applied to Screening, a completed interview moves Screening to Interview.
+ * It cannot be completed before its scheduled date.
+ */
+export function completeActivity(id, activityId) {
+    const application = findById(state.applications, id);
+    const activity = application?.activities.find((candidate) => candidate.id === activityId);
+
+    if (!application || !activity) {
+        return failure('That activity no longer exists.');
+    }
+
+    if (activity.status !== 'Scheduled') {
+        return failure(`This ${activity.type.toLowerCase()} is already completed.`);
+    }
+
+    if (workflowFor(application).isFinal) {
+        return failure(`A ${application.status.toLowerCase()} application cannot move forward.`);
+    }
+
+    if (activity.date > todayIso()) {
+        return failure(`This ${activity.type.toLowerCase()} is scheduled for ${formatDate(activity.date)}. Reschedule it, or complete it on or after that date.`);
+    }
+
+    activity.status = 'Completed';
+    activity.completedOn = todayIso();
+
+    const nextStatus = statusAfterCompleting[activity.type];
+
+    if (application.status === nextStatus) {
+        logActivity('Updated', applicationEntity(application), `${activity.type} completed`);
+    } else {
+        addMilestone(application, activity.type.toLowerCase());
+        moveTo(application, nextStatus, 'Updated', `${activity.type} completed`);
+    }
+
+    commitChange();
+
+    return success(application, { activity });
+}
+
+/**
+ * Issues a job offer after an interview has been completed: Interview to Offered, response pending.
+ */
+export function issueOffer(id) {
+    const application = findById(state.applications, id);
+
+    if (!application) {
+        return failure('That application no longer exists.');
+    }
+
+    const workflow = workflowFor(application);
+
+    if (!workflow.canIssueOffer) {
+        return failure(workflow.pendingActivity
+            ? `Complete or cancel the scheduled ${workflow.pendingActivity.type.toLowerCase()} first.`
+            : 'An offer can be issued only after an interview has been completed.');
+    }
+
+    application.offerResponse = 'Pending';
+    addMilestone(application, 'offered');
+    moveTo(application, 'Offered', 'Updated', 'Offer issued');
+    commitChange();
+
+    return success(application);
+}
+
+/**
+ * Records that the applicant accepted the offer. They stay Offered until hiring is completed.
+ */
+export function recordOfferAccepted(id) {
+    const application = findById(state.applications, id);
+
+    if (!application) {
+        return failure('That application no longer exists.');
+    }
+
+    if (!workflowFor(application).canRecordAcceptance) {
+        return failure('Only an offer that is waiting for a response can be accepted.');
+    }
+
+    application.offerResponse = 'Accepted';
+    addMilestone(application, 'accepted');
+    logActivity('Updated', applicationEntity(application), 'Offer accepted');
+    commitChange();
+
+    return success(application);
+}
+
+/**
+ * Completes hiring after the offer was accepted: adds the applicant to Employees (position, department,
+ * salary, and benefits from the job title, hired today) and moves the application to Hired.
+ */
+export function completeHiring(id) {
+    const application = findById(state.applications, id);
+
+    if (!application) {
+        return failure('That application no longer exists.');
+    }
+
+    const workflow = workflowFor(application);
+
+    if (!workflow.canCompleteHiring) {
+        return failure(application.status === 'Offered'
+            ? 'The offer must be accepted before hiring can be completed.'
+            : 'Only an applicant with an accepted offer can be hired.');
+    }
+
+    const jobTitle = findById(state.jobTitles, application.jobTitleId);
+
+    if (!jobTitle) {
+        return failure('The position for this application no longer exists.');
+    }
+
+    const employee = addEmployee({
+        name: application.name,
+        email: application.email,
+        phone: application.phone,
+        address: '',
+        birthdate: '',
+        sex: '',
+        civilStatus: '',
+        departmentId: application.departmentId,
+        jobTitleId: application.jobTitleId,
+        hiredOn: todayIso(),
+        salary: jobTitle.salary,
+        benefits: [...jobTitle.benefits],
+    });
+
+    application.employeeId = employee.id;
+    addMilestone(application, 'hired');
+    moveTo(application, 'Hired', 'Hired', `Hired and added to Employees as ${employee.id}`);
+    commitChange();
+
+    return success(application, { employee });
+}
+
+/**
+ * Rejects an application that is still open. Any scheduled activity is cancelled, and a rejected
+ * application stays rejected.
+ */
+export function rejectApplication(id) {
+    const application = findById(state.applications, id);
+
+    if (!application) {
+        return failure('That application no longer exists.');
+    }
+
+    if (!workflowFor(application).canReject) {
+        return failure(`A ${application.status.toLowerCase()} application cannot be rejected.`);
+    }
+
+    application.activities = application.activities.filter((activity) => activity.status !== 'Scheduled');
+    addMilestone(application, 'rejected');
+    moveTo(application, 'Rejected', 'Updated', 'Application rejected');
+    commitChange();
+
+    return success(application);
 }
 
 export function deleteApplication(id) {
@@ -873,6 +1321,63 @@ export function findActivity(id, limit = 5) {
 export function recordSignOut() {
     logActivity('Logout', 'Session', 'Signed out');
     commitChange();
+}
+
+function withEmployeeNames(leave) {
+    const employee = findById(state.employees, leave.employeeId);
+
+    return {
+        ...leave,
+        employeeName: employee?.name ?? '—',
+        department: employee ? findById(state.departments, employee.departmentId)?.name ?? '—' : '—',
+        jobTitle: employee ? findById(state.jobTitles, employee.jobTitleId)?.name ?? '—' : '—',
+    };
+}
+
+/**
+ * Every leave request with the employee's name, department, and job title.
+ */
+export function listLeaveRequests() {
+    return state.leaveRequests.map(withEmployeeNames);
+}
+
+/**
+ * One employee's leave requests, latest start first.
+ */
+export function getEmployeeLeave(employeeId) {
+    return state.leaveRequests
+        .filter((leave) => leave.employeeId === employeeId)
+        .sort((first, second) => second.startDate.localeCompare(first.startDate))
+        .map(withEmployeeNames);
+}
+
+/**
+ * Approves a filed or pending leave request. If it covers today, the employee shows as On Leave.
+ *
+ * @returns {{ ok: boolean, error?: string, leave?: object }}
+ */
+export function approveLeave(id) {
+    const leave = findById(state.leaveRequests, id);
+
+    if (!leave) {
+        return { ok: false, error: 'That leave request no longer exists.' };
+    }
+
+    if (leave.status === 'Approved') {
+        return { ok: false, error: 'This leave request is already approved.' };
+    }
+
+    const employee = findById(state.employees, leave.employeeId);
+
+    leave.status = 'Approved';
+    logActivity(
+        'Updated',
+        `Leave · ${employee?.name ?? leave.employeeId}`,
+        `${leave.type} from ${formatDate(leave.startDate)} to ${formatDate(leave.endDate)} approved`,
+    );
+    commitChange();
+
+    return { ok: true, leave: withEmployeeNames(leave) };
 }
 
 export function resetMockData() {

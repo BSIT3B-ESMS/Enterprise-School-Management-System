@@ -3,7 +3,8 @@
 it('renders the employees toolbar, filters, and sortable table headers', function () {
     $this->get(route('employees.index'))
         ->assertOk()
-        ->assertSeeInOrder(['Employees', 'Copy CSV', 'Add Employee'])
+        ->assertSeeInOrder(['Employees', 'Generate Report', 'Add Employee'])
+        ->assertDontSee('Copy CSV')
         ->assertSee('data-employee-search', escape: false)
         ->assertSee('data-employee-filter="jobTitleId"', escape: false)
         ->assertSee('data-employee-filter="departmentId"', escape: false)
@@ -26,11 +27,27 @@ it('renders the new employee page with the full form and a way back to the list'
         ->assertSee('aria-label="Back to employees"', escape: false)
         ->assertSee('data-employee-form-redirect="'.route('employees.index').'"', escape: false)
         ->assertSeeInOrder([
-            'Personal and Contact', 'name="name"', 'name="email"',
-            'Employment', 'name="departmentId"', 'name="jobTitleId"', 'name="hiredOn"', 'name="salary"',
-            'Benefits', 'Cancel', 'Create Employee',
+            'Personal Information', 'name="name"', 'name="birthdate"', 'name="sex"', 'name="civilStatus"',
+            'Employment Information', 'name="departmentId"', 'name="jobTitleId"', 'name="hiredOn"',
+            'Contact Information', 'name="email"', 'name="phone"', 'name="address"',
+            'Government and Tax', 'Cancel', 'Create Employee',
         ], escape: false)
         ->assertDontSee('id="employee-form-modal"', escape: false);
+});
+
+it('includes the 201 file government numbers, compensation, and document records on the new employee form', function () {
+    $this->get(route('employees.create'))
+        ->assertSeeInOrder([
+            'data-document-field="hiringRequirements"',
+            'Government and Tax',
+            'name="sssNumber"', 'name="philhealthNumber"', 'name="pagibigNumber"', 'name="tin"', 'name="birNumber"',
+            'data-document-field="birForm2316"',
+            'Compensation and Benefits', 'name="salary"', 'data-benefit-options',
+            'Education and Work History', 'data-document-field="education"', 'data-document-field="workHistory"',
+            'Performance', 'data-document-field="performance"',
+            'Disciplinary and Separation', 'data-document-field="correctiveActions"',
+            'data-document-field="clearances"', 'data-document-field="postEmployment"',
+        ], escape: false);
 });
 
 it('keeps the employees sidebar link current on the new employee page', function () {
@@ -38,15 +55,27 @@ it('keeps the employees sidebar link current on the new employee page', function
         ->assertSee('aria-current="page" href="'.route('employees.index').'"', escape: false);
 });
 
-it('renders the view, edit, and delete modals', function () {
+it('opens employees on their own page instead of in modals', function () {
     $this->get(route('employees.index'))
-        ->assertSee('id="employee-form-modal"', escape: false)
-        ->assertSee('id="employee-details-modal"', escape: false)
-        ->assertSee('id="employee-delete-modal"', escape: false);
+        ->assertSee('data-profile-base="'.url('/employees').'"', escape: false)
+        ->assertDontSee('id="employee-details-modal"', escape: false)
+        ->assertDontSee('id="employee-form-modal"', escape: false)
+        ->assertDontSee('id="employee-delete-modal"', escape: false);
 });
 
 it('marks the employees sidebar link as the current page', function () {
     $this->get(route('employees.index'))
         ->assertSee('aria-current="page" href="'.route('employees.index').'"', escape: false)
         ->assertDontSee('aria-current="page" href="'.route('dashboard').'"', escape: false);
+});
+
+it('filters by a single date hired picker with no start or end date fields', function () {
+    $this->get(route('employees.index'))
+        ->assertSeeInOrder([
+            '<label class="input-group-text" for="employee-hired-on-filter">Date Hired</label>',
+            'type="date"', 'data-employee-filter="hiredOn"',
+            'data-employee-clear>Clear Filters</button>',
+        ], escape: false)
+        ->assertDontSee('Start Date')
+        ->assertDontSee('End Date');
 });

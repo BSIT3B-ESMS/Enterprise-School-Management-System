@@ -1,6 +1,6 @@
 import { Modal } from 'bootstrap';
 import $ from './jquery.js';
-import { isInDateRange, localIsoDate, syncDateRange } from './date-filter.js';
+import { localIsoDate } from './date-filter.js';
 import { formatDateTime } from './format.js';
 import { activityActions, findActivity, listActivity, onMockDataChange } from './mock-data.js';
 import { renderPagination } from './pagination.js';
@@ -14,8 +14,9 @@ const sortValue = {
     entity: (entry) => entry.entity.toLowerCase(),
 };
 
-// Table view state: search text, filters, sort column and direction (1 ascending, -1 descending), page.
-const view = { query: '', action: '', recordType: '', startDate: '', endDate: '', sortKey: 'at', sortDirection: -1, page: 1 };
+// Table view state: search text, filters (including one exact date), sort column and direction
+// (1 ascending, -1 descending), page.
+const view = { query: '', action: '', recordType: '', date: '', sortKey: 'at', sortDirection: -1, page: 1 };
 
 /**
  * "Employee · Maria Clara Santos (EMP-1001)" → type "Employee", record "Maria Clara Santos (EMP-1001)".
@@ -46,8 +47,8 @@ function visibleEntries() {
         .filter((entry) => !query || `${entry.action} ${entry.entity} ${entry.detail} ${entry.user}`.toLowerCase().includes(query))
         .filter((entry) => !view.action || entry.action === view.action)
         .filter((entry) => !view.recordType || splitEntity(entry.entity).recordType === view.recordType)
-        // By calendar day, so an entry at any time on the end date is included.
-        .filter((entry) => isInDateRange(localIsoDate(entry.at), view.startDate, view.endDate))
+        // By calendar day, so an entry at any time on the chosen date is included. No date means every entry.
+        .filter((entry) => !view.date || localIsoDate(entry.at) === view.date)
         .sort((first, second) => {
             const firstValue = valueOf(first);
             const secondValue = valueOf(second);
@@ -239,15 +240,13 @@ $(function () {
     $audit.on('change', '[data-audit-filter]', function () {
         view[$(this).attr('data-audit-filter')] = String($(this).val());
         view.page = 1;
-        syncDateRange($audit);
         renderTable($audit);
     });
 
-    // Clears the search and every filter, and returns to page 1.
+    // Clears the search, the date, and every filter, and returns to page 1; the sort order is kept.
     $audit.on('click', '[data-audit-clear]', function () {
-        Object.assign(view, { query: '', action: '', recordType: '', startDate: '', endDate: '', page: 1 });
+        Object.assign(view, { query: '', action: '', recordType: '', date: '', page: 1 });
         $audit.find('[data-audit-search], [data-audit-filter]').val('');
-        syncDateRange($audit);
         renderTable($audit);
     });
 

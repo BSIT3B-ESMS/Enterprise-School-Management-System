@@ -56,10 +56,6 @@
                     <button type="button" class="btn btn-link p-0" data-forgot-password>Forgot Password?</button>
                 </div>
 
-                <div class="alert alert-success mb-0 d-none" role="status" data-login-demo-notice>
-                    <strong>Frontend demo only.</strong> No sign-in was performed. Authentication will be connected later.
-                </div>
-
                 <button type="submit" class="btn btn-primary login-submit">Sign In</button>
             </form>
         </section>

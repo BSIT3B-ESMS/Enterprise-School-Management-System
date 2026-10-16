@@ -4,7 +4,7 @@
 
 {{-- Figures, charts, and lists are filled in by resources/js/dashboard.js from resources/js/mock-data.js. --}}
 @section('content')
-    <div class="d-grid gap-4" data-page="dashboard">
+    <div class="d-grid gap-4" data-page="dashboard" data-employees-url="{{ url('/employees') }}">
         <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
             <div>
                 <h1 class="page-title" data-greeting>Welcome</h1>
@@ -72,8 +72,4 @@
             </div>
         </section>
     </div>
-
-    <x-employee-form-modal />
-    <x-employee-details-modal />
-    <x-employee-delete-modal />
 @endsection

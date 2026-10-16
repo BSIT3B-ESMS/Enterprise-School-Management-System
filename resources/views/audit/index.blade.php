@@ -40,7 +40,18 @@
                     <label for="audit-record-filter" class="visually-hidden">Record type</label>
                     <select class="form-select" id="audit-record-filter" data-audit-filter="recordType"></select>
                 </div>
-                <x-date-range-filters name="audit" subject="Activity Date and Time" />
+                {{-- One date: shows entries recorded on exactly that day. Empty means no date restriction. --}}
+                <div class="col-md-6 col-xl-4">
+                    <div class="input-group">
+                        <label class="input-group-text" for="audit-date-filter">Date</label>
+                        <input type="date" class="form-control" id="audit-date-filter"
+                            title="Show entries recorded on this date" data-audit-filter="date">
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-end mt-3">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-audit-clear>Clear Filters</button>
             </div>
         </div>
 
