@@ -100,7 +100,7 @@ class ApplicationService
         foreach ($fields as $name => $value) {
             $value = is_string($value) ? trim($value) : $value;
             $value = $value === '' ? null : $value;
-            $check = Validator::make(array_merge($fields, [$name => $value]), [$name => $rules[$name]]);
+            $check = Validator::make(array_merge($fields, [$name => $value]), [$name => $rules[$name]], ApplicantForm::MESSAGES);
             if ($check->fails()) {
                 $skipped[$name] = $check->errors()->first($name);
             } else {
@@ -221,7 +221,7 @@ class ApplicationService
             }
         }
         if ($check) {
-            Validator::make($values, $check)->validate();
+            Validator::make($values, $check, ApplicantForm::MESSAGES)->validate();
         }
     }
 

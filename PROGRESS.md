@@ -78,7 +78,9 @@ Legend: ✅ done · 🔄 in progress · ⬜ to do · ⏸ deferred
 - **Admission office panel wired** (data layer only): `core.js` gained `AO.api` (JWT bearer, JSON or file upload), `AO.apiError`, `AO.busy`. `admin-store.js` loads `ADM.state` from `GET /api/admin/state` (demo generator and localStorage removed). `admin-actions.js` keeps each action's instant local update, then sends it to the API on one ordered queue; the server's copy replaces the local one, and a refusal shows the server's message and reloads. `admin.js`: real sign-in (`portal: office`), session restore per tab, sign-out, expired-token handling. Document preview fetches the real file (the one visible change, as the `BACKEND:` comment specified). Verified in headless Edge: officer and clinic flows, persistence across reloads, role refusals, no page errors.
 - Fixed: `AuditLogger` now resolves the actor through `auth()` (the request had no user in console runs).
 
+- **Applicant portal wired** (data layer only): sign-in (`portal: applicant`), create account (server errors shown on the matching fields), forgot password, sign-out, session restore. The portal state comes from `GET /api/applicant/portal`; every `save()` sends the form and section progress to the server (debounced). Program options, key dates, the exam schedule, the application number, the offer letter dates, the released result, "Accept offer" and the medical uploads/submit all use the server. A value the server refuses although it looks valid (e.g. an LRN already in use) is shown on its field. **Document cards and "Submit" stay browser-only (H1)**, kept per application in localStorage. Verified in headless Edge: register → fill 3 sections → reload (data back from the server) → sign out → wrong password → passer: accept offer → 3 medical uploads → submit; no page errors.
+
 ## To do next
 
-- Wire the applicant portal (sign-in, register, forgot password, autosave, accept offer, medical). Document cards + submit stay on hold (H1).
+- See "Remaining work" below.
 - Get MySQL credentials and run the migrations against MySQL.

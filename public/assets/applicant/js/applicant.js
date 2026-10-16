@@ -1,8 +1,11 @@
 /* ==========================================================================
    PLP Online Admission — Applicant Portal (jQuery 3.7 + Bootstrap 5.3)
    Needs assets/shared/js/core.js loaded first (window.AO).
-   Front-end demo: sign-in, form data, uploads and admission decisions are
-   simulated in the browser. Look for "BACKEND:" comments for real API calls.
+   Sign-in, the application form, the exam, the result, the offer and the
+   medical requirements come from the Laravel API (/api/applicant/*).
+   Still in the browser only, until the team settles how the 8 document
+   cards map to the official requirements (PROGRESS.md, H1): the document
+   cards and the "Submit" button.
    ========================================================================== */
 $(function () {
   "use strict";
@@ -10,10 +13,9 @@ $(function () {
   /* ==========================================================================
      CONFIG
      ========================================================================== */
-  var STORAGE_KEY = "admitone.portal.v3";
-  var SESSION_KEY = "admitone.session";
+  var LOCAL_KEY = "admitone.portal.local.";   // + application number: document cards (H1)
   var REMEMBER_KEY = "admitone.rememberEmail";
-  var APP_ID = "AD-2026-08421";
+  var APP_ID = "";                             // from the server
 
   // My application: three sections only
   var SECTIONS = [
@@ -53,24 +55,11 @@ $(function () {
     { key: "payment", title: "GCash / Dragonpay payment", desc: "Screenshot or receipt of your application fee payment with the reference number visible.", icon: "wallet", tone: 4, extra: "payment" }
   ];
 
-  var PROGRAMS = [
-    "Bachelor of Science in Information Technology",
-    "Bachelor of Science in Computer Science",
-    "Bachelor of Science in Information Systems",
-    "Bachelor of Science in Business Administration",
-    "Bachelor of Arts in Communication",
-    "Bachelor of Science in Psychology",
-    "Bachelor of Science in Nursing"
-  ];
-
-  // Placeholder dates for AY 2027–2028 — replace with the official calendar
-  var KEY_DATES = [
-    { title: "Application deadline", date: "2026-11-28" },
-    { title: "Entrance exam days", date: "2026-12-05", end: "2026-12-13" },
-    { title: "Release of results", date: "2027-02-13" },
-    { title: "Reservation fee deadline", date: "2027-03-20" }
-  ];
-  var EXAM = { date: "2026-12-05", time: "8:00 AM – 12:00 NN", venue: "Main Campus · Assessment Center, Room 204", permit: "EX-27-08421" };
+  // Open programs, key dates and the exam schedule come from the server
+  var PROGRAMS = [];
+  var KEY_DATES = [];
+  var EXAM = { date: AO.toISO(AO.today()), time: "", venue: "", permit: "" };
+  function keyDate(title, fallback) { var k = KEY_DATES.filter(function (x) { return x.title === title; })[0]; return k ? k.date : fallback; }
   var APP_FEE = "₱500";
 
   /* ==========================================================================
@@ -142,13 +131,55 @@ $(function () {
       medical: { files: {}, status: "none" }   // none → submitted → cleared
     };
   }
-  var state = $.extend(true, freshState(), readJSON("local", STORAGE_KEY) || {});
+  var state = freshState();
+  var serverPhase = "draft";   // the phase the server reports; edits are only sent while it's "draft"
   var previews = {};           // object URLs for image thumbnails (this session only)
   var editing = false;         // reopened the form after finishing it
   var selectedStage = null;    // stage shown in the overview detail panel
   var celebrated = false;      // confetti already played for the result this visit
 
-  function save() { writeJSON("local", STORAGE_KEY, state); }
+  /* ---------- Server state ---------- */
+  function applyPortal(p) {
+    APP_ID = p.applicationId;
+    PROGRAMS = p.programs;
+    KEY_DATES = p.keyDates;
+    if (p.exam) EXAM = p.exam;
+    serverPhase = p.phase;
+    state.step = p.step || 1;
+    state.completed = p.completed || [];
+    state.data = $.extend({}, p.data);
+    Object.keys(state.data).forEach(function (k) { if (state.data[k] == null) delete state.data[k]; });
+    state.phase = p.phase;
+    state.submittedAt = p.submittedAt;
+    state.accepted = p.accepted;
+    state.medical = { files: p.medical.files || {}, status: p.medical.status };
+    // Document cards and their submit stay in this browser for now (H1)
+    var local = readJSON("local", LOCAL_KEY + APP_ID) || {};
+    state.docs = local.docs || {};
+    if (p.phase === "draft" && local.phase === "review") { state.phase = "review"; state.submittedAt = local.submittedAt; }
+  }
+  function loadPortal() {
+    return AO.api("GET", "/api/applicant/portal").done(function (res) { applyPortal(res.data); fillPrograms(); });
+  }
+
+  /* Save: the document cards locally (H1); the form and its progress to the server */
+  var syncTimer;
+  function save() {
+    if (APP_ID) writeJSON("local", LOCAL_KEY + APP_ID, { docs: state.docs, phase: serverPhase === "draft" && state.phase === "review" ? "review" : null, submittedAt: state.submittedAt });
+    if (serverPhase !== "draft") return;
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(function () {
+      AO.api("PUT", "/api/applicant/application", $.extend({}, state.data, { step: state.step, completed: state.completed }))
+        .done(function (res) {
+          // A value the server refused although it looks right here (e.g. an LRN already in use)
+          $.each(res.skipped || {}, function (name, msg) {
+            var $input = $('#application-form [name="' + name + '"]');
+            if ($input.length && $input[0].checkValidity() && $input.val()) setError($input, msg);
+          });
+        })
+        .fail(function (xhr) { if (xhr.status !== 401) showToast(AO.apiError(xhr)); });
+    }, 400);
+  }
   function isDone(n) { return state.completed.indexOf(n) !== -1; }
   function sectionsDone() { return state.completed.length >= SECTIONS.length; }
   function firstOpenSection() { for (var i = 1; i <= SECTIONS.length; i++) if (!isDone(i)) return i; return SECTIONS.length; }
@@ -170,7 +201,7 @@ $(function () {
   function journeyPercent() { var n = 0; for (var i = 1; i <= STAGES; i++) if (journeyDone(i)) n++; return Math.round(n / STAGES * 100); }
 
   /* ==========================================================================
-     AUTH (simulated)
+     AUTH (Laravel API, JWT)
      ========================================================================== */
   function showAuth(panel) {
     $("#signin-form").prop("hidden", panel !== "signin");
@@ -189,7 +220,10 @@ $(function () {
   }
 
   function leaveApp() {
-    removeKey("session", SESSION_KEY);
+    AO.setToken(null);
+    clearTimeout(syncTimer);
+    state = freshState(); APP_ID = ""; serverPhase = "draft";
+    editing = false; selectedStage = null; celebrated = false;
     $(".tooltip").remove();
     $("#app").prop("hidden", true);
     $("#auth-screen").prop("hidden", false);
@@ -208,42 +242,62 @@ $(function () {
     if (!validateFields($(this))) return;
     var email = $("#signin-email").val().trim();
     if ($("#remember-me").is(":checked")) writeJSON("local", REMEMBER_KEY, email); else removeKey("local", REMEMBER_KEY);
-    // BACKEND: replace the timeout with POST /api/auth/login { email, password }
-    withLoading($("#signin-submit"), 800, function () {
-      if (!readJSON("local", STORAGE_KEY)) state.data.email = email;
-      writeJSON("session", SESSION_KEY, { email: email, at: Date.now() });
-      save();
-      enterApp();
-    });
+    var login = AO.api("POST", "/api/auth/login", { email: email, password: $("#signin-password").val(), portal: "applicant" })
+      .then(function (res) {
+        // UI pending: there is no 2FA code screen yet (see PROGRESS.md)
+        if (res.data.two_factor_required) return $.Deferred().reject({ responseJSON: { message: "Two-factor sign-in is on for this account, but this screen can't ask for the code yet." } });
+        AO.setToken(res.data.token);
+        return loadPortal();
+      });
+    AO.busy($("#signin-submit"), login)
+      .done(enterApp)
+      .fail(function (xhr) { AO.setToken(null); setError($("#signin-email"), AO.apiError(xhr)); });
   });
+
+  // Server field name → the input that shows its error
+  var SIGNUP_FIELDS = { first_name: "#signup-first", last_name: "#signup-last", email: "#signup-email", phone: "#signup-phone", password: "#signup-password", terms: "#signup-terms" };
 
   $("#signup-form").on("submit", function (e) {
     e.preventDefault();
     var ok = validateFields($(this));
     if ($("#signup-password").val() && $("#signup-confirm").val() !== $("#signup-password").val()) { setError($("#signup-confirm"), "Passwords don't match."); ok = false; }
     if (!ok) return;
-    // BACKEND: replace with POST /api/auth/register
-    withLoading($("#signup-submit"), 800, function () {
-      state = freshState();
-      state.data.firstName = $("#signup-first").val().trim();
-      state.data.lastName = $("#signup-last").val().trim();
-      state.data.email = $("#signup-email").val().trim();
-      state.data.phone = $("#signup-phone").val().trim();
-      save();
-      writeJSON("session", SESSION_KEY, { email: state.data.email, at: Date.now() });
-      enterApp();
-      showToast("Account created. Let's start your application.");
+    var register = AO.api("POST", "/api/auth/register", {
+      first_name: $("#signup-first").val().trim(), last_name: $("#signup-last").val().trim(),
+      email: $("#signup-email").val().trim(), phone: $("#signup-phone").val().trim(),
+      password: $("#signup-password").val(), password_confirmation: $("#signup-confirm").val(), terms: $("#signup-terms").is(":checked")
+    }).then(function (res) {
+      AO.setToken(res.data.token);
+      return loadPortal();
     });
+    AO.busy($("#signup-submit"), register)
+      .done(function () {
+        enterApp();
+        showToast("Account created. Let's start your application.");
+      })
+      .fail(function (xhr) {
+        var errors = (xhr.responseJSON && xhr.responseJSON.errors) || {};
+        var shown = false;
+        Object.keys(errors).forEach(function (k) { if (SIGNUP_FIELDS[k]) { setError($(SIGNUP_FIELDS[k]), errors[k][0]); shown = true; } });
+        if (!shown) showToast(AO.apiError(xhr));
+      });
   });
 
   $("#forgot-form").on("submit", function (e) {
     e.preventDefault();
     if (!validateFields($(this))) return;
-    // BACKEND: POST /api/auth/forgot-password
-    $("#forgot-note").text("If an account exists for " + $("#forgot-email").val().trim() + ", a reset link is on its way.");
+    AO.api("POST", "/api/auth/forgot-password", { email: $("#forgot-email").val().trim() })
+      .done(function (res) { $("#forgot-note").text(res.message); })
+      .fail(function (xhr) { $("#forgot-note").text(AO.apiError(xhr)); });
   });
 
-  $(".logout-button").on("click", function () { leaveApp(); showToast("You've been signed out."); });
+  $(".logout-button").on("click", function () {
+    AO.api("POST", "/api/auth/logout");
+    leaveApp();
+    showToast("You've been signed out.");
+  });
+  // Token expired or revoked
+  $(document).on("ao:signedout", function () { if (!$("#app").prop("hidden")) { leaveApp(); showToast("Your session ended. Sign in again."); } });
 
   /* ==========================================================================
      NAVIGATION
@@ -441,7 +495,7 @@ $(function () {
       '<div class="fact"><span>Campus</span><strong>' + esc(d.campus || "Main Campus") + " · AY 2027–2028</strong></div>" +
       '<div class="fact"><span>Entrance exam</span><strong>Passed · 89th percentile</strong></div></div>';
     var steps = '<ol class="next-steps">' +
-      '<li><span>1</span><strong>Accept your offer and pay the reservation fee</strong><time>by ' + fmt("2027-03-20") + "</time></li>" +
+      '<li><span>1</span><strong>Accept your offer and pay the reservation fee</strong><time>by ' + fmt(keyDate("Reservation fee deadline", "2027-03-20")) + "</time></li>" +
       '<li><span>2</span><strong>Submit your medical requirements</strong><time>after accepting</time></li>' +
       '<li><span>3</span><strong>Enroll and choose your block section</strong><time>Jun 1 – 30, 2027</time></li></ol>';
     var actions = state.accepted
@@ -484,20 +538,24 @@ $(function () {
     if (!file) return;
     if (["application/pdf", "image/jpeg", "image/png"].indexOf(file.type) === -1) { $("#med-error").text("Choose a PDF, JPG, or PNG file."); return; }
     if (file.size > 10 * 1024 * 1024) { $("#med-error").text("This file is over 10 MB. Compress it or choose a smaller file."); return; }
-    // BACKEND: POST /api/applications/:id/medical/:key
-    state.medical.files[key] = { name: file.name, size: file.size, type: file.type };
-    save();
-    renderJourney();
-    showToast(MEDICAL.filter(function (m) { return m.key === key; })[0].title + " uploaded.");
+    var form = new FormData();
+    form.append("file", file);
+    AO.api("POST", "/api/applicant/medical/" + encodeURIComponent(key), form)
+      .done(function (res) {
+        applyPortal(res.data);
+        renderJourney();
+        showToast(MEDICAL.filter(function (m) { return m.key === key; })[0].title + " uploaded.");
+      })
+      .fail(function (xhr) { $("#med-error").text(AO.apiError(xhr)); });
   });
   $(document).on("click", "#submit-medical", function () {
-    // BACKEND: POST /api/applications/:id/medical/submit
-    withLoading($(this), 700, function () {
-      state.medical.status = "submitted";
-      save();
-      renderJourney();
-      showToast("Medical requirements sent to the university clinic.");
-    });
+    AO.busy($(this), AO.api("POST", "/api/applicant/medical/submit"))
+      .done(function (res) {
+        applyPortal(res.data);
+        renderJourney();
+        showToast("Medical requirements sent to the university clinic.");
+      })
+      .fail(function (xhr) { $("#med-error").text(AO.apiError(xhr)); });
   });
   $(document).on("click", "[data-stage-go]", function () { selectedStage = +$(this).data("stage-go"); renderJourney(); });
 
@@ -514,27 +572,26 @@ $(function () {
   }
 
   $(document).on("click", "#accept-offer", function () {
-    // BACKEND: POST /api/applications/:id/accept
-    var $btn = $(this);
-    withLoading($btn, 700, function () {
-      state.accepted = true;
-      save();
-      confetti();
-      selectedStage = 6;
-      renderJourney();
-      showToast("Offer accepted. Last step: submit your medical requirements.");
-    });
+    AO.busy($(this), AO.api("POST", "/api/applicant/offer/accept"))
+      .done(function (res) {
+        applyPortal(res.data);
+        confetti();
+        selectedStage = 6;
+        renderJourney();
+        showToast("Offer accepted. Last step: submit your medical requirements.");
+      })
+      .fail(function (xhr) { showToast(AO.apiError(xhr)); });
   });
 
   $(document).on("click", "#view-letter", function () {
     var d = state.data;
     var name = [d.firstName, d.middleName, d.lastName].filter(Boolean).join(" ");
     $("#offer-letter").html(
-      '<p class="letter-date">' + fmt("2027-02-13", { month: "long", day: "numeric", year: "numeric" }) + "</p>" +
+      '<p class="letter-date">' + fmt(keyDate("Release of results", "2027-02-13"), { month: "long", day: "numeric", year: "numeric" }) + "</p>" +
       "<h2>Offer of Admission</h2>" +
       "<p>Dear " + esc(name || "Applicant") + ",</p>" +
       "<p>Congratulations! On behalf of the Office of Admissions, we are pleased to offer you admission as a first-year student for the first semester of Academic Year 2027–2028.</p>" +
-      '<dl class="letter-box"><dt>Applicant</dt><dd>' + esc(name) + "</dd><dt>Application ID</dt><dd>" + APP_ID + "</dd><dt>Program</dt><dd>" + esc(d.program1 || PROGRAMS[0]) + "</dd><dt>Campus</dt><dd>" + esc(d.campus || "Main Campus") + "</dd><dt>Confirm by</dt><dd>" + fmt("2027-03-20", { month: "long", day: "numeric", year: "numeric" }) + "</dd></dl>" +
+      '<dl class="letter-box"><dt>Applicant</dt><dd>' + esc(name) + "</dd><dt>Application ID</dt><dd>" + APP_ID + "</dd><dt>Program</dt><dd>" + esc(d.program1 || PROGRAMS[0]) + "</dd><dt>Campus</dt><dd>" + esc(d.campus || "Main Campus") + "</dd><dt>Confirm by</dt><dd>" + fmt(keyDate("Reservation fee deadline", "2027-03-20"), { month: "long", day: "numeric", year: "numeric" }) + "</dd></dl>" +
       "<p>To secure your slot, accept this offer in the applicant portal and pay the reservation fee on or before the date above. Enrollment runs from June 1 to 30, 2027. Please bring the original copies of all documents you uploaded.</p>" +
       "<p>We look forward to seeing you on campus.</p>" +
       '<div class="letter-sign"><strong>Office of Admissions</strong>Pamantasan ng Lungsod ng Pasig</div>');
@@ -566,6 +623,7 @@ $(function () {
   function fillPrograms() {
     $(".program-select").each(function () {
       var $s = $(this);
+      $s.find("option").slice(1).remove();   // keep "Select a program"
       PROGRAMS.forEach(function (p) { $s.append($("<option>").text(p).val(p)); });
     });
   }
@@ -767,7 +825,7 @@ $(function () {
     if (allowed.indexOf(file.type) === -1) { $err.text(doc.imageOnly ? "Choose a JPG or PNG photo." : "Choose a PDF, JPG, or PNG file."); return; }
     if (file.size > 10 * 1024 * 1024) { $err.text("This file is over 10 MB. Compress it or choose a smaller file."); return; }
 
-    // BACKEND: upload the file to storage here (e.g. POST /api/applications/:id/documents/:key)
+    // ON HOLD (PROGRESS.md, H1): POST /api/applicant/documents/{requirement key} once the cards are mapped
     if (previews[key]) URL.revokeObjectURL(previews[key]);
     if (file.type.indexOf("image/") === 0) previews[key] = URL.createObjectURL(file); else delete previews[key];
     state.docs[key] = { name: file.name, size: file.size, type: file.type };
@@ -808,7 +866,7 @@ $(function () {
   var submitModal = bootstrap.Modal.getOrCreateInstance(document.getElementById("submitModal"));
   $("#submit-docs").on("click", function () { submitModal.show(); });
   $("#confirm-submit").on("click", function () {
-    // BACKEND: POST /api/applications/:id/submit
+    // ON HOLD (PROGRESS.md, H1): POST /api/applicant/submit once the cards upload to the server
     withLoading($(this), 800, function () {
       submitModal.hide();
       submitApplication();
@@ -831,8 +889,13 @@ $(function () {
     var d = state.data;
     var name = [d.firstName, d.lastName].filter(Boolean).join(" ") || "Applicant";
     var ini = ((d.firstName || "").charAt(0) + (d.lastName || "").charAt(0)).toUpperCase() || "A";
-    $("#sidebar-name").text(name);
+    $("#sidebar-name, #topbar-name").text(name);
     $("#sidebar-avatar, #topbar-avatar").text(ini);
+    // The application number from the server (the markup holds a sample one)
+    if (APP_ID) {
+      $(".id-chip").contents().last()[0].textContent = APP_ID;
+      $(".application-id strong").text(APP_ID);
+    }
     var h = new Date().getHours();
     $("#greeting").text((h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening") + ", " + (d.firstName || "there"));
   }
@@ -918,9 +981,10 @@ $(function () {
      BOOT
      ========================================================================== */
   paintIcons();
-  fillPrograms();
   initTooltips(document);
   var remembered = readJSON("local", REMEMBER_KEY);
   if (remembered) { $("#signin-email").val(remembered); $("#remember-me").prop("checked", true); }
-  if (readJSON("session", SESSION_KEY)) enterApp(); else showAuth("signin");
+  showAuth("signin");
+  // Still signed in in this tab: reload the application and go straight in
+  if (AO.getToken()) loadPortal().done(enterApp).fail(function () { AO.setToken(null); });
 });

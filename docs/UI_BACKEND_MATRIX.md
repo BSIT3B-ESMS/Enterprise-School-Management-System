@@ -32,22 +32,23 @@ Wiring: **To do** · **Built** (API exists, tested) · **Wired** (UI uses it).
 
 | UI element | Needs | FR/NFR | Endpoint | UI status | Wiring |
 |---|---|---|---|---|---|
-| Create account form (`#signup-form`: first, last, email, phone, password, confirm, terms) | Register applicant | FR-01, NFR-01 | `POST /api/auth/register` | Complete | To do |
-| Sign-in form (`#signin-form`) | Login, JWT | NFR-01 | `POST /api/auth/login` | Complete | To do |
-| Forgot password form | Send reset link | NFR-01 | `POST /api/auth/forgot-password` | Partial (no reset-password screen) | To do |
-| Sign out | Invalidate token | NFR-01 | `POST /api/auth/logout` | Complete | To do |
-| Session restore on load | Current user + portal state | NFR-01 | `GET /api/applicant/portal` | Complete | To do |
-| My application: 3 sections, autosave (`#application-form`, 23 named fields) | Save draft, section progress | FR-01, FR-02, FR-05 | `PUT /api/applicant/application` | Partial (missing residency/district/barangay) | To do |
-| Program 1 / Program 2 selects | Program choices (open programs) | FR-02 | `GET /api/applicant/portal` (`programs`) + `PUT /api/applicant/application` | Partial (2 choices, plan says up to 3) | To do |
-| Document cards: upload / replace / remove (8 cards) | Upload to private storage / DMS | FR-03 | `POST/DELETE /api/applicant/documents/{key}` | Partial (list differs from admin list) | To do |
-| Submit for review (`#confirm-submit`) | Lock and submit | FR-03, FR-05 | `POST /api/applicant/submit` | Complete | To do |
-| Journey stepper, status pill | Status timeline | FR-05 | `GET /api/applicant/portal` | Complete | To do |
-| Review / exam stage panels (date, time, venue, permit) | Exam schedule + permit | FR-06 | `GET /api/applicant/portal` (`exam`) | Placeholder (hard-coded `EXAM`) | To do |
-| Result stage + offer letter modal | Released result only, no score | FR-08, NFR-02 | `GET /api/applicant/portal` (`result`) | Partial (passed only; hard-coded "89th percentile") | To do |
-| Accept offer (`#accept-offer`) | Record acceptance | FR-08 | `POST /api/applicant/offer/accept` | Complete | To do |
-| Medical uploads + submit | Medical files | FR-13 | `POST /api/applicant/medical/{key}`, `POST /api/applicant/medical/submit` | Complete | To do |
-| Key dates card | Period dates | FR-09 | `GET /api/applicant/portal` (`keyDates`) | Placeholder (hard-coded) | To do |
-| Demo controls (advance / reset) | None (demo only) | — | — | Placeholder | Not wired |
+| Create account form (`#signup-form`: first, last, email, phone, password, confirm, terms) | Register applicant | FR-01, NFR-01 | `POST /api/auth/register` | Complete | Wired |
+| Sign-in form (`#signin-form`) | Login, JWT | NFR-01 | `POST /api/auth/login` | Complete | Wired |
+| Forgot password form | Send reset link | NFR-01 | `POST /api/auth/forgot-password` | Partial (no reset-password screen) | Wired (the reset itself is UI pending) |
+| Sign out | Invalidate token | NFR-01 | `POST /api/auth/logout` | Complete | Wired |
+| Session restore on load | Current user + portal state | NFR-01 | `GET /api/applicant/portal` | Complete | Wired |
+| My application: 3 sections, autosave (`#application-form`, 23 named fields) | Save draft, section progress | FR-01, FR-02, FR-05 | `PUT /api/applicant/application` | Partial (missing residency/district/barangay) | Wired |
+| Program 1 / Program 2 selects | Program choices (open programs) | FR-02 | `GET /api/applicant/portal` (`programs`) + `PUT /api/applicant/application` | Partial (2 choices, plan says up to 3) | Wired |
+| Document cards: upload / replace / remove (8 cards) | Upload to private storage / DMS | FR-03 | `POST/DELETE /api/applicant/documents/{key}` | Partial (list differs from admin list) | On hold (H1) |
+| Submit for review (`#confirm-submit`) | Lock and submit | FR-03, FR-05 | `POST /api/applicant/submit` | Complete | On hold (H1) |
+| Journey stepper, status pill | Status timeline | FR-05 | `GET /api/applicant/portal` | Complete | Wired |
+| Review / exam stage panels (date, time, venue, permit) | Exam schedule + permit | FR-06 | `GET /api/applicant/portal` (`exam`) | Placeholder (hard-coded `EXAM`) | Wired |
+| Result stage + offer letter modal | Released result only, no score | FR-08, NFR-02 | `GET /api/applicant/portal` (`result`) | Partial (passed only; hard-coded "89th percentile") | Wired |
+| Accept offer (`#accept-offer`) | Record acceptance | FR-08 | `POST /api/applicant/offer/accept` | Complete | Wired |
+| Medical uploads + submit | Medical files | FR-13 | `POST /api/applicant/medical/{key}`, `POST /api/applicant/medical/submit` | Complete | Wired |
+| Key dates card | Period dates | FR-09 | `GET /api/applicant/portal` (`keyDates`) | Placeholder (hard-coded) | Wired |
+| Demo controls (advance / reset) | None (demo only) | — | — | Placeholder | Not wired: changes beyond the form stay in the browser |
+| Profile view (`#view-profile`, `#profile-form`) | Edit name, email, phone | FR-01 | — | Placeholder (not reachable; never wired in the prototype) | Not wired |
 
 ### Admission office panel
 
@@ -91,5 +92,7 @@ Wiring: **To do** · **Built** (API exists, tested) · **Wired** (UI uses it).
 5. **Only 2 program choices** in the applicant form; the plan allows up to 3. The backend accepts 1–3.
 6. **Program lists differ** (applicant: 7 full names, admin: 11 codes). The database's program list is used by both.
 7. **Applicant-only items not in the plan:** campus, "accept offer", reservation fee and the application-fee payment upload.
+10. **Autosave label says "Saved on this device"** although the form is now saved on the server (UI text, unchanged).
+11. **Applicant "Required documents" card shows 0 of 8** for applicants whose documents went through the server (seeded data), because the cards are still browser-only (H1).
 9. **Office panel doesn't adapt to the signed-in role.** The clinic account sees every screen and the sidebar label always says "Admission personnel". The server refuses actions outside the role (with a message), but the UI should hide them.
 8. **Admin panel loads all applicants at once** (filtering, charts and CSV run in the browser). This works for the prototype; at ~20,000 applicants it needs server-side paging (Phase 10).

@@ -82,6 +82,20 @@ class ApplicantForm
         ];
     }
 
+    /** Messages for checks only the server can make; the rest mirror the form's own wording. */
+    public const MESSAGES = [
+        'lrn.unique' => 'This LRN is already used by another application.',
+        'lrn.regex' => 'The LRN has exactly 12 digits.',
+        'phone.regex' => 'Use a PH mobile number, like +63 917 123 4567.',
+        'guardianPhone.regex' => 'Use a PH mobile number, like +63 917 123 4567.',
+        'zip.regex' => 'ZIP codes have 4 digits.',
+        'program2.different' => 'Pick a different program from your first choice.',
+        'program1.in' => 'This program is not open for applications.',
+        'program2.in' => 'This program is not open for applications.',
+        'birthDate.before' => 'Check your date of birth.',
+        'birthDate.after' => 'Check your date of birth.',
+    ];
+
     /** Fields each section needs before it can be marked complete (the form's `required`). */
     public const SECTION_REQUIRED = [
         1 => ['firstName', 'lastName', 'phone', 'birthDate', 'sex', 'civilStatus', 'address', 'city', 'province', 'guardianName', 'guardianPhone'],
