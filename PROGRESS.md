@@ -1,5 +1,85 @@
 # Backend Progress
 
+## ▶ How to run the system (step by step)
+
+These steps are for Windows with [Laravel Herd](https://herd.laravel.com), which installs PHP and Composer. Run the commands in PowerShell or the VS Code terminal, from the project folder.
+
+**1. Get the code on the `backend` branch**
+```powershell
+cd D:\Admission_System
+git checkout backend
+git pull
+```
+
+**2. Install the PHP packages**
+```powershell
+composer install
+```
+
+**3. Create your settings file and keys**
+```powershell
+copy .env.example .env
+php artisan key:generate
+php artisan jwt:secret
+```
+
+**4. Edit `.env` for local use.** Open `.env` and change these lines:
+```
+APP_ENV=local
+MAIL_MAILER=log
+QUEUE_CONNECTION=sync
+```
+- `MAIL_MAILER=log` writes emails to `storage/logs/laravel.log` instead of sending them.
+- `QUEUE_CONNECTION=sync` sends them right away, so no background worker is needed.
+
+**5. Choose a database.**
+- **Option A, SQLite (easiest):** set `DB_CONNECTION=sqlite`, delete the other `DB_` lines (`DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`), then create the empty database file:
+  ```powershell
+  New-Item database\database.sqlite -ItemType File
+  ```
+- **Option B, MySQL:** create an empty database called `admission_system`, then fill in `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME` and `DB_PASSWORD` in `.env`.
+
+**6. Create the tables and sample data**
+```powershell
+php artisan migrate --seed
+```
+This creates the programs, requirements, admission period and the sysadmin account. Because `APP_ENV=local`, it also creates demo staff and 60 sample applicants, which takes about a minute. **Copy the sysadmin password it prints.**
+
+**7. Start the server**
+```powershell
+php artisan serve
+```
+Leave this window open. Press `Ctrl+C` to stop the server.
+
+**8. Open the system in your browser**
+
+| Screen | Address | Sign in with |
+|---|---|---|
+| Applicant portal | http://127.0.0.1:8000/ | Click **Create account**, or use a sample applicant (any email from the Applicants list in the admin panel) with password `password123` |
+| Admission office | http://127.0.0.1:8000/admin | `admissions@plpasig.edu.ph` / `password123` |
+| Clinic (medical) | http://127.0.0.1:8000/admin | `clinic@plpasig.edu.ph` / `password123` |
+
+**9. (Optional) Sysadmin tasks.** These are command-line only; staff can't do them:
+```powershell
+php artisan user:create name@plpasig.edu.ph "Full Name" admission   # admission | clinic | sysadmin
+php artisan user:active name@plpasig.edu.ph off                     # off = disable, on = enable
+php artisan user:2fa name@plpasig.edu.ph totp                       # totp | email | off
+```
+
+**10. (Optional) Run the tests, or start over with fresh data**
+```powershell
+php artisan test
+php artisan migrate:fresh --seed
+```
+
+**Troubleshooting**
+- *"php" or "composer" is not recognized:* install Herd, then open a new terminal.
+- *"Database file … does not exist":* you skipped the `New-Item` command in step 5.
+- *Sign-in fails right after setup:* check that you ran `php artisan jwt:secret` in step 3.
+- *Port 8000 is busy:* use `php artisan serve --port=8080` and open `http://127.0.0.1:8080` instead.
+
+**Production setup** (architecture diagram): Nginx in front ([docs/deploy/nginx.conf](docs/deploy/nginx.conf)), PHP-FPM and RDS MySQL. Set `MAIL_MAILER=failover` with the Gmail and Brevo credentials and `QUEUE_CONNECTION=database`. Run two background processes: `php artisan queue:work` (emails) and `php artisan schedule:work`, or a cron job that runs `schedule:run` every minute. Never commit `.env` to Git.
+
 ## ❓ Waiting on answers
 
 1. **How should the 8 applicant document cards map to the official requirements (H1)?** Nothing can be submitted from the portal until this is settled. Details under "On hold" below.
@@ -111,44 +191,3 @@ Legend: ✅ done · 🔄 in progress · ⬜ to do · ⏸ deferred
 4. "Slot deadlines" in the scheduler (architecture diagram): what should happen when a passer doesn't accept or pay by the reservation deadline? Nothing is automated until this is defined.
 5. Who owns sysadmin duties (D7), and the clinic's real medical requirement list (the seeded one is a placeholder)?
 6. What should "Reset demo data" in the panel do on a real server? It currently just reloads.
-
-## How to run
-
-**Needs:** PHP 8.3+ with `pdo_sqlite` (or `pdo_mysql`), Composer. [Laravel Herd](https://herd.laravel.com) on Windows has both.
-
-```bash
-git checkout backend
-composer install
-cp .env.example .env
-php artisan key:generate
-php artisan jwt:secret
-```
-
-Database, pick one:
-- **SQLite (quickest):** in `.env` set `DB_CONNECTION=sqlite` and delete the other `DB_` lines, then create an empty file `database/database.sqlite` (or answer "yes" when `migrate` offers to create it).
-- **MySQL:** create a database `admission_system` and fill `DB_HOST`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`.
-
-For local use also set `APP_ENV=local`, `MAIL_MAILER=log` (emails go to `storage/logs/laravel.log` instead of being sent) and `QUEUE_CONNECTION=sync` (no worker needed).
-
-```bash
-php artisan migrate --seed    # tables + programs, requirements, sysadmin; plus demo data when APP_ENV=local
-php artisan serve
-```
-
-Open:
-- Applicant portal: http://127.0.0.1:8000/ (create an account, or sign in as a seeded applicant, e.g. `elijah.aquino14@example.com` / `password123`)
-- Admission office: http://127.0.0.1:8000/admin
-  - Admission personnel: `admissions@plpasig.edu.ph` / `password123`
-  - Clinic: `clinic@plpasig.edu.ph` / `password123`
-
-The sysadmin's password is printed by the seeder (or set `SYSADMIN_PASSWORD` first). Sysadmin work is done from the command line:
-
-```bash
-php artisan user:create name@plpasig.edu.ph "Full Name" admission   # admission | clinic | sysadmin
-php artisan user:active name@plpasig.edu.ph off                     # disable / re-enable (on)
-php artisan user:2fa name@plpasig.edu.ph totp                       # totp | email | off
-```
-
-Tests: `php artisan test`. Start over with fresh demo data: `php artisan migrate:fresh --seed`.
-
-**Production-like setup** (architecture diagram): Nginx in front ([docs/deploy/nginx.conf](docs/deploy/nginx.conf)), PHP-FPM, RDS MySQL, `MAIL_MAILER=failover` with the Gmail and Brevo credentials, `QUEUE_CONNECTION=database`, and two background processes: `php artisan queue:work` (emails) and `php artisan schedule:work` (or cron running `schedule:run` every minute). Keep `.env` out of Git.
