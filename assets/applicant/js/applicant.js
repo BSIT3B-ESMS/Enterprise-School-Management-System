@@ -1,5 +1,6 @@
 /* ==========================================================================
-   ADMITONE — Applicant Portal (jQuery 3.7 + Bootstrap 5.3)
+   PLP Online Admission — Applicant Portal (jQuery 3.7 + Bootstrap 5.3)
+   Needs assets/shared/js/core.js loaded first (window.AO).
    Front-end demo: sign-in, form data, uploads and admission decisions are
    simulated in the browser. Look for "BACKEND:" comments for real API calls.
    ========================================================================== */
@@ -21,15 +22,23 @@ $(function () {
     { id: 3, title: "Program choice", short: "Program", desc: "Choose the programs and campus you're applying to." }
   ];
 
-  // Overview journey: seven stages
+  // Overview journey: six stages. Stage 1 covers all three form sections.
   var JOURNEY = [
-    { id: 1, short: "Personal", title: "Personal information", icon: "user" },
-    { id: 2, short: "Academic", title: "Academic background", icon: "book" },
-    { id: 3, short: "Program", title: "Program choice", icon: "star" },
-    { id: 4, short: "Documents", title: "Required documents", icon: "folder" },
-    { id: 5, short: "Review", title: "Admissions review", icon: "search" },
-    { id: 6, short: "Exam", title: "Entrance exam", icon: "pencil" },
-    { id: 7, short: "Result", title: "Admission result", icon: "award" }
+    { id: 1, short: "Application", title: "Application form", icon: "file" },
+    { id: 2, short: "Documents", title: "Required documents", icon: "folder" },
+    { id: 3, short: "Review", title: "Admissions review", icon: "search" },
+    { id: 4, short: "Exam", title: "Entrance exam", icon: "pencil" },
+    { id: 5, short: "Result", title: "Admission result", icon: "award" },
+    { id: 6, short: "Medical", title: "Medical requirements", icon: "shield" }
+  ];
+  var STAGES = JOURNEY.length;
+
+  // Medical requirements, submitted after accepting the offer (last step).
+  // Placeholder list: replace with the university clinic's official requirements.
+  var MEDICAL = [
+    { key: "medCert", title: "Medical certificate", desc: "Signed by a licensed physician, dated within the last 3 months." },
+    { key: "xray", title: "Chest X-ray result (PA view)", desc: "Official result with the radiologist's reading." },
+    { key: "labs", title: "Laboratory results", desc: "Complete blood count (CBC) and urinalysis." }
   ];
 
   // Required documents — edit titles and descriptions here
@@ -65,76 +74,15 @@ $(function () {
   var APP_FEE = "₱500";
 
   /* ==========================================================================
-     ICONS (inline SVG, inherit currentColor)
+     SHARED CORE (assets/shared/js/core.js)
      ========================================================================== */
-  var ICONS = {
-    home: '<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/>',
-    file: '<path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/>',
-    folder: '<path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2.5h8.5A1.5 1.5 0 0 1 21 9v9.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z"/>',
-    user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>',
-    users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c1.2-3.4 3.6-5 6.5-5s5.3 1.6 6.5 5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 15c1.9.6 3 2.3 3.5 5"/>',
-    idcard: '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2.2"/><path d="M5.8 16c.7-1.4 1.8-2 3.2-2s2.5.6 3.2 2M14.5 10h4M14.5 13.5h3"/>',
-    stamp: '<path d="M9 3h6l-1 6h-4z"/><path d="M4 13h16v4H4zM6 21h12"/>',
-    shield: '<path d="M12 3l8 3v6c0 4.5-3.3 7.8-8 9-4.7-1.2-8-4.5-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/>',
-    scroll: '<path d="M7 3h11a2 2 0 0 1 2 2v2h-4"/><path d="M16 7v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2h10"/><path d="M7 3a2 2 0 0 0-2 2v12M9 8h4M9 12h4"/>',
-    camera: '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
-    wallet: '<path d="M4 7h15a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a2 2 0 0 1 2-2h11v3"/><path d="M15.5 13.5h.01"/>',
-    book: '<path d="M4 5a2 2 0 0 1 2-2h13v15H6a2 2 0 0 0-2 2z"/><path d="M4 20a2 2 0 0 0 2 1h13"/>',
-    search: '<circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/>',
-    pencil: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>',
-    award: '<circle cx="12" cy="9" r="6"/><path d="M8.5 14 7 21l5-3 5 3-1.5-7"/>',
-    logout: '<path d="M15 4h4v16h-4"/><path d="M10 8l-4 4 4 4M6 12h10"/>',
-    menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
-    check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
-    arrowR: '<path d="M5 12h14M13 6l6 6-6 6"/>',
-    arrowL: '<path d="M19 12H5M11 6l-6 6 6 6"/>',
-    upload: '<path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v4h16v-4"/>',
-    send: '<path d="M21 3 10 14"/><path d="M21 3l-7 18-4-7-7-4z"/>',
-    refresh: '<path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/>',
-    trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
-    eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
-    eyeOff: '<path d="M3 3l18 18"/><path d="M10.6 5.1A10 10 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7a9.6 9.6 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>',
-    clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
-    pin: '<path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',
-    lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
-    help: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7M12 17h.01"/>',
-    ticket: '<path d="M3 8a2 2 0 0 0 2-2h14a2 2 0 0 0 2 2v8a2 2 0 0 0-2 2H5a2 2 0 0 0-2-2z"/><path d="M14 6v12" stroke-dasharray="2 2"/>'
-  };
-  var STAR = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M12 1.5c.7 5.6 3.4 8.6 10.5 10.5-7.1 1.9-9.8 4.9-10.5 10.5-.7-5.6-3.4-8.6-10.5-10.5C8.6 10.1 11.3 7.1 12 1.5z"/></svg>';
-
-  function icon(name) {
-    if (name === "star") return STAR;
-    return '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + (ICONS[name] || "") + "</svg>";
-  }
-  function paintIcons(root) {
-    $(root || document).find("[data-icon]").each(function () {
-      if (!this.firstElementChild) this.innerHTML = icon(this.getAttribute("data-icon"));
-    });
-  }
-
-  /* ==========================================================================
-     HELPERS
-     ========================================================================== */
-  function store(kind) { try { return kind === "session" ? window.sessionStorage : window.localStorage; } catch (e) { return null; } }
-  function readJSON(kind, key) { try { var s = store(kind); var v = s && s.getItem(key); return v ? JSON.parse(v) : null; } catch (e) { return null; } }
-  function writeJSON(kind, key, value) { try { var s = store(kind); if (s) s.setItem(key, JSON.stringify(value)); } catch (e) { /* storage blocked */ } }
-  function removeKey(kind, key) { try { var s = store(kind); if (s) s.removeItem(key); } catch (e) { /* storage blocked */ } }
-
-  function esc(str) { return String(str == null ? "" : str).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
-  function parseDate(iso) { var p = iso.split("-"); return new Date(+p[0], +p[1] - 1, +p[2]); }
-  function today() { var d = new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
-  function toISO(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
-  function fmt(iso, opts) { return parseDate(iso).toLocaleDateString("en-US", opts || { month: "short", day: "numeric", year: "numeric" }); }
-  function daysUntil(iso) { return Math.round((parseDate(iso) - today()) / 86400000); }
-  function fileSize(bytes) { return bytes > 1048576 ? (bytes / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(bytes / 1024)) + " KB"; }
-  function reducedMotion() { return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches; }
-
-  /* Count a number up or down inside an element */
-  function animateCount($el, to) {
-    var from = parseInt($el.text(), 10) || 0;
-    if (from === to || reducedMotion()) { $el.text(to); return; }
-    $({ v: from }).animate({ v: to }, { duration: 700, easing: "swing", step: function (now) { $el.text(Math.round(now)); }, complete: function () { $el.text(to); } });
-  }
+  var icon = AO.icon, STAR = AO.STAR, paintIcons = AO.paintIcons;
+  var readJSON = AO.readJSON, writeJSON = AO.writeJSON, removeKey = AO.removeKey;
+  var esc = AO.esc, parseDate = AO.parseDate, today = AO.today, toISO = AO.toISO, fmt = AO.fmt, daysUntil = AO.daysUntil;
+  var fileSize = AO.fileSize, reducedMotion = AO.reducedMotion, animateCount = AO.animateCount;
+  var showToast = AO.showToast, withLoading = AO.withLoading;
+  var setError = AO.setError, clearError = AO.clearError, validateFields = AO.validateFields;
+  var moveNavIndicator = AO.moveNavIndicator, closeSidebar = AO.closeSidebar, revealView = AO.revealView, initTooltips = AO.initTooltips;
 
   /* Progress ring (r = 52 → circumference 326.7) */
   function setRing($ring, value, total) {
@@ -143,25 +91,12 @@ $(function () {
     $ring.toggleClass("full", value === total);
   }
 
-  /* ---------- Toast (Bootstrap) ---------- */
-  var toast = bootstrap.Toast.getOrCreateInstance(document.getElementById("portal-toast"), { delay: 3200 });
-  function showToast(message) { $("#toast-message").text(message); toast.show(); }
-
-  /* ---------- Button ripple ---------- */
-  $(document).on("pointerdown", ".btn", function (e) {
-    if (reducedMotion()) return;
-    var rect = this.getBoundingClientRect();
-    var size = Math.max(rect.width, rect.height);
-    $('<span class="ripple"></span>').css({ width: size, height: size, left: e.clientX - rect.left - size / 2, top: e.clientY - rect.top - size / 2 })
-      .appendTo(this).on("animationend", function () { $(this).remove(); });
-  });
-
   /* ---------- Confetti (canvas, palette colours) ---------- */
   var confettiCanvas = document.getElementById("confetti");
   var confettiCtx = confettiCanvas.getContext("2d");
   function confetti() {
     if (reducedMotion()) return;
-    var colors = ["#7B75C9", "#80A4D4", "#9FE2EE", "#8fd3a8", "#f2c76e", "#5f58b8"];
+    var colors = ["#17803f", "#3fa45f", "#a9ddb8", "#8fd3a8", "#f2c76e", "#d9ae3a"];
     var w = confettiCanvas.width = window.innerWidth;
     var h = confettiCanvas.height = window.innerHeight;
     var pieces = [];
@@ -203,7 +138,8 @@ $(function () {
       docs: {},                // { key: { name, size, type } }
       phase: "draft",          // draft → review → exam → result
       submittedAt: null,
-      accepted: false
+      accepted: false,
+      medical: { files: {}, status: "none" }   // none → submitted → cleared
     };
   }
   var state = $.extend(true, freshState(), readJSON("local", STORAGE_KEY) || {});
@@ -220,15 +156,18 @@ $(function () {
   function docCount() { return DOCS.filter(function (d) { return state.docs[d.key]; }).length; }
   function locked() { return state.phase !== "draft"; }
 
+  function medCount() { return MEDICAL.filter(function (m) { return state.medical.files[m.key]; }).length; }
+
   function journeyDone(n) {
-    if (n <= 3) return isDone(n);
-    if (n === 4) return state.phase !== "draft";
-    if (n === 5) return state.phase === "exam" || state.phase === "result";
-    if (n === 6) return state.phase === "result";
-    return state.phase === "result" && state.accepted;
+    if (n === 1) return sectionsDone();
+    if (n === 2) return state.phase !== "draft";
+    if (n === 3) return state.phase === "exam" || state.phase === "result";
+    if (n === 4) return state.phase === "result";
+    if (n === 5) return state.phase === "result" && state.accepted;
+    return state.medical.status === "cleared";
   }
-  function journeyCurrent() { for (var i = 1; i <= 7; i++) if (!journeyDone(i)) return i; return 7; }
-  function journeyPercent() { var n = 0; for (var i = 1; i <= 7; i++) if (journeyDone(i)) n++; return Math.round(n / 7 * 100); }
+  function journeyCurrent() { for (var i = 1; i <= STAGES; i++) if (!journeyDone(i)) return i; return STAGES; }
+  function journeyPercent() { var n = 0; for (var i = 1; i <= STAGES; i++) if (journeyDone(i)) n++; return Math.round(n / STAGES * 100); }
 
   /* ==========================================================================
      AUTH (simulated)
@@ -259,22 +198,10 @@ $(function () {
     window.scrollTo(0, 0);
   }
 
-  function withLoading($btn, ms, done) {
-    $btn.addClass("loading").prop("disabled", true);
-    setTimeout(function () { $btn.removeClass("loading").prop("disabled", false); done(); }, ms);
-  }
-
   $("#tab-signin").on("click", function () { showAuth("signin"); });
   $("#tab-signup").on("click", function () { showAuth("signup"); });
   $("#forgot-link").on("click", function () { $("#forgot-email").val($("#signin-email").val()); $("#forgot-note").text(""); showAuth("forgot"); });
   $(".back-to-signin").on("click", function () { showAuth("signin"); });
-
-  $(document).on("click", ".pw-toggle", function () {
-    var $input = $("#" + $(this).data("target"));
-    var show = $input.attr("type") === "password";
-    $input.attr("type", show ? "text" : "password");
-    $(this).attr({ "aria-pressed": show, "aria-label": show ? "Hide password" : "Show password" }).html(icon(show ? "eyeOff" : "eye"));
-  });
 
   $("#signin-form").on("submit", function (e) {
     e.preventDefault();
@@ -319,59 +246,9 @@ $(function () {
   $(".logout-button").on("click", function () { leaveApp(); showToast("You've been signed out."); });
 
   /* ==========================================================================
-     VALIDATION (Bootstrap .is-invalid + .invalid-feedback)
-     ========================================================================== */
-  function labelFor(el) {
-    var txt = $("label[for='" + el.id + "']").first().clone().children().remove().end().text().trim();
-    return txt || "This field";
-  }
-  function setError($input, msg) {
-    var errId = $input.attr("id") + "-error";
-    $input.addClass("is-invalid").attr({ "aria-invalid": "true", "aria-describedby": errId });
-    $("#" + errId).text(msg).addClass("d-block");
-  }
-  function clearError($input) {
-    $input.removeClass("is-invalid").removeAttr("aria-invalid");
-    $("#" + $input.attr("id") + "-error").text("").removeClass("d-block");
-  }
-  function messageFor(el) {
-    var v = el.validity;
-    if (el.type === "checkbox" && v.valueMissing) return "Please tick this box to continue.";
-    if (v.valueMissing) return labelFor(el) + " is required.";
-    if (v.typeMismatch && el.type === "email") return "Enter a valid email, like name@email.com.";
-    if (v.patternMismatch) return el.getAttribute("data-msg-pattern") || "Check the format of this field.";
-    if (v.rangeUnderflow || v.rangeOverflow || v.stepMismatch) return el.getAttribute("data-msg-range") || "Enter a value in the allowed range.";
-    return "Check this field.";
-  }
-  function validateFields($scope) {
-    var ok = true;
-    $scope.find("input, select").filter(":not([type=file]):not([readonly])").each(function () {
-      if (!this.id) return;
-      if (this.minLength > 0 && this.value && this.value.length < this.minLength) { setError($(this), "Use at least " + this.minLength + " characters."); ok = false; return; }
-      if (!this.checkValidity()) { setError($(this), messageFor(this)); ok = false; } else clearError($(this));
-    });
-    if (!ok) $scope.find(".is-invalid").first().trigger("focus");
-    return ok;
-  }
-  $(document).on("input change", ".is-invalid", function () { if (this.checkValidity()) clearError($(this)); });
-
-  /* ==========================================================================
      NAVIGATION
      ========================================================================== */
   var PAGE_LABELS = { overview: "Overview", application: "My application", documents: "Documents" };
-
-  function moveNavIndicator() {
-    var $active = $(".sidebar-nav .nav-link.active");
-    if ($active.length) $(".nav-indicator").css("transform", "translateY(" + $active[0].offsetTop + "px)");
-  }
-
-  function revealView($view) {
-    $view.find("[data-reveal]").each(function (i) {
-      $(this).removeClass("reveal-in");
-      void this.offsetWidth;
-      $(this).css("--d", (i * 80) + "ms").addClass("reveal-in");
-    });
-  }
 
   function openView(name) {
     var $target = $("#view-" + name);
@@ -390,12 +267,6 @@ $(function () {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  function closeSidebar() {
-    $("#sidebar").removeClass("open");
-    $("#sidebar-backdrop").removeClass("show");
-    $(".menu-toggle").attr("aria-expanded", "false");
-  }
-
   $(document).on("click", "[data-view]", function (e) { e.preventDefault(); openView($(this).data("view")); });
   $(document).on("click", "[data-goto]", function (e) {
     e.preventDefault();
@@ -407,14 +278,6 @@ $(function () {
     save();
     openView("application");
   });
-  $(".menu-toggle").on("click", function () {
-    var open = !$("#sidebar").hasClass("open");
-    $("#sidebar").toggleClass("open", open);
-    $("#sidebar-backdrop").toggleClass("show", open);
-    $(this).attr("aria-expanded", open ? "true" : "false");
-  });
-  $("#sidebar-backdrop").on("click", closeSidebar);
-  $(window).on("resize", moveNavIndicator);
 
   /* ==========================================================================
      STEPPERS (shared builder)
@@ -468,13 +331,13 @@ $(function () {
     buildStepper($list, JOURNEY);
     if (selectedStage === null || selectedStage > current) selectedStage = current;
 
-    var subs = { 5: "Under review", 6: "Scheduled", 7: "Released" };
+    var subs = { 3: "Under review", 4: "Scheduled", 5: "Released", 6: state.medical.status === "submitted" ? "Checking" : "To submit" };
     updateStepper($list, {
       done: journeyDone, current: current, selected: selectedStage,
       canVisit: function (n) { return n <= current; },
       titleFor: function (n) { return JOURNEY[n - 1].title; },
       subFor: function (n, status) { return status === "In progress" && subs[n] ? subs[n] : status; },
-      caption: "Step " + selectedStage + " of 7 · " + JOURNEY[selectedStage - 1].title
+      caption: "Step " + selectedStage + " of " + STAGES + " · " + JOURNEY[selectedStage - 1].title
     });
 
     var pct = journeyPercent();
@@ -482,9 +345,11 @@ $(function () {
     $("#journey-progress").attr("aria-valuenow", pct);
     animateCount($("#journey-percent"), pct);
 
-    var titles = { draft: "Step " + current + " of 7 · " + JOURNEY[current - 1].title, review: "Your application is under review", exam: "You're scheduled for the entrance exam", result: state.accepted ? "Offer accepted · See you in August" : "Your admission result is in" };
+    var med = state.medical.status;
+    var resultTitle = !state.accepted ? "Your admission result is in" : med === "cleared" ? "Admission complete · See you in August" : med === "submitted" ? "Your medical requirements are being checked" : "Last step · Submit your medical requirements";
+    var titles = { draft: "Step " + current + " of " + STAGES + " · " + JOURNEY[current - 1].title, review: "Your application is under review", exam: "You're scheduled for the entrance exam", result: resultTitle };
     $("#journey-title").text(titles[state.phase]);
-    var pill = { draft: ["draft", "Draft"], review: ["review", "Under review"], exam: ["exam", "Exam scheduled"], result: ["admitted", "Admitted"] }[state.phase];
+    var pill = { draft: ["draft", "Draft"], review: ["review", "Under review"], exam: ["exam", "Exam scheduled"], result: state.accepted && med !== "cleared" ? ["review", med === "submitted" ? "Medical check" : "Medical pending"] : ["admitted", "Admitted"] }[state.phase];
     $("#status-pill").attr("class", "status-pill " + pill[0]).text(pill[1]);
 
     renderStagePanel(selectedStage);
@@ -512,23 +377,23 @@ $(function () {
     var current = journeyCurrent();
     var done = journeyDone(n);
 
-    // Sections 1–3
-    if (n <= 3) {
-      var summaries = {
-        1: [d.firstName && (d.firstName + " " + (d.lastName || "")), d.email, d.phone, d.city],
-        2: [d.lastSchool, d.strand, d.gwa && ("Average " + d.gwa)],
-        3: [d.program1, d.campus]
-      };
-      var chips = summaries[n].filter(Boolean).map(function (t) { return '<span class="chip-doc">' + esc(t) + "</span>"; }).join("");
+    // Application form: personal, academic and program sections in one stage
+    if (n === 1) {
+      var sectionChips = SECTIONS.map(function (sec) {
+        var ok = isDone(sec.id);
+        return '<span class="chip-doc' + (ok ? " ok" : "") + '">' + (ok ? icon("check") : "") + esc(sec.title) + "</span>";
+      }).join("");
+      var facts = [d.firstName && (d.firstName + " " + (d.lastName || "")), d.lastSchool, d.program1].filter(Boolean)
+        .map(function (t) { return '<span class="chip-doc">' + esc(t) + "</span>"; }).join("");
       return '<div class="sp-row"><span class="sp-icon">' + icon(s.icon) + '</span><div class="sp-body">' +
-        "<h3>" + esc(s.title) + (done ? " · complete" : "") + "</h3>" +
-        "<p>" + (done ? "Saved in My application." : SECTIONS[n - 1].desc) + "</p>" +
-        (chips ? '<div class="sp-chips">' + chips + "</div>" : "") +
-        '</div><div class="sp-actions"><button class="btn ' + (done ? "btn-ghost" : "btn-brand") + '" type="button" data-goto="' + n + '">' + (done ? (locked() ? "View" : "Edit") : "Continue") + icon("arrowR") + "</button></div></div>";
+        "<h3>" + (done ? "Application form complete" : state.completed.length + " of " + SECTIONS.length + " sections done") + "</h3>" +
+        "<p>" + (done ? "Your personal, academic, and program details are saved in My application." : "Fill in your personal information, academic background, and program choices.") + "</p>" +
+        '<div class="sp-chips">' + sectionChips + "</div>" + (done && facts ? '<div class="sp-chips">' + facts + "</div>" : "") +
+        '</div><div class="sp-actions"><button class="btn ' + (done ? "btn-ghost" : "btn-brand") + '" type="button" data-goto="' + (done ? 1 : firstOpenSection()) + '">' + (done ? (locked() ? "View" : "Edit") : "Continue") + icon("arrowR") + "</button></div></div>";
     }
 
     // Documents
-    if (n === 4) {
+    if (n === 2) {
       var count = docCount();
       var docChips = DOCS.map(function (doc) {
         var ok = !!state.docs[doc.key];
@@ -542,7 +407,7 @@ $(function () {
     }
 
     // Review
-    if (n === 5) {
+    if (n === 3) {
       if (done) {
         return '<div class="sp-row"><span class="sp-icon">' + icon("shield") + '</span><div class="sp-body"><h3>Application approved for the entrance exam</h3><p>Your form and all 8 documents were verified by the admissions team.</p></div></div>';
       }
@@ -554,7 +419,7 @@ $(function () {
     }
 
     // Exam
-    if (n === 6) {
+    if (n === 4) {
       var ed = parseDate(EXAM.date);
       var ticket = '<div class="exam-ticket"><div class="ticket-date"><span>' + ed.toLocaleDateString("en-US", { month: "short" }) + "</span><strong>" + ed.getDate() + "</strong></div>" +
         '<div class="ticket-info"><strong>' + ed.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" }) + "</strong>" +
@@ -566,6 +431,9 @@ $(function () {
         "<p>Arrive 30 minutes early. Bring the valid ID you uploaded, your exam permit, two pencils, and an eraser.</p>" + ticket + "</div></div>";
     }
 
+    // Medical requirements (last step)
+    if (n === 6) return medicalPanelHTML();
+
     // Result
     var first = esc(d.firstName || "applicant");
     var facts = '<div class="result-facts">' +
@@ -574,17 +442,64 @@ $(function () {
       '<div class="fact"><span>Entrance exam</span><strong>Passed · 89th percentile</strong></div></div>';
     var steps = '<ol class="next-steps">' +
       '<li><span>1</span><strong>Accept your offer and pay the reservation fee</strong><time>by ' + fmt("2027-03-20") + "</time></li>" +
-      '<li><span>2</span><strong>Enroll and choose your block section</strong><time>Jun 1 – 30, 2027</time></li>' +
-      '<li><span>3</span><strong>Freshman orientation</strong><time>' + fmt("2027-08-02") + "</time></li></ol>";
+      '<li><span>2</span><strong>Submit your medical requirements</strong><time>after accepting</time></li>' +
+      '<li><span>3</span><strong>Enroll and choose your block section</strong><time>Jun 1 – 30, 2027</time></li></ol>';
     var actions = state.accepted
-      ? '<div class="result-actions"><span class="accepted-banner">' + icon("check") + 'Offer accepted</span><button class="btn btn-ghost" type="button" id="view-letter">View offer letter</button></div>'
+      ? '<div class="result-actions"><span class="accepted-banner">' + icon("check") + 'Offer accepted</span><button class="btn btn-brand" type="button" data-stage-go="6">Medical requirements' + icon("arrowR") + '</button><button class="btn btn-ghost" type="button" id="view-letter">View offer letter</button></div>'
       : '<div class="result-actions"><button class="btn btn-brand" type="button" id="accept-offer">Accept offer' + icon("arrowR") + '</button><button class="btn btn-ghost" type="button" id="view-letter">View offer letter</button></div>';
     return '<div class="result-card"><div class="result-seal">' + STAR + "</div>" +
       '<p class="eyebrow">Admission result · AY 2027–2028</p>' +
       '<h3>Congratulations, <span class="shine">' + first + "!</span></h3>" +
-      "<p>You've been admitted to the " + esc(d.program1 || PROGRAMS[0]) + " program. We're excited to welcome you to ADMITONE this August.</p>" +
+      "<p>You've been admitted to the " + esc(d.program1 || PROGRAMS[0]) + " program. We're excited to welcome you to Pamantasan ng Lungsod ng Pasig this August.</p>" +
       facts + steps + actions + "</div>";
   }
+
+  function medicalPanelHTML() {
+    var med = state.medical;
+    if (med.status === "cleared") {
+      return '<div class="sp-row"><span class="sp-icon">' + icon("shield") + '</span><div class="sp-body"><h3>Medically cleared · your admission is complete</h3>' +
+        "<p>The university clinic verified your medical requirements. Watch for your enrollment schedule from June 1 to 30, 2027.</p></div></div>";
+    }
+    if (med.status === "submitted") {
+      return '<div class="sp-row"><span class="scan-doc" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><div class="sp-body">' +
+        "<h3>The clinic is checking your medical files</h3><p>This usually takes 3 to 5 working days. We'll notify you once you're cleared, or if a file needs to be replaced.</p>" +
+        '<div class="sp-chips">' + MEDICAL.map(function (m) { return '<span class="chip-doc ok">' + icon("check") + esc(m.title) + "</span>"; }).join("") + "</div></div></div>";
+    }
+    var count = medCount();
+    return '<div class="sp-row sp-row-top"><span class="sp-icon">' + icon("shield") + '</span><div class="sp-body">' +
+      "<h3>Submit your medical requirements</h3><p>This is the last step of your admission. Upload a clear PDF, JPG, or PNG of each one, up to 10 MB.</p>" +
+      '<ul class="med-list">' + MEDICAL.map(function (m) {
+        var f = med.files[m.key];
+        return '<li class="' + (f ? "ok" : "") + '"><span class="mini-check">' + (f ? icon("check") : "") + "</span><div><strong>" + esc(m.title) + "</strong><small>" + esc(f ? f.name + " · " + fileSize(f.size) : m.desc) + "</small></div>" +
+          '<label class="upload-btn" for="med-' + m.key + '">' + icon(f ? "refresh" : "upload") + (f ? "Replace" : "Upload") + "</label>" +
+          '<input class="file-input med-input" type="file" id="med-' + m.key + '" data-key="' + m.key + '" accept=".pdf,.jpg,.jpeg,.png"></li>';
+      }).join("") + "</ul>" +
+      '<p class="upload-error" id="med-error" role="alert"></p></div>' +
+      '<div class="sp-actions"><button class="btn btn-brand" type="button" id="submit-medical"' + (count < MEDICAL.length ? " disabled" : "") + ">" + icon("send") + "Submit " + count + "/" + MEDICAL.length + "</button></div></div>";
+  }
+
+  $(document).on("change", ".med-input", function () {
+    var file = this.files[0], key = $(this).data("key");
+    this.value = "";
+    if (!file) return;
+    if (["application/pdf", "image/jpeg", "image/png"].indexOf(file.type) === -1) { $("#med-error").text("Choose a PDF, JPG, or PNG file."); return; }
+    if (file.size > 10 * 1024 * 1024) { $("#med-error").text("This file is over 10 MB. Compress it or choose a smaller file."); return; }
+    // BACKEND: POST /api/applications/:id/medical/:key
+    state.medical.files[key] = { name: file.name, size: file.size, type: file.type };
+    save();
+    renderJourney();
+    showToast(MEDICAL.filter(function (m) { return m.key === key; })[0].title + " uploaded.");
+  });
+  $(document).on("click", "#submit-medical", function () {
+    // BACKEND: POST /api/applications/:id/medical/submit
+    withLoading($(this), 700, function () {
+      state.medical.status = "submitted";
+      save();
+      renderJourney();
+      showToast("Medical requirements sent to the university clinic.");
+    });
+  });
+  $(document).on("click", "[data-stage-go]", function () { selectedStage = +$(this).data("stage-go"); renderJourney(); });
 
   function renderStagePanel(n) {
     var current = journeyCurrent();
@@ -595,7 +510,7 @@ $(function () {
       html = stagePanelHTML(n);
     }
     $("#stage-panel").html(html);
-    if (n === 7 && state.phase === "result" && !celebrated) { celebrated = true; setTimeout(confetti, 250); }
+    if (n === 5 && state.phase === "result" && !celebrated) { celebrated = true; setTimeout(confetti, 250); }
   }
 
   $(document).on("click", "#accept-offer", function () {
@@ -605,8 +520,9 @@ $(function () {
       state.accepted = true;
       save();
       confetti();
+      selectedStage = 6;
       renderJourney();
-      showToast("Offer accepted. Welcome to ADMITONE!");
+      showToast("Offer accepted. Last step: submit your medical requirements.");
     });
   });
 
@@ -621,7 +537,7 @@ $(function () {
       '<dl class="letter-box"><dt>Applicant</dt><dd>' + esc(name) + "</dd><dt>Application ID</dt><dd>" + APP_ID + "</dd><dt>Program</dt><dd>" + esc(d.program1 || PROGRAMS[0]) + "</dd><dt>Campus</dt><dd>" + esc(d.campus || "Main Campus") + "</dd><dt>Confirm by</dt><dd>" + fmt("2027-03-20", { month: "long", day: "numeric", year: "numeric" }) + "</dd></dl>" +
       "<p>To secure your slot, accept this offer in the applicant portal and pay the reservation fee on or before the date above. Enrollment runs from June 1 to 30, 2027. Please bring the original copies of all documents you uploaded.</p>" +
       "<p>We look forward to seeing you on campus.</p>" +
-      '<div class="letter-sign"><strong>Office of Admissions</strong>ADMITONE University</div>');
+      '<div class="letter-sign"><strong>Office of Admissions</strong>Pamantasan ng Lungsod ng Pasig</div>');
     bootstrap.Modal.getOrCreateInstance(document.getElementById("offerModal")).show();
   });
 
@@ -811,10 +727,6 @@ $(function () {
       "</article>";
   }
 
-  function initTooltips(root) {
-    $(root).find('[data-bs-toggle="tooltip"]').each(function () { bootstrap.Tooltip.getOrCreateInstance(this); });
-  }
-
   function renderDocs() {
     $(".tooltip").remove();
     $("#doc-grid").html(DOCS.map(function (doc, i) {
@@ -953,23 +865,32 @@ $(function () {
   };
   $("#demo-advance").on("click", function () {
     var n = journeyCurrent();
-    if (n <= 3) {
-      $.each(SAMPLE[n], function (k, v) { if (!state.data[k]) state.data[k] = v; });
-      if (!isDone(n)) state.completed.push(n);
-      state.step = Math.min(n + 1, 3);
+    if (n === 1) {
+      [1, 2, 3].forEach(function (sec) {
+        $.each(SAMPLE[sec], function (k, v) { if (!state.data[k]) state.data[k] = v; });
+        if (!isDone(sec)) state.completed.push(sec);
+      });
+      state.step = 3;
       editing = false;
-    } else if (n === 4) {
+    } else if (n === 2) {
       DOCS.forEach(function (doc) {
         if (!state.docs[doc.key]) state.docs[doc.key] = { name: doc.key + (doc.imageOnly ? ".jpg" : ".pdf"), size: 400000 + Math.round(Math.random() * 900000), type: doc.imageOnly ? "image/jpeg" : "application/pdf" };
       });
       state.phase = "review";
       state.submittedAt = toISO(today());
-    } else if (n === 5) {
+    } else if (n === 3) {
       state.phase = "exam";
-    } else if (n === 6) {
+    } else if (n === 4) {
       state.phase = "result";
+    } else if (n === 5) {
+      state.accepted = true;
+    } else if (state.medical.status === "none") {
+      MEDICAL.forEach(function (m) { if (!state.medical.files[m.key]) state.medical.files[m.key] = { name: m.key + ".pdf", size: 300000 + Math.round(Math.random() * 600000), type: "application/pdf" }; });
+      state.medical.status = "submitted";
+    } else if (state.medical.status === "submitted") {
+      state.medical.status = "cleared";   // in production the clinic clears this from the admission office panel
     } else {
-      showToast("You're at the last stage. Accept the offer to finish.");
+      showToast("Admission complete. There are no more stages.");
       return;
     }
     save();
