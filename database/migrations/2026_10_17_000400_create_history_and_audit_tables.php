@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\QueryException;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -89,7 +90,7 @@ return new class extends Migration
             $message = "{$table} is append-only";
 
             match (DB::getDriverName()) {
-                'mysql', 'mariadb' => DB::unprepared(
+                'mysql', 'mariadb' => $this->mysqlTrigger(
                     "CREATE TRIGGER {$name} BEFORE {$op} ON {$table} FOR EACH ROW
                      SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = '{$message}'"
                 ),
@@ -99,6 +100,27 @@ return new class extends Migration
                 ),
                 'pgsql' => null, // not a target database
             };
+        }
+    }
+
+    /**
+     * With binary logging on, MySQL lets a normal user create triggers only
+     * when log_bin_trust_function_creators is on. The audit protection is
+     * required (NFR-03), so stop with instructions instead of skipping it.
+     */
+    private function mysqlTrigger(string $sql): void
+    {
+        try {
+            DB::unprepared($sql);
+        } catch (QueryException $e) {
+            if (($e->errorInfo[1] ?? null) !== 1419) {
+                throw $e;
+            }
+            throw new RuntimeException(
+                "MySQL won't let this user create the audit-log triggers.\n".
+                "As the MySQL root user, run once:  SET PERSIST log_bin_trust_function_creators = 1;\n".
+                "(Amazon RDS: set log_bin_trust_function_creators = 1 in the DB parameter group.)\n".
+                'Then run the migration again.', 0, $e);
         }
     }
 

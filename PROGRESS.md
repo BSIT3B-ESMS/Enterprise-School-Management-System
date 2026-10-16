@@ -84,7 +84,7 @@ php artisan migrate:fresh --seed
 
 1. **How should the 8 applicant document cards map to the official requirements (H1)?** Nothing can be submitted from the portal until this is settled. Details under "On hold" below.
 2. **What should happen when a passer doesn't accept or pay by the reservation deadline?** The diagram's "slot deadlines" job can't be automated until this is defined.
-3. **MySQL credentials:** needed to run the migrations and tests against the real database. Everything so far ran on SQLite.
+3. ~~**MySQL credentials**~~: received; `.env` now uses MySQL (`admission_system` / `admission_app`). The first MySQL run found two problems SQLite couldn't: an index name over MySQL's 64-character limit (fixed), and the audit-log triggers need `log_bin_trust_function_creators = 1` because binary logging is on. **Waiting:** run once as the MySQL root user: `SET PERSIST log_bin_trust_function_creators = 1;` (on Amazon RDS: set it in the DB parameter group).
 
 Tracks the backend build on the `backend` branch. Guide: [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md). Architecture: the system architecture diagram (Nginx communication layer → Laravel on EC2 → RDS MySQL; DMS and Enrollment as external systems). UI audit: [docs/UI_BACKEND_MATRIX.md](docs/UI_BACKEND_MATRIX.md).
 

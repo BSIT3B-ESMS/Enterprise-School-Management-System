@@ -92,7 +92,8 @@ return new class extends Migration
             $table->timestamp('reviewed_at')->nullable();
             $table->timestamps();
 
-            $table->index(['application_id', 'requirement_id', 'is_current']);
+            // Explicit name: the generated one is longer than MySQL's 64-character limit
+            $table->index(['application_id', 'requirement_id', 'is_current'], 'app_docs_current_index');
         });
     }
 
