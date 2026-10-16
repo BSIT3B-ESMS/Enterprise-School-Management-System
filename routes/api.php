@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\Applicant\ApplicationController;
 use App\Http\Controllers\Api\Applicant\DocumentController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\Office;
 use Illuminate\Support\Facades\Route;
 
@@ -23,6 +24,13 @@ Route::prefix('auth')->group(function () {
         Route::post('refresh', [AuthController::class, 'refresh']);
         Route::post('logout', [AuthController::class, 'logout']);
     });
+});
+
+// In-app notifications for any signed-in user
+Route::prefix('notifications')->middleware(['auth:api', 'active'])->group(function () {
+    Route::get('/', [NotificationController::class, 'index']);
+    Route::post('read-all', [NotificationController::class, 'readAll']);
+    Route::post('{id}/read', [NotificationController::class, 'read']);
 });
 
 // Applicant portal: the signed-in applicant's own application only

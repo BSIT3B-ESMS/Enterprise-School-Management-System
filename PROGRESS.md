@@ -50,7 +50,7 @@ Legend: ✅ done · 🔄 in progress · ⬜ to do · ⏸ deferred
 | 6 | Exams: sessions, approval/permit, roster, attendance, reschedule | ✅ (UI wiring pending) |
 | 7 | Results & acceptance: record, release, accept offer (no score to applicants) | ✅ (UI wiring pending) |
 | 7b | Medical requirements (Clinic) | ✅ (built with Phase 4) |
-| 8 | Records, reports, notifications (in-app + email), audit log | ⬜ |
+| 8 | Records, reports, notifications (in-app + email), audit log | ✅ (reports computed in the panel from `/api/admin/state`) |
 | 9 | Enrollment integration, automated document checks | ⏸ |
 | 10 | Hardening, performance (server-side paging), docs, UAT | ⬜ |
 
@@ -72,7 +72,9 @@ Legend: ✅ done · 🔄 in progress · ⬜ to do · ⏸ deferred
 
 - Phases 5–7: setup endpoints (slots 1–2,000, never below admitted count; add program; requirement on/off; deadline), exam sessions (no duplicates), approve-for-exam (all required docs verified, seat check under a row lock, permit `EX-27-xxxxx`), reschedule, venue checklist + attendance ("present" needs permit and form checked), record/correct result before release, single/bulk release, accept offer. Clinic is limited to medical routes. Test proves no applicant response contains a score or percentile, and the clinic's state has no score. The applicant acceptance letter is rendered by the existing modal from portal data, so no PDF was built (no UI asks for one). Tests: 45 passing.
 
+- Phase 8: `AdmissionNotice` (database + mail, queued) on: application received, resubmission received, document/medical file sent back (with the remark), exam scheduled/rescheduled (date, time, venue, permit), result released (no decision, no score: "sign in to see it"), medically cleared. Recording a result notifies nobody. `GET /api/notifications`, mark read / read all (UI pending). Scheduler prunes failed jobs. Audit log is fed by every service (staff actions, applicant submissions, sysadmin commands). Tests: 48 passing.
+
 ## To do next
 
-- Phase 8: in-app + email notifications, reports, demo data seeder.
+- Demo data seeder for UAT, then wire the admin panel and the applicant portal (JS data layer only).
 - Get MySQL credentials and run the migrations against MySQL.
