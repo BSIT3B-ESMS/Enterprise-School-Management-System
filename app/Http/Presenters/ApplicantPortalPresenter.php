@@ -39,7 +39,7 @@ class ApplicantPortalPresenter
             'step' => (int) $progress['step'],
             'completed' => array_map('intval', $progress['completed']),
             'data' => $this->applications->formValues($application),
-            'submittedAt' => $application->submitted_at?->toDateString(),
+            'submittedAt' => $application->submitted_at?->copy()->setTimezone(config('admission.display_timezone'))->toDateString(),
             'accepted' => $application->offer_accepted_at !== null,
             // Official requirements keyed by requirement key. The portal's own cards
             // are not mapped yet (PROGRESS.md, H1).

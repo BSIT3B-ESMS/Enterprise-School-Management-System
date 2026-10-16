@@ -45,11 +45,11 @@ Legend: ✅ done · 🔄 in progress · ⬜ to do · ⏸ deferred
 | 1 | Foundation & data layer: migrations, models, seeders, API response format | ✅ |
 | 2 | Auth & access control: JWT, roles, 2FA, password reset, throttling | ✅ |
 | 3 | Application: profile, draft/autosave, program choices, submit, status service, history | ✅ (UI wiring pending) |
-| 4 | Documents: upload (DocumentStore), review, resubmission | ⬜ |
+| 4 | Documents: upload (DocumentStore), review, resubmission | ✅ (applicant cards on hold: H1) |
 | 5 | Programs, slots, requirements, admission period maintenance | ⬜ |
 | 6 | Exams: sessions, approval/permit, roster, attendance, reschedule | ⬜ |
 | 7 | Results & acceptance: record, release, accept offer (no score to applicants) | ⬜ |
-| 7b | Medical requirements (Clinic) | ⬜ |
+| 7b | Medical requirements (Clinic) | ✅ (built with Phase 4) |
 | 8 | Records, reports, notifications (in-app + email), audit log | ⬜ |
 | 9 | Enrollment integration, automated document checks | ⏸ |
 | 10 | Hardening, performance (server-side paging), docs, UAT | ⬜ |
@@ -68,7 +68,9 @@ Legend: ✅ done · 🔄 in progress · ⬜ to do · ⏸ deferred
 
 - Phase 3: `GET /api/applicant/portal` returns the portal state in the exact shape `applicant.js` keeps in localStorage (phase, step, completed, form data, exam, released result only, medical, programs, key dates). `PUT /api/applicant/application` autosaves: half-typed values are skipped and reported, sections marked complete are validated strictly (rules mirror the form's `required`/`pattern`). Program choices 1–3 by name, open programs only, no duplicates. `POST /api/applicant/submit` checks form + required documents and moves Draft/Resubmit → Submitted through `ApplicationStatusService` (the only place status changes; writes history + fires `ApplicationStatusChanged`). Resubmission reopens the portal as "draft" so existing screens can be reused. Profile edits after the first submission go to `applicant_change_history` (FR-10). `ProgramSuggestionService` placeholder (D2). Tests: 26 passing.
 
+- Phase 4 + medical: `DocumentStorage` writes new files to the configured store (`local` private disk or `dms`) and reads each file from the store it was saved in, so switching to the DMS doesn't strand old files. DMS driver: `X-API-Key`, `Idempotency-Key`, retries, `confidential` flag on medical files (assumed REST contract, adjust when the DMS API is published). Uploads: content-checked PDF/JPG/PNG (photo image-only), 5 MB, random names, versioned (old versions kept). Applicant: upload/replace/remove in draft; during resubmission only the files sent back. Staff: verify / send back (remark required) / verify all pending; the application moves to "Requires resubmission" and back automatically. Medical: opens after a released pass; clinic-only review and file access (admission staff can't open medical files, the clinic can't open admission documents). `GET /api/admin/state` returns the panel's full `ADM.state` shape (score for admission personnel only). Times shown in Asia/Manila. Tests: 34 passing.
+
 ## To do next
 
-- Phase 4: DocumentStore (local + DMS), uploads, staff review, resubmission.
+- Phase 5: programs, slots, requirements, deadline (staff maintenance).
 - Get MySQL credentials and run the migrations against MySQL.

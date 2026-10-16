@@ -120,7 +120,7 @@ class ApplicantApplicationTest extends TestCase
         $this->asUser($user)->postJson('/api/applicant/submit')
             ->assertOk()
             ->assertJsonPath('data.phase', 'review')
-            ->assertJsonPath('data.submittedAt', now()->toDateString());
+            ->assertJsonPath('data.submittedAt', now('Asia/Manila')->toDateString());
 
         $application->refresh();
         $this->assertSame(ApplicationStatus::Submitted, $application->status);

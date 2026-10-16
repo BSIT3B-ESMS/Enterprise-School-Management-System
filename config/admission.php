@@ -25,6 +25,9 @@ return [
         ],
     ],
 
+    // Times are stored in UTC and shown to staff and applicants in Philippine time
+    'display_timezone' => env('DISPLAY_TIMEZONE', 'Asia/Manila'),
+
     // Internal: suggested pass mark shown to staff only (NFR-02)
     'passing_score' => 60,
 
