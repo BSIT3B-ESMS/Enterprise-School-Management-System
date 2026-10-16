@@ -1,0 +1,42 @@
+// Recruitment page: pipeline stage filters, status pill, and the row status dropdown.
+// Stage colors come from the `.stage-<status>` classes in _dashboard.scss (--bs-progress-bar-bg).
+
+.pipeline-stage {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8125rem;
+    color: var(--bs-body-color);
+    background: transparent;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 0.5rem;
+
+    &:hover {
+        background: var(--ems-subtle-bg);
+    }
+
+    &[aria-pressed="true"] {
+        background: color-mix(in srgb, var(--bs-progress-bar-bg) 14%, transparent);
+        border-color: var(--bs-progress-bar-bg);
+    }
+}
+
+.status-pill {
+    display: inline-block;
+    padding: 0.125rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: color-mix(in srgb, var(--bs-progress-bar-bg) 75%, var(--bs-body-color));
+    white-space: nowrap;
+    background: color-mix(in srgb, var(--bs-progress-bar-bg) 14%, transparent);
+    border-radius: 50rem;
+}
+
+.application-status-select {
+    min-width: 8.5rem;
+    font-weight: 500;
+    border-left: 0.25rem solid var(--bs-progress-bar-bg);
+}

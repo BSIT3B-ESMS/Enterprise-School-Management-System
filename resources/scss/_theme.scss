@@ -1,0 +1,32 @@
+// Color-mode tokens Bootstrap does not provide.
+
+:root,
+[data-bs-theme="light"] {
+    --ems-input-border-color: #cfd8d2;
+    --ems-surface: #{$white};
+    --ems-subtle-bg: #eaf4ee;
+    --ems-accent-soft: #e6f2ea;
+    --ems-chrome: #{$ems-chrome};
+    --ems-chrome-fg: #e9f3ed;
+    --ems-chrome-muted: #a8c4b6;
+    --ems-shadow: 0 1px 2px rgba(20, 40, 30, 0.06);
+    --ems-menu-shadow: 0 12px 32px rgba(10, 30, 20, 0.18);
+}
+
+[data-bs-theme="dark"] {
+    --ems-input-border-color: #34483c;
+    --ems-surface: #15201a;
+    --ems-subtle-bg: #1a2a21;
+    --ems-accent-soft: #17301f;
+    --ems-chrome: #10291e;
+    --ems-chrome-fg: #e4efe8;
+    --ems-chrome-muted: #8fb09f;
+    --ems-shadow: none;
+    --ems-menu-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+
+// Show the element matching the active mode (theme toggle icons and labels).
+[data-bs-theme="dark"] .theme-when-light,
+[data-bs-theme="light"] .theme-when-dark {
+    display: none !important;
+}

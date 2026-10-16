@@ -1,1 +1,55 @@
 // Bootstrap !default overrides. Imported before Bootstrap so these values win.
+
+// Brand palette
+$ems-chrome: #173d2d;
+$ems-brand-gradient-start: #1c9060;
+
+$primary: #198a58;
+$danger: #c2413a;
+
+// White on $primary measures 4.36:1; keep white button text as in the design.
+$min-contrast-ratio: 4.3;
+
+// Body
+$body-bg: #f4f6f5;
+$body-color: #18231e;
+$body-secondary-color: #667570;
+$border-color: #e1e7e3;
+
+// Typography (Inter when installed on the device, otherwise the system font)
+$font-family-sans-serif: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', 'Noto Sans', 'Liberation Sans', Arial, sans-serif;
+$font-size-base: 0.875rem;
+$headings-font-weight: 600;
+
+// Links
+$link-color: #137a4b;
+$link-decoration: none;
+$link-hover-decoration: underline;
+
+// Shape
+$border-radius: 0.5rem;
+
+// Forms and buttons (input border follows the color mode; see _theme.scss)
+$form-label-font-weight: 500;
+$input-border-color: var(--ems-input-border-color);
+$input-padding-x: 0.75rem;
+$btn-font-weight: 500;
+
+// Surfaces (cards and menus sit on --ems-surface; see _theme.scss)
+$card-bg: var(--ems-surface);
+$card-border-color: var(--bs-border-color);
+$card-border-radius: 0.625rem;
+$dropdown-bg: var(--ems-surface);
+$dropdown-border-color: var(--bs-border-color);
+$dropdown-link-hover-bg: var(--ems-subtle-bg);
+$modal-content-bg: var(--ems-surface);
+$modal-content-border-color: var(--bs-border-color);
+
+// Dark color mode (the default; set via data-bs-theme="dark" on <html>)
+$body-bg-dark: #0e1612;
+$body-color-dark: #e7efea;
+$body-secondary-color-dark: #92a39a;
+$border-color-dark: #25352c;
+$link-color-dark: #5ad59b;
+$form-invalid-color-dark: #ee7b72;
+$form-invalid-border-color-dark: #ee7b72;
