@@ -25,6 +25,15 @@ return [
         ],
     ],
 
+    /*
+    | Backups (php artisan app:backup, nightly in the scheduler)
+    */
+    'backups' => [
+        'path' => env('BACKUP_PATH', storage_path('app/backups')),
+        'keep' => (int) env('BACKUP_KEEP', 14),
+        'mysqldump' => env('BACKUP_MYSQLDUMP_PATH', 'mysqldump'),
+    ],
+
     // Times are stored in UTC and shown to staff and applicants in Philippine time
     'display_timezone' => env('DISPLAY_TIMEZONE', 'Asia/Manila'),
 

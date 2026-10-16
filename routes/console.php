@@ -11,5 +11,6 @@ use Illuminate\Support\Facades\Schedule;
 | defined (PROGRESS.md, open items).
 */
 
+Schedule::command('app:backup')->dailyAt('02:00')->withoutOverlapping();
 Schedule::command('queue:prune-failed --hours=168')->daily();
 Schedule::command('queue:prune-batches --hours=168')->daily();

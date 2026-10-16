@@ -15,6 +15,7 @@ use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Local/testing only. Walks sample applicants through the real services
@@ -49,6 +50,8 @@ class DemoApplicantsSeeder extends Seeder
             return;
         }
         $this->realNow = Carbon::now();
+        // Files left by an earlier demo seed belong to applications that no longer exist
+        Storage::disk(config('admission.documents.local_disk'))->deleteDirectory('documents');
         mt_srand(20262027);
         $this->applications = app(ApplicationService::class);
         $this->documents = app(DocumentService::class);
