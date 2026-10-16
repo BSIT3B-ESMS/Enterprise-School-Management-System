@@ -84,7 +84,7 @@ php artisan migrate:fresh --seed
 
 1. **How should the 8 applicant document cards map to the official requirements (H1)?** Nothing can be submitted from the portal until this is settled. Details under "On hold" below.
 2. **What should happen when a passer doesn't accept or pay by the reservation deadline?** The diagram's "slot deadlines" job can't be automated until this is defined.
-3. ~~**MySQL credentials**~~: received; `.env` now uses MySQL (`admission_system` / `admission_app`). The first MySQL run found two problems SQLite couldn't: an index name over MySQL's 64-character limit (fixed), and the audit-log triggers need `log_bin_trust_function_creators = 1` because binary logging is on. **Waiting:** run once as the MySQL root user: `SET PERSIST log_bin_trust_function_creators = 1;` (on Amazon RDS: set it in the DB parameter group).
+3. ✅ **MySQL**: done. `.env` uses MySQL (`admission_system` / `admission_app`), and the migrations, demo data and all 51 tests run on it. The first run found three problems SQLite hid; all fixed (see work log). Production needs `log_bin_trust_function_creators = 1` in the RDS parameter group for the audit-log triggers.
 
 Tracks the backend build on the `backend` branch. Guide: [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md). Architecture: the system architecture diagram (Nginx communication layer → Laravel on EC2 → RDS MySQL; DMS and Enrollment as external systems). UI audit: [docs/UI_BACKEND_MATRIX.md](docs/UI_BACKEND_MATRIX.md).
 
@@ -168,12 +168,14 @@ Legend: ✅ done · 🔄 in progress · ⬜ to do · ⏸ deferred
 
 - Phase 10 (part): `SecurityHeaders` middleware (nosniff, frame, referrer, permissions policy); sample Nginx config for the communication layer in [docs/deploy/nginx.conf](docs/deploy/nginx.conf) (TLS 443, static files, `/api` to PHP-FPM, 6 MB body cap, rate limits, IP allowlist for Pulse, outbound proxy for DMS/Enrollment); GitHub Actions workflow running the test suite; unit tests for the status transition rules. Tests: 51 passing.
 
+- **MySQL (2026-10-17):** migrations, demo seed and all 51 tests pass on MySQL 8.0.46. It caught three problems SQLite ignores: an index name over 64 characters, the temporary application number being longer than its column (this would have broken registration in production), and a test helper with a hard-coded ID. The triggers are confirmed to block UPDATE/DELETE on MySQL. CI now runs the tests on both SQLite and MySQL.
+
 ## Remaining work
 
 | # | Item | Notes |
 |---|---|---|
 | R1 | Wire the applicant document cards and "Submit" | Waiting on H1 |
-| R2 | Run migrations and tests against MySQL | Needs local MySQL credentials; then on RDS |
+| R2 | ~~Run migrations and tests against MySQL~~ | ✅ Done locally (MySQL 8.0.46). Still to do on RDS |
 | R3 | Server-side paging for the admission office panel | The panel loads every applicant at once (fine for the demo; not for ~20,000). Needs view changes, so the UI team should be involved |
 | R4 | DMS driver against the real API | The request shape is assumed; adjust `DmsDocumentStore` when the DMS publishes its API |
 | R5 | Enrollment integration | Deferred (T9): queued push of the admitted list with `X-API-Key` + `Idempotency-Key`, callback for student numbers |

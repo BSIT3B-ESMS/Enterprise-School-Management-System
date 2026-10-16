@@ -3,6 +3,7 @@
 namespace Tests\Concerns;
 
 use App\Enums\Role;
+use App\Models\AdmissionPeriod;
 use App\Models\Application;
 use App\Models\ExamSession;
 use App\Models\User;
@@ -44,7 +45,7 @@ trait BuildsApplications
 
     protected function examSession(int $capacity = 30, string $date = '2026-12-05', string $batch = 'A'): ExamSession
     {
-        return ExamSession::create(['admission_period_id' => 1, 'date' => $date, 'batch' => $batch, 'venue' => 'Room 301', 'capacity' => $capacity]);
+        return ExamSession::create(['admission_period_id' => AdmissionPeriod::current()->id, 'date' => $date, 'batch' => $batch, 'venue' => 'Room 301', 'capacity' => $capacity]);
     }
 
     /** Verified and approved for an exam session. */

@@ -56,7 +56,7 @@ class ApplicationService
     public function start(Applicant $applicant, ?User $by = null): Application
     {
         $application = Application::create([
-            'number' => 'pending-'.Str::uuid(),
+            'number' => 'tmp-'.Str::random(16),   // 20 chars: fits the column until the real number is set
             'applicant_id' => $applicant->id,
             'admission_period_id' => AdmissionPeriod::current()->id,
             'status' => ApplicationStatus::Draft,
