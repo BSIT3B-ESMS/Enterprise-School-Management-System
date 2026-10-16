@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Presenters\ApplicantPortalPresenter;
 use App\Models\Application;
 use App\Services\ApplicationService;
+use App\Services\ExamService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -53,6 +54,18 @@ class ApplicationController extends Controller
         return response()->json([
             'data' => $this->presenter->present($application->fresh()),
             'message' => "Sent to admissions. We'll let you know once it's reviewed.",
+        ]);
+    }
+
+    /** "Accept offer" on the result screen (FR-08). */
+    public function acceptOffer(Request $request, ExamService $exams): JsonResponse
+    {
+        $application = $this->application($request);
+        $exams->acceptOffer($application);
+
+        return response()->json([
+            'data' => $this->presenter->present($application->fresh()),
+            'message' => 'Offer accepted. Last step: submit your medical requirements.',
         ]);
     }
 

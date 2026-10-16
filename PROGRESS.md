@@ -46,9 +46,9 @@ Legend: ✅ done · 🔄 in progress · ⬜ to do · ⏸ deferred
 | 2 | Auth & access control: JWT, roles, 2FA, password reset, throttling | ✅ |
 | 3 | Application: profile, draft/autosave, program choices, submit, status service, history | ✅ (UI wiring pending) |
 | 4 | Documents: upload (DocumentStore), review, resubmission | ✅ (applicant cards on hold: H1) |
-| 5 | Programs, slots, requirements, admission period maintenance | ⬜ |
-| 6 | Exams: sessions, approval/permit, roster, attendance, reschedule | ⬜ |
-| 7 | Results & acceptance: record, release, accept offer (no score to applicants) | ⬜ |
+| 5 | Programs, slots, requirements, admission period maintenance | ✅ (UI wiring pending) |
+| 6 | Exams: sessions, approval/permit, roster, attendance, reschedule | ✅ (UI wiring pending) |
+| 7 | Results & acceptance: record, release, accept offer (no score to applicants) | ✅ (UI wiring pending) |
 | 7b | Medical requirements (Clinic) | ✅ (built with Phase 4) |
 | 8 | Records, reports, notifications (in-app + email), audit log | ⬜ |
 | 9 | Enrollment integration, automated document checks | ⏸ |
@@ -70,7 +70,9 @@ Legend: ✅ done · 🔄 in progress · ⬜ to do · ⏸ deferred
 
 - Phase 4 + medical: `DocumentStorage` writes new files to the configured store (`local` private disk or `dms`) and reads each file from the store it was saved in, so switching to the DMS doesn't strand old files. DMS driver: `X-API-Key`, `Idempotency-Key`, retries, `confidential` flag on medical files (assumed REST contract, adjust when the DMS API is published). Uploads: content-checked PDF/JPG/PNG (photo image-only), 5 MB, random names, versioned (old versions kept). Applicant: upload/replace/remove in draft; during resubmission only the files sent back. Staff: verify / send back (remark required) / verify all pending; the application moves to "Requires resubmission" and back automatically. Medical: opens after a released pass; clinic-only review and file access (admission staff can't open medical files, the clinic can't open admission documents). `GET /api/admin/state` returns the panel's full `ADM.state` shape (score for admission personnel only). Times shown in Asia/Manila. Tests: 34 passing.
 
+- Phases 5–7: setup endpoints (slots 1–2,000, never below admitted count; add program; requirement on/off; deadline), exam sessions (no duplicates), approve-for-exam (all required docs verified, seat check under a row lock, permit `EX-27-xxxxx`), reschedule, venue checklist + attendance ("present" needs permit and form checked), record/correct result before release, single/bulk release, accept offer. Clinic is limited to medical routes. Test proves no applicant response contains a score or percentile, and the clinic's state has no score. The applicant acceptance letter is rendered by the existing modal from portal data, so no PDF was built (no UI asks for one). Tests: 45 passing.
+
 ## To do next
 
-- Phase 5: programs, slots, requirements, deadline (staff maintenance).
+- Phase 8: in-app + email notifications, reports, demo data seeder.
 - Get MySQL credentials and run the migrations against MySQL.

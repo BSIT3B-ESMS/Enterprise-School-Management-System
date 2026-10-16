@@ -30,6 +30,7 @@ Route::prefix('applicant')->middleware(['auth:api', 'active', 'role:applicant'])
     Route::get('portal', [ApplicationController::class, 'show']);
     Route::put('application', [ApplicationController::class, 'update']);
     Route::post('submit', [ApplicationController::class, 'submit']);
+    Route::post('offer/accept', [ApplicationController::class, 'acceptOffer']);
 
     Route::post('documents/{key}', [DocumentController::class, 'store'])->middleware('throttle:uploads');
     Route::delete('documents/{key}', [DocumentController::class, 'destroy']);
@@ -52,5 +53,20 @@ Route::prefix('admin')->middleware(['auth:api', 'active', 'role:admission|clinic
 
         Route::patch('medical/{key}', [Office\DocumentController::class, 'reviewMedical']);
         Route::post('medical/verify-pending', [Office\DocumentController::class, 'verifyPendingMedical']);
+    });
+
+    // Admission personnel only: the clinic handles medical requirements, nothing else
+    Route::middleware('role:admission')->group(function () {
+        Route::post('applicants/{application}/approve', [Office\ExamController::class, 'approve']);
+        Route::post('applicants/{application}/reschedule', [Office\ExamController::class, 'reschedule']);
+        Route::patch('applicants/{application}/exam', [Office\ExamController::class, 'roster']);
+        Route::post('applicants/{application}/result', [Office\ExamController::class, 'recordResult']);
+        Route::post('results/release', [Office\ExamController::class, 'release']);
+        Route::post('exam-sessions', [Office\ExamController::class, 'storeSession']);
+
+        Route::post('programs', [Office\SetupController::class, 'storeProgram']);
+        Route::patch('programs/{program:code}', [Office\SetupController::class, 'updateProgram']);
+        Route::patch('requirements/{key}', [Office\SetupController::class, 'updateRequirement']);
+        Route::patch('admission-period', [Office\SetupController::class, 'updatePeriod']);
     });
 });
