@@ -22,6 +22,12 @@ These override DEVELOPMENT_PLAN.md where the two disagree.
 | T10 | Roles | `applicant`, `admission`, `clinic`, `sysadmin` (diagram's four user groups) | Plan's `applicant/staff/admin` |
 | T11 | Auth | JWT (`php-open-source-saver/jwt-auth`), sent as a bearer token by the AJAX calls | — |
 
+### On hold: to discuss with the team
+
+| # | Topic | Detail | Blocks |
+|---|---|---|---|
+| H1 | Applicant document cards vs official list | The portal shows 8 cards; the official list (T6) has 7 conditional requirements. 5 cards map cleanly (Valid ID→`applicantId`, Parent/Guardian ID→`parentId`, CTC Grade 11→`form138`, PSA→`psa`, Photo→`photo`). 3 cards have no official requirement (Grade 12 Form 138, Good Moral, GCash/Dragonpay payment). 2 requirements have no card (Guardianship affidavit, Form 137). The portal only enables "Submit" when all 8 cards are filled. **Nothing is built for this mapping until it's discussed.** | Wiring the applicant's document cards and the submit button. The backend upload/review API is keyed by official requirement and is built. |
+
 Still open (defaults in use): D6 file types, D8 status set (using FR-05 set: draft, submitted, resubmit, for_exam, passed, failed), D9 freshmen only, D10 soft deletes.
 
 ## Environment
@@ -38,7 +44,7 @@ Legend: ✅ done · 🔄 in progress · ⬜ to do · ⏸ deferred
 | 0 | UI audit → [UI_BACKEND_MATRIX](docs/UI_BACKEND_MATRIX.md) | ✅ |
 | 1 | Foundation & data layer: migrations, models, seeders, API response format | ✅ |
 | 2 | Auth & access control: JWT, roles, 2FA, password reset, throttling | ✅ |
-| 3 | Application: profile, draft/autosave, program choices, submit, status service, history | ⬜ |
+| 3 | Application: profile, draft/autosave, program choices, submit, status service, history | ✅ (UI wiring pending) |
 | 4 | Documents: upload (DocumentStore), review, resubmission | ⬜ |
 | 5 | Programs, slots, requirements, admission period maintenance | ⬜ |
 | 6 | Exams: sessions, approval/permit, roster, attendance, reschedule | ⬜ |
@@ -60,7 +66,9 @@ Legend: ✅ done · 🔄 in progress · ⬜ to do · ⏸ deferred
 
 - Phase 2: `/api/auth/*` (register, login with `portal` = applicant|office, 2FA verify, me, refresh, logout, forgot/reset password). Each portal only admits its own roles; sysadmin can't use either. Disabled accounts lose access immediately. 2FA: TOTP for staff, email code for applicants (off by default via `APPLICANT_EMAIL_2FA`). Rate limits on login/register. Sysadmin artisan commands: `user:create`, `user:active`, `user:2fa`. Staff logins/logouts audited. Tests: 17 passing.
 
+- Phase 3: `GET /api/applicant/portal` returns the portal state in the exact shape `applicant.js` keeps in localStorage (phase, step, completed, form data, exam, released result only, medical, programs, key dates). `PUT /api/applicant/application` autosaves: half-typed values are skipped and reported, sections marked complete are validated strictly (rules mirror the form's `required`/`pattern`). Program choices 1–3 by name, open programs only, no duplicates. `POST /api/applicant/submit` checks form + required documents and moves Draft/Resubmit → Submitted through `ApplicationStatusService` (the only place status changes; writes history + fires `ApplicationStatusChanged`). Resubmission reopens the portal as "draft" so existing screens can be reused. Profile edits after the first submission go to `applicant_change_history` (FR-10). `ProgramSuggestionService` placeholder (D2). Tests: 26 passing.
+
 ## To do next
 
-- Phase 3: applicant portal API (portal state, autosave, program choices, submit).
+- Phase 4: DocumentStore (local + DMS), uploads, staff review, resubmission.
 - Get MySQL credentials and run the migrations against MySQL.

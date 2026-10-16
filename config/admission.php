@@ -25,22 +25,6 @@ return [
         ],
     ],
 
-    /*
-    | The applicant portal shows its own 8 document cards (UI discrepancy 1).
-    | Each card key is mapped to an official requirement key; a card mapped to
-    | null has no official requirement yet (open question, see PROGRESS.md).
-    */
-    'applicant_card_map' => [
-        'id' => 'applicantId',
-        'guardianId' => 'parentId',
-        'ctcG11' => 'form138',      // CTC of Grade 11 Form 138
-        'form138' => null,          // Grade 12 report card: no official match
-        'goodMoral' => null,
-        'psa' => 'psa',
-        'photo' => 'photo',
-        'payment' => null,
-    ],
-
     // Internal: suggested pass mark shown to staff only (NFR-02)
     'passing_score' => 60,
 

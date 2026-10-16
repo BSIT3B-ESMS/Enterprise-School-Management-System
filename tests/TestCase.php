@@ -3,7 +3,9 @@
 namespace Tests;
 
 use App\Enums\Role;
+use App\Models\Application;
 use App\Models\User;
+use App\Services\ApplicationService;
 use Database\Seeders\AdmissionSetupSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -28,10 +30,49 @@ abstract class TestCase extends BaseTestCase
         return $user;
     }
 
+    /** A complete "My application" form, as the portal sends it. */
+    protected function completeForm(array $overrides = []): array
+    {
+        return array_merge([
+            'firstName' => 'Jordan', 'lastName' => 'Mendoza', 'middleName' => 'Reyes', 'phone' => '+63 917 123 4567',
+            'birthDate' => '2009-03-14', 'sex' => 'Male', 'civilStatus' => 'Single', 'address' => '12 Mabini St.',
+            'city' => 'Pasig City', 'province' => 'Metro Manila', 'zip' => '1600', 'guardianName' => 'Teresa Mendoza',
+            'guardianPhone' => '+63 918 765 4321', 'lastSchool' => 'Rizal High School', 'schoolType' => 'Public',
+            'strand' => 'STEM', 'gradYear' => '2027 (expected)', 'gwa' => '92.40', 'lrn' => '123456789012',
+            'program1' => 'BS Information Technology', 'program2' => 'BS Computer Science', 'campus' => 'Main Campus',
+            'step' => 3, 'completed' => [1, 2, 3],
+        ], $overrides);
+    }
+
+    /** A registered applicant; with $filled, the form is complete too. */
+    protected function makeApplicant(bool $filled = false, string $email = 'jordan@example.com'): User
+    {
+        $user = app(ApplicationService::class)->register([
+            'first_name' => 'Jordan', 'last_name' => 'Mendoza', 'email' => $email,
+            'phone' => '+63 917 123 4567', 'password' => 'password',
+        ]);
+        if ($filled) {
+            app(ApplicationService::class)->saveForm($this->applicationOf($user), $this->completeForm(), $user);
+        }
+
+        return $user;
+    }
+
+    protected function applicationOf(User $user): Application
+    {
+        return $user->applicant->applications()->firstOrFail();
+    }
+
     /** Each test request starts with no logged-in user, like a real request. */
     public function call($method, $uri, $parameters = [], $cookies = [], $files = [], $server = [], $content = null)
     {
+        // In production every request is a new PHP process. Here the JWT
+        // singletons would keep the previous request's token, so drop them.
         $this->app['auth']->forgetGuards();
+        foreach (['tymon.jwt', 'tymon.jwt.auth', 'tymon.jwt.parser'] as $service) {
+            $this->app->forgetInstance($service);
+        }
+        JWTAuth::clearResolvedInstances();
 
         return parent::call($method, $uri, $parameters, $cookies, $files, $server, $content);
     }
@@ -39,6 +80,6 @@ abstract class TestCase extends BaseTestCase
     /** Act as the user through a real JWT, the way the UI calls the API. */
     protected function asUser(User $user): static
     {
-        return $this->withHeader('Authorization', 'Bearer '.JWTAuth::fromUser($user));
+        return $this->flushHeaders()->withHeader('Authorization', 'Bearer '.JWTAuth::fromUser($user));
     }
 }

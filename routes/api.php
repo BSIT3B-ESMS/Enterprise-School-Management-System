@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\Applicant\ApplicationController;
 use App\Http\Controllers\Api\AuthController;
 use Illuminate\Support\Facades\Route;
 
@@ -20,4 +21,11 @@ Route::prefix('auth')->group(function () {
         Route::post('refresh', [AuthController::class, 'refresh']);
         Route::post('logout', [AuthController::class, 'logout']);
     });
+});
+
+// Applicant portal: the signed-in applicant's own application only
+Route::prefix('applicant')->middleware(['auth:api', 'active', 'role:applicant'])->group(function () {
+    Route::get('portal', [ApplicationController::class, 'show']);
+    Route::put('application', [ApplicationController::class, 'update']);
+    Route::post('submit', [ApplicationController::class, 'submit']);
 });
