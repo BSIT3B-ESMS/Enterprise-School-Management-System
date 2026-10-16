@@ -94,8 +94,9 @@ class OfficeStatePresenter
             'email' => $p->user->email,
             'phone' => $p->phone,
             'resident' => (bool) $p->is_resident,
-            'district' => $p->district,
-            'barangay' => $p->barangay ?? '',
+            // The applicant form has no district/barangay fields yet (decision T7): "—" = unknown
+            'district' => $p->district ?? ($p->is_resident ? '—' : null),
+            'barangay' => $p->barangay ?? ($p->is_resident ? '—' : ''),
             'address' => implode(', ', array_filter([$p->address, $p->city, $p->province])),
             'birthday' => $p->birthday?->toDateString(),
             'schoolType' => $p->school_type,

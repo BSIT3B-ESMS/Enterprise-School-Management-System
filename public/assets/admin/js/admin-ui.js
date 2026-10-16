@@ -221,22 +221,43 @@
     if (resultCb) resultCb(+$("#result-score").val(), decision);
   });
 
-  /* ---------- Document preview (placeholder until files come from storage) ---------- */
+  /* ---------- Document preview ---------- */
+  var previewUrl = null;
+  // The file comes from GET /api/admin/applicants/:id/documents/:key/file with the
+  // bearer token, then shows in an <img> or <iframe>. Medical files: clinic only.
+  function loadPreview(a, key) {
+    if (previewUrl) { URL.revokeObjectURL(previewUrl); previewUrl = null; }
+    var $slot = $("#doc-preview [data-doc-file]");
+    fetch("/api/admin/applicants/" + encodeURIComponent(a.id) + "/documents/" + encodeURIComponent(key) + "/file", {
+      headers: { Authorization: "Bearer " + AO.getToken() }
+    }).then(function (r) {
+      if (!r.ok) throw r;
+      return r.blob();
+    }).then(function (blob) {
+      previewUrl = URL.createObjectURL(blob);
+      $slot.replaceWith(blob.type.indexOf("image/") === 0
+        ? '<img src="' + previewUrl + '" alt="" style="max-width:100%;max-height:60vh;display:block;margin:12px auto 0">'
+        : '<iframe src="' + previewUrl + '" title="Document" style="width:100%;height:60vh;border:0;margin-top:12px"></iframe>');
+    }).catch(function (r) {
+      $slot.text(r && r.status === 403 ? "You don't have access to this file." : "The file couldn't be loaded.");
+    });
+  }
+
   function previewDoc(a, key, actionsHTML) {
     var d = ADM.findType(key);
     var doc = ADM.fileOf(a, key);
     $("#docModalTitle").text(d.title);
-    // BACKEND: GET /api/applicants/:id/documents/:key → signed URL; show it in an <img> or <iframe>
     $("#doc-preview").html(
       '<div class="doc-sheet"><span class="doc-sheet-icon">' + icon(d.icon) + "</span>" +
       "<strong>" + esc(doc.file) + "</strong><span>" + AO.fileSize(doc.size) + " · uploaded " + esc(dt(doc.uploadedAt)) + "</span>" +
-      '<p>File preview appears here once documents are served from storage.</p></div>' +
+      "<p data-doc-file>Loading the file…</p></div>" +
       '<dl class="kv kv-compact mt-3"><div><dt>Applicant</dt><dd>' + esc(ADM.fullName(a)) + " · " + esc(a.id) + "</dd></div>" +
       "<div><dt>Status</dt><dd>" + docTag(doc.status) + "</dd></div>" +
       (doc.remark ? "<div><dt>Remark</dt><dd>" + esc(doc.remark) + "</dd></div>" : "") +
       (doc.reviewedBy ? "<div><dt>Reviewed</dt><dd>" + esc(doc.reviewedBy) + " · " + esc(dt(doc.reviewedAt)) + "</dd></div>" : "") + "</dl>");
     $("#doc-preview-actions").html(actionsHTML || '<button type="button" class="btn btn-ghost" data-bs-dismiss="modal">Close</button>').prop("hidden", false);
     open("docModal");
+    loadPreview(a, key);
   }
 
   /* ==========================================================================

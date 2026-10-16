@@ -1,18 +1,17 @@
 /* ==========================================================================
    PLP Online Admission — Admission Office: configuration, demo data and state
    Needs assets/shared/js/core.js (window.AO). Exposes window.ADM.
-   Everything is kept in localStorage for the prototype. Look for "BACKEND:"
-   comments for the Laravel API calls that replace each piece.
+   State comes from the Laravel API (GET /api/admin/state); every change goes
+   through admin-actions.js, which sends it to the API.
    ========================================================================== */
 (function ($) {
   "use strict";
 
-  var STORAGE_KEY = "admitone.admin.v2";
-
   /* ==========================================================================
      CONFIG (edit to match the official admission period)
      ========================================================================== */
-  var STAFF = { name: "Maria Santos", initials: "MS", role: "Admission Personnel", email: "admissions@plpasig.edu.ph" };
+  // Filled from the signed-in account when the state loads
+  var STAFF = { name: "", initials: "", role: "", email: "" };
   var REVIEW_SLA_DAYS = 3;        // working days to review a new application
   var PASSING_SCORE = 60;         // internal; scores are never shown to applicants
   var PAGE_SIZE = 12;
@@ -76,20 +75,6 @@
     "ID is expired. Upload a valid ID."
   ];
 
-  var PROGRAMS_SEED = [
-    { code: "BSIT", name: "BS Information Technology", slots: 120 },
-    { code: "BSCS", name: "BS Computer Science", slots: 80 },
-    { code: "BSIS", name: "BS Information Systems", slots: 60 },
-    { code: "BSA", name: "BS Accountancy", slots: 80 },
-    { code: "BSBA", name: "BS Business Administration", slots: 100 },
-    { code: "BSHM", name: "BS Hospitality Management", slots: 80 },
-    { code: "BSN", name: "BS Nursing", slots: 60 },
-    { code: "BSPSY", name: "BS Psychology", slots: 60 },
-    { code: "ABCOMM", name: "AB Communication", slots: 50 },
-    { code: "BEED", name: "Bachelor of Elementary Education", slots: 60 },
-    { code: "BSED", name: "Bachelor of Secondary Education", slots: 60 }
-  ];
-
   // Strand → suggested programs (shown to applicants as guidance)
   var STRAND_SUGGEST = {
     "STEM": ["BSCS", "BSIT", "BSN", "BSPSY"],
@@ -114,217 +99,29 @@
   };
 
   /* ==========================================================================
-     DEMO DATA (deterministic, dates relative to today)
-     ========================================================================== */
-  function rng(seed) {
-    return function () {
-      seed |= 0; seed = seed + 0x6D2B79F5 | 0;
-      var t = Math.imul(seed ^ seed >>> 15, 1 | seed);
-      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
-      return ((t ^ t >>> 14) >>> 0) / 4294967296;
-    };
-  }
-
-  function addDays(d, n) { var x = new Date(d); x.setDate(x.getDate() + n); return x; }
-  function isoAt(d, h, m) { return AO.toISO(d) + "T" + String(h).padStart(2, "0") + ":" + String(m || 0).padStart(2, "0"); }
-
-  function seed() {
-    var r = rng(20262027);
-    var pick = function (arr) { return arr[Math.floor(r() * arr.length)]; };
-    var chance = function (p) { return r() < p; };
-    var int = function (a, b) { return a + Math.floor(r() * (b - a + 1)); };
-
-    var GIVEN_F = ["Andrea", "Bea", "Camille", "Danica", "Erika", "Faith", "Gianna", "Hannah", "Isabel", "Janine", "Kristine", "Leah", "Mikaela", "Nicole", "Patricia", "Rhea", "Samantha", "Trisha", "Venice", "Ysabel", "Angel", "Joanna", "Kyla", "Princess"];
-    var GIVEN_M = ["Aaron", "Bryan", "Carlo", "Daniel", "Elijah", "Francis", "Gabriel", "Harvey", "Ivan", "Jerome", "Kenneth", "Lance", "Mark", "Nathaniel", "Paolo", "Rafael", "Sean", "Tristan", "Vince", "Zion", "John Paul", "Miguel", "Joshua", "Renz"];
-    var SURNAMES = ["Abad", "Aquino", "Bautista", "Castillo", "Cruz", "Dela Cruz", "Del Rosario", "Domingo", "Espiritu", "Flores", "Garcia", "Gonzales", "Hernandez", "Ilagan", "Jimenez", "Lim", "Lopez", "Manalo", "Mendoza", "Navarro", "Ocampo", "Pascual", "Quinto", "Ramos", "Reyes", "Rivera", "Salazar", "Santos", "Soriano", "Tan", "Torres", "Valdez", "Villanueva", "Yap"];
-    var SCHOOLS = [
-      { name: "Rizal High School", type: "Public" }, { name: "Pasig City Science High School", type: "Public" },
-      { name: "Santa Lucia High School", type: "Public" }, { name: "Manggahan High School", type: "Public" },
-      { name: "Pinagbuhatan High School", type: "Public" }, { name: "Eusebio High School", type: "Public" },
-      { name: "San Joaquin-Kalawaan High School", type: "Public" }, { name: "Pasig Catholic College", type: "Private" },
-      { name: "Arellano University – Pasig", type: "Private" }, { name: "Saint Paul College Pasig", type: "Private" },
-      { name: "STI College Ortigas-Cainta", type: "Private" }, { name: "AMA Computer College – Pasig", type: "Private" }
-    ];
-    var NON_RES = ["Cainta, Rizal", "Taytay, Rizal", "Marikina City", "Taguig City", "Quezon City", "Mandaluyong City"];
-    var STREETS = ["Mabini St.", "Rizal Ave.", "C. Raymundo Ave.", "Dr. Sixto Antonio Ave.", "Ortigas Ave. Ext.", "M.H. del Pilar St.", "A. Luna St.", "Shaw Blvd.", "Elisco Rd.", "San Guillermo St."];
-    var OTHER_STAFF = ["R. Dizon", "A. Cruz", STAFF.name];
-
-    var t = AO.today();
-    var programs = PROGRAMS_SEED.map(function (p) { return $.extend({}, p); });
-    var codes = programs.map(function (p) { return p.code; });
-
-    // Exam sessions: two past days (results in), one today, two upcoming
-    var rooms = ["Main Building · Room 301", "Main Building · Room 302", "Annex · AVR"];
-    var sessions = [];
-    [-13, -6, 0, 9, 16].forEach(function (offset, i) {
-      ["A", "B"].forEach(function (b, j) {
-        sessions.push({ id: "S" + (i * 2 + j + 1), date: AO.toISO(addDays(t, offset)), batch: b, venue: rooms[(i + j) % rooms.length], capacity: 30 });
-      });
-    });
-
-    var applicants = [];
-    for (var i = 0; i < 248; i++) {
-      var female = chance(.56);
-      var first = pick(female ? GIVEN_F : GIVEN_M);
-      var last = pick(SURNAMES);
-      var middle = pick(SURNAMES.filter(function (s) { return s !== last; }));
-      var resident = chance(.82);
-      var district = resident ? (chance(.6) ? 1 : 2) : null;
-      var school = pick(SCHOOLS);
-      var strand = pick(STRANDS);
-      var suggested = STRAND_SUGGEST[strand];
-      var p1 = chance(.7) ? pick(suggested) : pick(codes);
-      var rest = codes.filter(function (c) { return c !== p1; });
-      var p2 = pick(rest); rest = rest.filter(function (c) { return c !== p2; });
-      var p3 = pick(rest);
-      var graduate = chance(.3);
-      var guardian = chance(.12);
-      var id = "AD-2026-" + String(8000 + i * 3 + int(0, 2)).padStart(5, "0");
-
-      var age = int(0, 44);                           // days since submission
-      var draft = chance(.06);
-      var submitted = draft ? null : addDays(t, -age);
-      var created = addDays(submitted || addDays(t, -int(0, 10)), -int(0, 4));
-
-      var a = {
-        id: id, lrn: String(int(100000, 499999)) + String(int(100000, 999999)),
-        lastName: last, firstName: first, middleName: middle, sex: female ? "Female" : "Male",
-        email: (first + "." + last).toLowerCase().replace(/[^a-z.]/g, "") + int(1, 99) + "@gmail.com",
-        phone: "+63 9" + int(10, 99) + " " + int(100, 999) + " " + int(1000, 9999),
-        resident: resident, district: district,
-        barangay: resident ? pick(BARANGAYS[district]) : "",
-        address: int(1, 199) + " " + pick(STREETS) + (resident ? ", Brgy. " : ", ") + (resident ? "" : pick(NON_RES)),
-        birthday: AO.toISO(new Date(2007 + int(0, 1), int(0, 11), int(1, 28))),
-        schoolType: school.type, lastSchool: school.name, strand: strand,
-        applicantType: graduate ? "graduate" : "grade12", hasGuardian: guardian,
-        programs: [p1, p2, p3],
-        createdAt: isoAt(created, int(7, 21), int(0, 59)),
-        submittedAt: submitted ? isoAt(submitted, int(7, 22), int(0, 59)) : null,
-        docs: {}, exam: null, result: null, history: []
-      };
-      if (resident) a.address = a.address + a.barangay + ", Pasig City";
-
-      a.history.push({ at: a.createdAt, by: "Applicant", text: "Created an applicant account" });
-
-      var required = requiredDocs(a);
-      // Drafts: some uploads missing
-      if (draft) {
-        required.forEach(function (d) {
-          a.docs[d.key] = chance(.5) ? { status: "pending", file: fileName(d.key), size: int(180, 2400) * 1024, uploadedAt: a.createdAt } : { status: "missing" };
-        });
-        applicants.push(a);
-        continue;
-      }
-
-      required.forEach(function (d) {
-        a.docs[d.key] = { status: "pending", file: fileName(d.key), size: int(180, 2400) * 1024, uploadedAt: a.submittedAt };
-      });
-      a.history.push({ at: a.submittedAt, by: "Applicant", text: "Submitted the application form and " + required.length + " documents" });
-
-      // Recent submissions wait in the queue; older ones moved on
-      var reviewedDay = addDays(submitted, int(1, 3));
-      var stage = age < 3 ? "queue" : age < 8 && chance(.35) ? "queue" : chance(.16) ? "resubmit" : "verified";
-      if (stage === "queue") { applicants.push(a); continue; }
-
-      var reviewer = pick(OTHER_STAFF);
-      var reviewAt = isoAt(reviewedDay, int(8, 16), int(0, 59));
-      required.forEach(function (d) {
-        a.docs[d.key].status = "verified";
-        a.docs[d.key].reviewedBy = reviewer;
-        a.docs[d.key].reviewedAt = reviewAt;
-      });
-      if (stage === "resubmit") {
-        var bad = pick(required);
-        a.docs[bad.key].status = "resubmit";
-        a.docs[bad.key].remark = pick(REMARK_PRESETS);
-        a.history.push({ at: reviewAt, by: reviewer, text: "Marked \"" + bad.title + "\" as requires resubmission" });
-        a.history.push({ at: reviewAt, by: reviewer, text: "Verified " + (required.length - 1) + " documents" });
-        applicants.push(a);
-        continue;
-      }
-      a.history.push({ at: reviewAt, by: reviewer, text: "Verified all " + required.length + " documents" });
-      if (age < 9 && chance(.45)) { applicants.push(a); continue; }   // verified, waiting for an exam slot
-
-      // Assign the earliest session after review that still has seats
-      var open = sessions.filter(function (s) {
-        return AO.parseDate(s.date) > reviewedDay && countIn(applicants, s.id) < s.capacity;
-      });
-      var session = open[chance(.5) ? 0 : 1] || open[0];
-      if (!session) { applicants.push(a); continue; }
-      a.exam = { sessionId: session.id, permit: "EX-27-" + id.slice(-5), attendance: null, permitChecked: false, formChecked: false };
-      a.history.push({ at: reviewAt.slice(0, 14) + "59", by: reviewer, text: "Approved for the entrance exam · " + sessionLabel(session) });
-
-      var sDate = AO.parseDate(session.date);
-      if (sDate < t) {
-        var present = chance(.92);
-        a.exam.attendance = present ? "present" : "absent";
-        a.exam.permitChecked = a.exam.formChecked = present;
-        a.history.push({ at: isoAt(sDate, session.batch === "A" ? 12 : 17, 10), by: "R. Dizon", text: present ? "Marked present at the exam venue (permit and form checked)" : "Marked absent from the entrance exam" });
-        if (present) {
-          var score = Math.min(98, Math.max(28, Math.round(66 + (r() + r() + r() - 1.5) * 26)));
-          var resultDay = addDays(sDate, 2);
-          var releasedSession = session.date === sessions[0].date;
-          a.result = { score: score, decision: score >= PASSING_SCORE ? "passed" : "failed", recordedBy: "A. Cruz", recordedAt: isoAt(resultDay, 10, int(0, 59)), released: releasedSession };
-          a.history.push({ at: a.result.recordedAt, by: "A. Cruz", text: "Recorded exam result: " + (a.result.decision === "passed" ? "Passed" : "Did not pass") });
-          if (releasedSession) {
-            var releasedAt = addDays(resultDay, 1);
-            a.result.releasedAt = isoAt(releasedAt, 9, 0);
-            a.history.push({ at: a.result.releasedAt, by: STAFF.name, text: "Released the exam result to the applicant" });
-            if (a.result.decision === "passed") seedMedical(a, releasedAt);
-          }
-        }
-      }
-      applicants.push(a);
-    }
-
-    // Passers submit medical files after their result is released
-    function seedMedical(a, releasedAt) {
-      a.medical = { files: {} };
-      var roll = r();
-      if (roll < .32) return;                                    // not submitted yet
-      var upDay = addDays(releasedAt, int(1, 5));
-      if (upDay > t) upDay = t;
-      var upAt = isoAt(upDay, int(8, 21), int(0, 59));
-      MED_TYPES.forEach(function (m) { a.medical.files[m.key] = { status: "pending", file: m.key + "_" + a.lastName.toLowerCase().replace(/[^a-z]/g, "") + ".pdf", size: int(200, 1800) * 1024, uploadedAt: upAt }; });
-      a.history.push({ at: upAt, by: "Applicant", text: "Submitted " + MED_TYPES.length + " medical requirements" });
-      if (roll < .68) return;                                    // waiting for the clinic
-      var checkAt = isoAt(addDays(upDay, 1) > t ? t : addDays(upDay, 1), int(8, 16), int(0, 59));
-      MED_TYPES.forEach(function (m) { var f = a.medical.files[m.key]; f.status = "verified"; f.reviewedBy = "Clinic · Dr. L. Bautista"; f.reviewedAt = checkAt; });
-      if (roll < .8) {
-        var bad = pick(MED_TYPES);
-        a.medical.files[bad.key].status = "resubmit";
-        a.medical.files[bad.key].remark = pick(MED_REMARKS);
-        a.history.push({ at: checkAt, by: "Clinic · Dr. L. Bautista", text: "Asked to resubmit \"" + bad.title + "\"" });
-        return;
-      }
-      a.history.push({ at: checkAt, by: "Clinic · Dr. L. Bautista", text: "Medically cleared · admission complete" });
-    }
-
-    function countIn(list, sid) { return list.filter(function (x) { return x.exam && x.exam.sessionId === sid; }).length; }
-
-    return {
-      version: 2,
-      programs: programs,
-      sessions: sessions,
-      applicants: applicants,
-      settings: { deadline: AO.toISO(addDays(t, 43)), period: "AY 2027–2028 · 1st semester", inactiveDocs: [] },
-      audit: [{ at: isoAt(addDays(t, -50), 9, 0), by: "System administrator", text: "Opened the AY 2027–2028 admission period" }]
-    };
-  }
-
-  function fileName(key) {
-    var names = { psa: "psa_birth_certificate.pdf", parentId: "parent_valid_id.jpg", affidavit: "affidavit_guardianship.pdf", photo: "passport_photo.jpg", form137: "form137_ctc.pdf", form138: "form138_grade11_ctc.pdf", applicantId: "school_id.jpg" };
-    return names[key] || key + ".pdf";
-  }
-
-  /* ==========================================================================
      STATE
      ========================================================================== */
-  var state = AO.readJSON("local", STORAGE_KEY);
-  if (!state || state.version !== 2) { state = seed(); save(); }
+  var state = { version: 2, programs: [], sessions: [], applicants: [], settings: { deadline: AO.toISO(AO.today()), period: "", inactiveDocs: [] }, audit: [] };
 
-  function save() { AO.writeJSON("local", STORAGE_KEY, state); }
-  function reset() { state = seed(); ADM.state = state; save(); }
+  /* Load everything the panel shows. The state object is updated in place,
+     so code holding ADM.state keeps working. */
+  function load() {
+    return AO.api("GET", "/api/admin/state").done(function (res) {
+      var d = res.data;
+      $.extend(STAFF, d.staff);
+      ["version", "programs", "sessions", "applicants", "settings", "audit"].forEach(function (k) { state[k] = d[k]; });
+    });
+  }
+  // The server saves every change as it is made
+  function save() { }
+  // "Reset demo data" reloads what the server has
+  function reset() { return load(); }
+
+  /* Swap in the server's copy of one applicant after an action */
+  function replaceApplicant(a, fresh) {
+    Object.keys(a).forEach(function (k) { if (!(k in fresh)) delete a[k]; });
+    $.extend(a, fresh);
+  }
 
   function nowISO() { var d = new Date(); return AO.toISO(d) + "T" + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); }
 
@@ -430,13 +227,13 @@
   }
 
   window.ADM = {
-    STORAGE_KEY: STORAGE_KEY, STAFF: STAFF, REVIEW_SLA_DAYS: REVIEW_SLA_DAYS, PASSING_SCORE: PASSING_SCORE, PAGE_SIZE: PAGE_SIZE,
+    STAFF: STAFF, REVIEW_SLA_DAYS: REVIEW_SLA_DAYS, PASSING_SCORE: PASSING_SCORE, PAGE_SIZE: PAGE_SIZE,
     STATUSES: STATUSES, STATUS_ORDER: STATUS_ORDER, DOC_STATUS: DOC_STATUS, DOC_TYPES: DOC_TYPES,
     PHYSICAL_ITEMS: PHYSICAL_ITEMS, EXAM_KIT: EXAM_KIT, REMARK_PRESETS: REMARK_PRESETS,
     MED_TYPES: MED_TYPES, MED_STATUS: MED_STATUS, MED_REMARKS: MED_REMARKS, medStatus: medStatus,
     findType: findType, isMedical: isMedical, fileOf: fileOf,
     STRAND_SUGGEST: STRAND_SUGGEST, STRANDS: STRANDS, BARANGAYS: BARANGAYS, BATCHES: BATCHES,
-    state: state, save: save, reset: reset, nowISO: nowISO, logApplicant: logApplicant, logOffice: logOffice,
+    state: state, load: load, save: save, reset: reset, replaceApplicant: replaceApplicant, nowISO: nowISO, logApplicant: logApplicant, logOffice: logOffice,
     requiredDocs: requiredDocs, docSummary: docSummary, statusOf: statusOf, workingDaysSince: workingDaysSince,
     isOverdue: isOverdue, canApprove: canApprove, fullName: fullName, initials: initials, residency: residency,
     program: program, session: session, sessionLabel: sessionLabel, sessionRoster: sessionRoster, sessionPast: sessionPast,

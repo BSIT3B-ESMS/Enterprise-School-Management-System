@@ -15,7 +15,7 @@ class DatabaseSeeder extends Seeder
         ]);
 
         // Demo accounts and sample applicants never go to production
-        if (app()->environment('local', 'testing')) {
+        if (app()->environment('local')) {
             $this->call(DemoSeeder::class);
         }
     }

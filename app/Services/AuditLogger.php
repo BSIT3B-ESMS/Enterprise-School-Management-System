@@ -24,7 +24,8 @@ class AuditLogger
         array $meta = [],
         ?User $actor = null,
     ): AuditLog {
-        $actor ??= $this->request->user();
+        // auth() rather than $request->user(): the latter is always null in console runs
+        $actor ??= auth()->user();
 
         return AuditLog::create([
             'user_id' => $actor?->id,

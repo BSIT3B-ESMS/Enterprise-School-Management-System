@@ -74,7 +74,11 @@ Legend: ✅ done · 🔄 in progress · ⬜ to do · ⏸ deferred
 
 - Phase 8: `AdmissionNotice` (database + mail, queued) on: application received, resubmission received, document/medical file sent back (with the remark), exam scheduled/rescheduled (date, time, venue, permit), result released (no decision, no score: "sign in to see it"), medically cleared. Recording a result notifies nobody. `GET /api/notifications`, mark read / read all (UI pending). Scheduler prunes failed jobs. Audit log is fed by every service (staff actions, applicant submissions, sysadmin commands). Tests: 48 passing.
 
+- Demo data: `DemoApplicantsSeeder` (local only) walks 60 applicants through the real services at back-dated times, so statuses, histories and the audit log are consistent. Demo logins: `admissions@plpasig.edu.ph`, `r.dizon@plpasig.edu.ph`, `clinic@plpasig.edu.ph` / `password123`.
+- **Admission office panel wired** (data layer only): `core.js` gained `AO.api` (JWT bearer, JSON or file upload), `AO.apiError`, `AO.busy`. `admin-store.js` loads `ADM.state` from `GET /api/admin/state` (demo generator and localStorage removed). `admin-actions.js` keeps each action's instant local update, then sends it to the API on one ordered queue; the server's copy replaces the local one, and a refusal shows the server's message and reloads. `admin.js`: real sign-in (`portal: office`), session restore per tab, sign-out, expired-token handling. Document preview fetches the real file (the one visible change, as the `BACKEND:` comment specified). Verified in headless Edge: officer and clinic flows, persistence across reloads, role refusals, no page errors.
+- Fixed: `AuditLogger` now resolves the actor through `auth()` (the request had no user in console runs).
+
 ## To do next
 
-- Demo data seeder for UAT, then wire the admin panel and the applicant portal (JS data layer only).
+- Wire the applicant portal (sign-in, register, forgot password, autosave, accept offer, medical). Document cards + submit stay on hold (H1).
 - Get MySQL credentials and run the migrations against MySQL.

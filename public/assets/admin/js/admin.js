@@ -8,7 +8,6 @@ $(function () {
   "use strict";
 
   var ADM = window.ADM;
-  var SESSION_KEY = "admitone.admin.session";
 
   // Hash → view name; the second segment is passed to render() as param
   var ROUTES = { dashboard: "dashboard", applicants: "applicants", documents: "documents", exams: "exams", results: "results", medical: "medical", reports: "reports", settings: "settings", audit: "audit" };
@@ -16,7 +15,7 @@ $(function () {
   var current = { view: null, param: null };
 
   /* ==========================================================================
-     SIGN IN (simulated)
+     SIGN IN (Laravel API, JWT with the admission or clinic role)
      ========================================================================== */
   function enterApp() {
     $("#auth-screen").prop("hidden", true);
@@ -28,7 +27,7 @@ $(function () {
   }
 
   function leaveApp() {
-    AO.removeKey("session", SESSION_KEY);
+    AO.setToken(null);
     $(".tooltip").remove();
     $("#app").prop("hidden", true);
     $("#auth-screen").prop("hidden", false);
@@ -40,16 +39,25 @@ $(function () {
     e.preventDefault();
     if (!AO.validateFields($(this))) return;
     var email = $("#admin-email").val().trim();
-    // BACKEND: POST /api/auth/login → JWT with role "admission_personnel" (RBAC)
-    AO.withLoading($("#admin-signin-submit"), 700, function () {
-      AO.writeJSON("session", SESSION_KEY, { email: email, at: Date.now() });
-      ADM.logOffice("Signed in to the admission office panel");
-      ADM.save();
-      enterApp();
-    });
+    var login = AO.api("POST", "/api/auth/login", { email: email, password: $("#admin-password").val(), portal: "office" })
+      .then(function (res) {
+        // UI pending: there is no 2FA code screen yet (see PROGRESS.md)
+        if (res.data.two_factor_required) return $.Deferred().reject({ responseJSON: { message: "Two-factor sign-in is on for this account, but this screen can't ask for the code yet." } });
+        AO.setToken(res.data.token);
+        return ADM.load();
+      });
+    AO.busy($("#admin-signin-submit"), login)
+      .done(enterApp)
+      .fail(function (xhr) { AO.setToken(null); AO.setError($("#admin-email"), AO.apiError(xhr)); });
   });
 
-  $(".logout-button").on("click", function () { leaveApp(); AO.showToast("You've been signed out."); });
+  $(".logout-button").on("click", function () {
+    AO.api("POST", "/api/auth/logout");
+    leaveApp();
+    AO.showToast("You've been signed out.");
+  });
+  // Token expired or revoked
+  $(document).on("ao:signedout", function () { if (!$("#app").prop("hidden")) { leaveApp(); AO.showToast("Your session ended. Sign in again."); } });
 
   /* ==========================================================================
      ROUTER
@@ -118,5 +126,6 @@ $(function () {
      ========================================================================== */
   AO.paintIcons();
   AO.initTooltips(document);
-  if (AO.readJSON("session", SESSION_KEY)) enterApp();
+  // Still signed in in this tab: reload the state and go straight in
+  if (AO.getToken()) ADM.load().done(enterApp).fail(function () { AO.setToken(null); });
 });

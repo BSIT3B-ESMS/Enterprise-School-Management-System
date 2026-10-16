@@ -191,6 +191,42 @@
     $(root).find('[data-bs-toggle="tooltip"]').each(function () { bootstrap.Tooltip.getOrCreateInstance(this); });
   }
 
+  /* ==========================================================================
+     API (Laravel, JWT bearer token kept for this browser tab only)
+     ========================================================================== */
+  var TOKEN_KEY = "admitone.token";
+  function getToken() { var t = readJSON("session", TOKEN_KEY); return t && t.token; }
+  function setToken(token) { if (token) writeJSON("session", TOKEN_KEY, { token: token }); else removeKey("session", TOKEN_KEY); }
+
+  /* data: plain object (sent as JSON) or FormData (file upload). Returns a jqXHR. */
+  function api(method, url, data) {
+    var form = typeof FormData !== "undefined" && data instanceof FormData;
+    var token = getToken();
+    return $.ajax({
+      url: url, method: method, dataType: "json",
+      headers: $.extend({ Accept: "application/json" }, token ? { Authorization: "Bearer " + token } : {}),
+      data: form ? data : (data == null ? undefined : JSON.stringify(data)),
+      contentType: form ? false : "application/json", processData: false
+    }).fail(function (xhr) {
+      if (xhr.status === 401 && token) { setToken(null); $(document).trigger("ao:signedout"); }
+    });
+  }
+
+  /* The message to show for a failed call: the server's, or a generic one */
+  function apiError(xhr) {
+    var r = xhr && xhr.responseJSON;
+    if (r && r.errors) { var first = Object.keys(r.errors)[0]; if (first) return r.errors[first][0]; }
+    if (r && r.message) return r.message;
+    if (xhr && xhr.status === 0) return "Can't reach the server. Check your connection and try again.";
+    return "Something went wrong. Please try again.";
+  }
+
+  /* Loading state on a button while a call runs */
+  function busy($btn, promise) {
+    $btn.addClass("loading").prop("disabled", true);
+    return promise.always(function () { $btn.removeClass("loading").prop("disabled", false); });
+  }
+
   $(document).on("click", ".menu-toggle", function () {
     var open = !$("#sidebar").hasClass("open");
     $("#sidebar").toggleClass("open", open);
@@ -207,6 +243,7 @@
     fileSize: fileSize, reducedMotion: reducedMotion, animateCount: animateCount,
     showToast: showToast, withLoading: withLoading,
     setError: setError, clearError: clearError, validateFields: validateFields,
-    moveNavIndicator: moveNavIndicator, closeSidebar: closeSidebar, revealView: revealView, initTooltips: initTooltips
+    moveNavIndicator: moveNavIndicator, closeSidebar: closeSidebar, revealView: revealView, initTooltips: initTooltips,
+    api: api, apiError: apiError, busy: busy, getToken: getToken, setToken: setToken
   };
 })(jQuery);

@@ -53,24 +53,24 @@ Wiring: **To do** · **Built** (API exists, tested) · **Wired** (UI uses it).
 
 | UI element | Needs | FR/NFR | Endpoint | UI status | Wiring |
 |---|---|---|---|---|---|
-| Sign-in form | Staff login, JWT, role | NFR-01 | `POST /api/auth/login` | Complete | To do |
-| All screens' data (`ADM.state`) | Programs, sessions, applicants, settings, audit | FR-10, FR-11 | `GET /api/admin/state` | Complete | To do |
-| Verify / request resubmission (with remark) | Document review | FR-04 | `PATCH /api/admin/applicants/{id}/documents/{key}` | Complete | To do |
-| Verify all pending | Bulk verify | FR-04 | `POST /api/admin/applicants/{id}/documents/verify-pending` | Complete | To do |
-| View uploaded file | Authorized download | FR-04 | `GET /api/admin/applicants/{id}/documents/{key}/file` | Placeholder (`admin-ui.js:229`) | To do |
-| Approve for exam (pick session) | Issue permit, `for_exam` | FR-05, FR-06 | `POST /api/admin/applicants/{id}/approve` | Complete | To do |
-| Reschedule absent examinee | Move session | FR-06 | `POST /api/admin/applicants/{id}/reschedule` | Complete | To do |
-| Roster checks + attendance | Permit/form check, present/absent | FR-06 | `PATCH /api/admin/applicants/{id}/exam` | Complete | To do |
-| Create exam session (date, batch, venue, capacity) | Session | FR-06 | `POST /api/admin/exam-sessions` | Complete | To do |
-| Record result (score + decision) | Internal score | FR-08, NFR-02 | `POST /api/admin/applicants/{id}/result` | Complete | To do |
-| Release results (single/bulk) | Controlled release + notify | FR-08, FR-12 | `POST /api/admin/results/release` | Complete | To do |
-| Medical: verify / resubmit / verify all | Clinic review | FR-13 | `PATCH /api/admin/applicants/{id}/medical/{key}`, `POST …/medical/verify-pending` | Complete | To do |
-| Programs: edit slots, add program | Programs and slots | FR-09 | `PATCH /api/admin/programs/{code}`, `POST /api/admin/programs` | Complete | To do |
-| Requirement on/off switches | Requirements per period | FR-09 | `PATCH /api/admin/requirements/{key}` | Complete | To do |
-| Application deadline | Admission period | FR-09 | `PATCH /api/admin/admission-period` | Complete | To do |
-| Reports + CSV export | Reports | FR-11 | Computed client-side from `GET /api/admin/state` | Complete | To do |
-| Audit log (read-only) | Append-only audit | NFR-03 | `GET /api/admin/state` (`audit` + applicant histories) | Complete | To do |
-| Reset demo data | None (demo only) | — | — | Placeholder | Not wired |
+| Sign-in form | Staff login, JWT, role | NFR-01 | `POST /api/auth/login` | Complete | Wired |
+| All screens' data (`ADM.state`) | Programs, sessions, applicants, settings, audit | FR-10, FR-11 | `GET /api/admin/state` | Complete | Wired |
+| Verify / request resubmission (with remark) | Document review | FR-04 | `PATCH /api/admin/applicants/{id}/documents/{key}` | Complete | Wired |
+| Verify all pending | Bulk verify | FR-04 | `POST /api/admin/applicants/{id}/documents/verify-pending` | Complete | Wired |
+| View uploaded file | Authorized download | FR-04 | `GET /api/admin/applicants/{id}/documents/{key}/file` | Placeholder (`admin-ui.js:229`) | Wired (preview now shows the file: the one visible change, done as the `BACKEND:` comment specified) |
+| Approve for exam (pick session) | Issue permit, `for_exam` | FR-05, FR-06 | `POST /api/admin/applicants/{id}/approve` | Complete | Wired |
+| Reschedule absent examinee | Move session | FR-06 | `POST /api/admin/applicants/{id}/reschedule` | Complete | Wired |
+| Roster checks + attendance | Permit/form check, present/absent | FR-06 | `PATCH /api/admin/applicants/{id}/exam` | Complete | Wired |
+| Create exam session (date, batch, venue, capacity) | Session | FR-06 | `POST /api/admin/exam-sessions` | Complete | Wired |
+| Record result (score + decision) | Internal score | FR-08, NFR-02 | `POST /api/admin/applicants/{id}/result` | Complete | Wired |
+| Release results (single/bulk) | Controlled release + notify | FR-08, FR-12 | `POST /api/admin/results/release` | Complete | Wired |
+| Medical: verify / resubmit / verify all | Clinic review | FR-13 | `PATCH /api/admin/applicants/{id}/medical/{key}`, `POST …/medical/verify-pending` | Complete | Wired |
+| Programs: edit slots, add program | Programs and slots | FR-09 | `PATCH /api/admin/programs/{code}`, `POST /api/admin/programs` | Complete | Wired |
+| Requirement on/off switches | Requirements per period | FR-09 | `PATCH /api/admin/requirements/{key}` | Complete | Wired |
+| Application deadline | Admission period | FR-09 | `PATCH /api/admin/admission-period` | Complete | Wired |
+| Reports + CSV export | Reports | FR-11 | Computed client-side from `GET /api/admin/state` | Complete | Wired |
+| Audit log (read-only) | Append-only audit | NFR-03 | `GET /api/admin/state` (`audit` + applicant histories) | Complete | Wired |
+| Reset demo data | None (demo only) | — | — | Placeholder | Reloads the server state (no demo reset on a real server) |
 
 ### Backend only, UI pending
 
@@ -91,4 +91,5 @@ Wiring: **To do** · **Built** (API exists, tested) · **Wired** (UI uses it).
 5. **Only 2 program choices** in the applicant form; the plan allows up to 3. The backend accepts 1–3.
 6. **Program lists differ** (applicant: 7 full names, admin: 11 codes). The database's program list is used by both.
 7. **Applicant-only items not in the plan:** campus, "accept offer", reservation fee and the application-fee payment upload.
+9. **Office panel doesn't adapt to the signed-in role.** The clinic account sees every screen and the sidebar label always says "Admission personnel". The server refuses actions outside the role (with a message), but the UI should hide them.
 8. **Admin panel loads all applicants at once** (filtering, charts and CSV run in the browser). This works for the prototype; at ~20,000 applicants it needs server-side paging (Phase 10).

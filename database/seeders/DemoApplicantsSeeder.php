@@ -41,11 +41,14 @@ class DemoApplicantsSeeder extends Seeder
 
     private ExamService $exams;
 
+    private Carbon $realNow;
+
     public function run(): void
     {
         if (Application::exists()) {
             return;
         }
+        $this->realNow = Carbon::now();
         mt_srand(20262027);
         $this->applications = app(ApplicationService::class);
         $this->documents = app(DocumentService::class);
@@ -182,7 +185,8 @@ class DemoApplicantsSeeder extends Seeder
     /** Pretend "now" is $time and $user is signed in, so timestamps and audit lines read right. */
     private function at(Carbon $time, ?User $user = null): void
     {
-        Carbon::setTestNow($time->isFuture() ? Carbon::now() : $time);
+        // Compare with the real clock, not the one frozen by the previous step
+        Carbon::setTestNow($time->gt($this->realNow) ? $this->realNow : $time);
         $user ? Auth::guard('api')->setUser($user) : Auth::guard('api')->forgetUser();
     }
 
