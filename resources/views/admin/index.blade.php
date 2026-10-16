@@ -1,22 +1,14 @@
-<!doctype html>
-<html lang="en">
+@extends('layouts.app')
 
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="description" content="Pamantasan ng Lungsod ng Pasig admission office panel for admission personnel">
-  <title>PLP Admission Office</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link
-    href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Serif+Display&display=swap"
-    rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="../assets/shared/css/core.css" rel="stylesheet">
-  <link href="../assets/admin/css/admin.css" rel="stylesheet">
-</head>
+@section('title', 'PLP Admission Office')
+@section('description', 'Pamantasan ng Lungsod ng Pasig admission office panel for admission personnel')
+@section('body_class', 'admin')
 
-<body class="admin">
+@push('styles')
+  <link href="{{ asset('assets/admin/css/admin.css') }}" rel="stylesheet">
+@endpush
+
+@section('content')
   <!-- =========================================================
        SIGN IN (admission personnel)
        ========================================================= -->
@@ -78,7 +70,7 @@
               class="btn-label">Sign in</span></button>
           <p class="demo-note"><span data-icon="help"></span>Demo panel: any email and a password of 8 or more
             characters will work. Accounts and roles are managed by the system administrator.</p>
-          <a class="link-button align-self-center" href="../index.html"><span data-icon="arrowL"></span>Go to the
+          <a class="link-button align-self-center" href="{{ route('applicant') }}"><span data-icon="arrowL"></span>Go to the
             applicant portal</a>
         </form>
       </div>
@@ -358,23 +350,20 @@
 
   <!-- Filled just before window.print() -->
   <div id="print-area" aria-hidden="true"></div>
+@endsection
 
-  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="../assets/shared/js/core.js"></script>
-  <script src="../assets/admin/js/admin-store.js"></script>
-  <script src="../assets/admin/js/admin-actions.js"></script>
-  <script src="../assets/admin/js/admin-ui.js"></script>
-  <script src="../assets/admin/js/views/dashboard.js"></script>
-  <script src="../assets/admin/js/views/applicants.js"></script>
-  <script src="../assets/admin/js/views/documents.js"></script>
-  <script src="../assets/admin/js/views/exams.js"></script>
-  <script src="../assets/admin/js/views/results.js"></script>
-  <script src="../assets/admin/js/views/medical.js"></script>
-  <script src="../assets/admin/js/views/reports.js"></script>
-  <script src="../assets/admin/js/views/settings.js"></script>
-  <script src="../assets/admin/js/views/audit.js"></script>
-  <script src="../assets/admin/js/admin.js"></script>
-</body>
-
-</html>
+@push('scripts')
+  <script src="{{ asset('assets/admin/js/admin-store.js') }}"></script>
+  <script src="{{ asset('assets/admin/js/admin-actions.js') }}"></script>
+  <script src="{{ asset('assets/admin/js/admin-ui.js') }}"></script>
+  <script src="{{ asset('assets/admin/js/views/dashboard.js') }}"></script>
+  <script src="{{ asset('assets/admin/js/views/applicants.js') }}"></script>
+  <script src="{{ asset('assets/admin/js/views/documents.js') }}"></script>
+  <script src="{{ asset('assets/admin/js/views/exams.js') }}"></script>
+  <script src="{{ asset('assets/admin/js/views/results.js') }}"></script>
+  <script src="{{ asset('assets/admin/js/views/medical.js') }}"></script>
+  <script src="{{ asset('assets/admin/js/views/reports.js') }}"></script>
+  <script src="{{ asset('assets/admin/js/views/settings.js') }}"></script>
+  <script src="{{ asset('assets/admin/js/views/audit.js') }}"></script>
+  <script src="{{ asset('assets/admin/js/admin.js') }}"></script>
+@endpush

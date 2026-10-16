@@ -1,6 +1,6 @@
 /* ==========================================================================
    PLP Online Admission — Shared design system (Bootstrap 5.3 + jQuery)
-   Used by both the applicant portal (/index.html) and the admission office
+   Used by both the applicant portal (/) and the admission office
    panel (/admin/). Holds tokens, base + Bootstrap overrides, buttons, brand,
    the sign-in layout, the sidebar/topbar shell, pills, tags, modals and toasts.
    Page-specific styles live in assets/applicant/css and assets/admin/css.

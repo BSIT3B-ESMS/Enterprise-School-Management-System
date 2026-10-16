@@ -1,22 +1,13 @@
-<!doctype html>
-<html lang="en">
+@extends('layouts.app')
 
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="description" content="Pamantasan ng Lungsod ng Pasig online admission: applicant portal">
-  <title>PLP Online Admission · Applicant Portal</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link
-    href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Serif+Display&display=swap"
-    rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="assets/shared/css/core.css" rel="stylesheet">
-  <link href="assets/applicant/css/applicant.css" rel="stylesheet">
-</head>
+@section('title', 'PLP Online Admission · Applicant Portal')
+@section('description', 'Pamantasan ng Lungsod ng Pasig online admission: applicant portal')
 
-<body>
+@push('styles')
+  <link href="{{ asset('assets/applicant/css/applicant.css') }}" rel="stylesheet">
+@endpush
+
+@section('content')
   <!-- =========================================================
        SIGN IN / CREATE ACCOUNT
        ========================================================= -->
@@ -718,11 +709,8 @@
   </div>
 
   <canvas id="confetti" aria-hidden="true"></canvas>
+@endsection
 
-  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="assets/shared/js/core.js"></script>
-  <script src="assets/applicant/js/applicant.js"></script>
-</body>
-
-</html>
+@push('scripts')
+  <script src="{{ asset('assets/applicant/js/applicant.js') }}"></script>
+@endpush
