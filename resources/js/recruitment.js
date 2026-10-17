@@ -472,7 +472,7 @@ function initFormModal($modal, $root) {
 
         if (editingId) {
             updateApplication(editingId, details);
-            showToast('Application saved.');
+            showToast('Application updated.');
         } else {
             const application = addApplication(details);
 

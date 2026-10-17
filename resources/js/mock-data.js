@@ -6,7 +6,7 @@ import { formatDate, formatTime, initialsOf } from './format.js';
 import { progressForStatus, statusAfterCompleting, workflowFor } from './recruitment-workflow.js';
 
 const storageKey = 'ems-mock-data';
-const storageVersion = 11;
+const storageVersion = 12;
 
 const benefitNames = [
     'SSS',
@@ -76,6 +76,9 @@ const positionDetails = {
         qualifications: ['Master’s degree in a relevant field', 'Experience with research methods and data analysis', 'Attention to detail and good writing'],
     },
 };
+
+// Which updates the HR header's notifications menu shows (Account Settings). Everything is on until turned off.
+const defaultHrSettings = { notifications: { leave: true, recruitment: true, employees: true } };
 
 // The signed-in HR user's account. Kept apart from the employee and applicant records; `state.hrProfile`
 // starts from this and holds the user's edits.
@@ -448,6 +451,7 @@ function createInitialState() {
     return {
         version: storageVersion,
         hrProfile: { ...seedHrProfile },
+        hrSettings: structuredClone(defaultHrSettings),
         employees,
         nextEmployeeNumber: 1001 + employees.length,
         ...seedDepartmentState(),
@@ -502,6 +506,8 @@ function loadState() {
             ...withActivityIds(saved),
             // The HR profile (8 and earlier) starts from the sample account.
             hrProfile: saved.hrProfile?.name ? saved.hrProfile : { ...seedHrProfile },
+            // The HR settings (11 and earlier) start with every notification on.
+            hrSettings: { notifications: { ...defaultHrSettings.notifications, ...saved.hrSettings?.notifications } },
             version: storageVersion,
         };
         const today = isoDateOf(new Date());
@@ -677,11 +683,49 @@ export function recordPortalPasswordChange() {
  * Data every page inside the app shell (header and sidebar) needs.
  */
 export function getShellData() {
+    const { notifications: shown } = state.hrSettings;
+
     return {
         currentUser: currentUserView(),
-        pendingCandidates: countForStatus('Applied'),
-        notifications: activityWithDates(state.activity.slice(0, 4)),
+        // The waiting-candidates banner and bell dot are recruitment updates.
+        pendingCandidates: shown.recruitment ? countForStatus('Applied') : 0,
+        notifications: activityWithDates(state.activity.filter((entry) => isNotificationShown(entry, shown)).slice(0, 4)),
     };
+}
+
+// The kind of update an activity entry is, from the record it is about; entries about the session or the
+// account itself are not a kind the settings can turn off.
+const notificationKinds = { Leave: 'leave', Candidate: 'recruitment', Employee: 'employees', Department: 'employees', 'Job Title': 'employees' };
+
+function isNotificationShown(entry, shown) {
+    const kind = notificationKinds[entry.entity.split(' · ')[0]];
+
+    return !kind || shown[kind];
+}
+
+/**
+ * The HR user's Account Settings: which kinds of updates the notifications menu shows
+ * (leave requests, recruitment updates, and employee-related updates).
+ */
+export function getHrSettings() {
+    return { notifications: { ...state.hrSettings.notifications } };
+}
+
+/**
+ * Turns notification kinds on or off. Unknown kinds and non-boolean values are ignored. The header's
+ * notifications menu follows right away.
+ *
+ * @param {{ notifications?: { leave?: boolean, recruitment?: boolean, employees?: boolean } }} changes
+ */
+export function updateHrSettings(changes) {
+    Object.entries(changes.notifications ?? {}).forEach(([kind, value]) => {
+        if (kind in defaultHrSettings.notifications && typeof value === 'boolean') {
+            state.hrSettings.notifications[kind] = value;
+        }
+    });
+    commitChange();
+
+    return getHrSettings();
 }
 
 /**
@@ -1101,7 +1145,7 @@ export function updateDepartment(id, name) {
     logActivity(
         'Updated',
         `Department · ${department.name}`,
-        previousName === department.name ? 'Department saved' : `Renamed from ${previousName}`,
+        previousName === department.name ? 'Department updated' : `Renamed from ${previousName}`,
     );
     commitChange();
 
@@ -1812,26 +1856,56 @@ export function completeHiring(id) {
     // What the applicant already submitted carries over, so nothing is asked for twice; the employee-only
     // document lists (BIR 2316, performance, and so on) start empty.
     const submitted = submittedDetails(application);
+    const existing = state.employees.find((candidate) => candidate.email.toLowerCase() === application.email.toLowerCase());
+    let employee;
 
-    const employee = addEmployee({
-        ...submitted,
-        documents: Object.fromEntries(documentCategories.map(([key]) => [key, submitted.documents[key] ?? []])),
-        name: application.name,
-        email: application.email,
-        phone: application.phone,
-        departmentId: application.departmentId,
-        jobTitleId: application.jobTitleId,
-        hiredOn: todayIso(),
-        salary: jobTitle.salary,
-        benefits: [...jobTitle.benefits],
-    });
+    if (existing) {
+        // The same person is already an employee: reuse that record (no second copy), fill in only what it is
+        // missing, and move it to the position they were hired for.
+        [...applicantDetailFields, 'phone'].forEach((field) => {
+            existing[field] = existing[field] || (field === 'phone' ? application.phone : submitted[field]);
+        });
+        existing.documents = Object.fromEntries(documentCategories.map(([key]) => {
+            const kept = existing.documents?.[key] ?? [];
+            const added = (submitted.documents[key] ?? []).filter((file) => !kept.some((listed) => listed.name === file.name && listed.size === file.size));
+
+            return [key, [...kept, ...added]];
+        }));
+        existing.departmentId = application.departmentId;
+        existing.jobTitleId = application.jobTitleId;
+        logActivity('Updated', `Employee · ${existing.name} (${existing.id})`, `Hired as ${jobTitle.name}; details carried over from the application`);
+        employee = existing;
+    } else {
+        employee = addEmployee({
+            ...submitted,
+            documents: Object.fromEntries(documentCategories.map(([key]) => [key, submitted.documents[key] ?? []])),
+            name: application.name,
+            email: application.email,
+            phone: application.phone,
+            departmentId: application.departmentId,
+            jobTitleId: application.jobTitleId,
+            hiredOn: todayIso(),
+            salary: jobTitle.salary,
+            benefits: [...jobTitle.benefits],
+        });
+    }
+
+    // Filling the position uses up one of its openings, so Open Positions (HR's Dashboard and Job Titles, and the
+    // applicants' view) agree with the roster.
+    jobTitle.openings = Math.max(0, Number(jobTitle.openings || 0) - 1);
+    logActivity('Updated', `Job Title · ${jobTitle.name}`, `Openings reduced to ${jobTitle.openings} after a hire`);
 
     application.employeeId = employee.id;
     addMilestone(application, 'hired');
-    moveTo(application, 'Hired', 'Hired', `Hired and added to Employees as ${employee.id}`);
+    moveTo(
+        application,
+        'Hired',
+        'Hired',
+        existing ? `Hired and linked to existing employee ${employee.id}` : `Hired and added to Employees as ${employee.id}`,
+    );
     commitChange();
 
-    return success(application, { employee });
+    return success(application, { employee, linked: Boolean(existing) });
 }
 
 /**
@@ -1930,6 +2004,89 @@ export function getEmployeeLeave(employeeId) {
         .filter((leave) => leave.employeeId === employeeId)
         .sort((first, second) => second.startDate.localeCompare(first.startDate))
         .map(withEmployeeNames);
+}
+
+// The leave types an employee can file (the same ones HR sees on the Calendar).
+const filableLeaveTypes = ['Vacation Leave', 'Sick Leave', 'Emergency Leave'];
+
+export function getLeaveTypes() {
+    return [...filableLeaveTypes];
+}
+
+/**
+ * Field errors for a leave request from the signed-in employee (empty when valid): a leave type, a first day from
+ * today on, a last day that is not before the first, and no overlap with leave they already have.
+ *
+ * @returns {{ type?: string, startDate?: string, endDate?: string }}
+ */
+export function validateLeaveRequest({ type, startDate, endDate }) {
+    const errors = {};
+
+    if (!filableLeaveTypes.includes(type)) {
+        errors.type = 'Choose a leave type.';
+    }
+
+    if (!startDate) {
+        errors.startDate = 'Choose the first day of leave.';
+    } else if (startDate < todayIso()) {
+        errors.startDate = 'Choose today or a later date.';
+    }
+
+    if (!endDate) {
+        errors.endDate = 'Choose the last day of leave.';
+    } else if (startDate && endDate < startDate) {
+        errors.endDate = 'The last day cannot be before the first day.';
+    }
+
+    if (!errors.startDate && !errors.endDate && state.leaveRequests.some((leave) => (
+        leave.employeeId === portalEmployeeId && leave.startDate <= endDate && leave.endDate >= startDate
+    ))) {
+        errors.startDate = 'You already have leave on some of these days.';
+    }
+
+    return errors;
+}
+
+/**
+ * Files a leave request for the signed-in employee. It is Filed (waiting for HR) and appears at once on HR's
+ * Calendar, the employee's leave list, and HR's notifications; only HR can approve it.
+ *
+ * @returns {{ ok: boolean, error?: string, errors?: object }}
+ */
+export function fileLeaveRequest(details) {
+    const employee = findById(state.employees, portalEmployeeId);
+
+    if (!employee) {
+        return { ok: false, error: 'Your employee record no longer exists.', errors: {} };
+    }
+
+    const errors = validateLeaveRequest(details);
+
+    if (Object.keys(errors).length) {
+        return { ok: false, error: '', errors };
+    }
+
+    const { type, startDate, endDate } = details;
+
+    state.leaveRequests.push({
+        id: `lv${state.nextLeaveNumber}`,
+        employeeId: employee.id,
+        type,
+        startDate,
+        endDate,
+        status: 'Filed',
+        filedOn: todayIso(),
+    });
+    state.nextLeaveNumber += 1;
+    logActivity(
+        'Created',
+        `Leave · ${employee.name}`,
+        `${type} from ${formatDate(startDate)} to ${formatDate(endDate)} filed`,
+        employee.name,
+    );
+    commitChange();
+
+    return { ok: true };
 }
 
 /**

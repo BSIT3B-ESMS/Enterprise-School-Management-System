@@ -115,7 +115,7 @@ function initEdit($root) {
 
         updateHrProfile({ name: String(field('name').val()), email: String(field('email').val()) });
         stopEditing();
-        showToast('Changes saved.');
+        showToast('Changes applied.');
     });
 }
 

@@ -25,12 +25,15 @@ function renderHeader($shell, { currentUser, pendingCandidates, notifications })
         `${pendingCandidates === 1 ? 'candidate' : 'candidates'} waiting for screening`,
     );
 
-    $shell.find('[data-notifications]').empty().append(...notifications.map((notification) => (
-        $('<div>', { class: 'app-menu-note' }).append(
-            $('<span>', { text: notification.entity }),
-            $('<small>', { text: `${notification.detail} · ${formatDateTime(notification.at)}` }),
-        )
-    )));
+    // With every kind turned off in Account Settings (or nothing logged yet), the menu says so.
+    $shell.find('[data-notifications]').empty().append(...(notifications.length
+        ? notifications.map((notification) => (
+            $('<div>', { class: 'app-menu-note' }).append(
+                $('<span>', { text: notification.entity }),
+                $('<small>', { text: `${notification.detail} · ${formatDateTime(notification.at)}` }),
+            )
+        ))
+        : [$('<div>', { class: 'app-menu-note text-body-secondary', text: 'No notifications to show.' })]));
 }
 
 function initSidebarToggle($shell) {

@@ -3,7 +3,7 @@
 it('renders the :key flash message with the :variant alert class', function (string $key, string $variant) {
     $this->withSession([$key => 'Employee record saved.']);
 
-    $this->get(route('home'))
+    $this->get(route('login'))
         ->assertSee('Employee record saved.')
         ->assertSee($variant);
 })->with([
@@ -14,6 +14,6 @@ it('renders the :key flash message with the :variant alert class', function (str
 ]);
 
 it('renders no alert when the session holds no flash message', function () {
-    $this->get(route('home'))
+    $this->get(route('login'))
         ->assertDontSee('alert-dismissible');
 });

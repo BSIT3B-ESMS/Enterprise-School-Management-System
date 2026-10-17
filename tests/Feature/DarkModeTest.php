@@ -5,7 +5,6 @@ it('renders the :route page in dark mode by default', function (string $route) {
         ->assertOk()
         ->assertSee('data-bs-theme="dark"', escape: false);
 })->with([
-    'home' => ['home'],
     'login' => ['login'],
     'dashboard' => ['dashboard'],
     'employees' => ['employees.index'],

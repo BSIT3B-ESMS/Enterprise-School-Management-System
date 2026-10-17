@@ -43,6 +43,20 @@ it('has no HR actions or links on the employee calendar', function () {
         ->assertDontSee('href="'.route('employees.index').'"', escape: false);
 });
 
+it('lets the employee request leave from the calendar, as a filed request for HR to approve', function () {
+    $this->get(route('employee.calendar'))
+        ->assertSeeInOrder([
+            'data-bs-target="#leave-request-modal"', 'Request Leave',
+            'id="leave-request-modal"', 'data-leave-request-form',
+            'for="leave-type"', 'name="type"', 'data-leave-type-options',
+            'for="leave-start"', 'name="startDate"',
+            'for="leave-end"', 'name="endDate"',
+            'HR approves leave. Until then it shows as Filed.',
+            'File Request',
+        ], escape: false)
+        ->assertDontSee('data-calendar-approve', escape: false);
+});
+
 it('leaves the HR calendar with its event types, all five statuses, and approve action wiring', function () {
     $this->get(route('calendar.index'))
         ->assertSee('data-calendar-type-filter', escape: false)

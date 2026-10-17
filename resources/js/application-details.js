@@ -31,7 +31,9 @@ const confirmations = {
         message: (application) => `Complete hiring ${application.name}? They are added to Employees as ${application.jobTitle} in ${application.department}, and the application moves to Hired.`,
         label: 'Complete Hiring',
         run: (id) => completeHiring(id),
-        success: (application, result) => `${application.name} hired and added to Employees as ${result.employee.id}.`,
+        success: (application, result) => result.linked
+            ? `Hired: ${application.name} is already an employee (${result.employee.id}); that record was updated.`
+            : `${application.name} hired and added to Employees as ${result.employee.id}.`,
     },
     reject: {
         message: (application) => `Reject ${application.name}? Any scheduled screening or interview is cancelled, and a rejected application cannot move forward again.`,

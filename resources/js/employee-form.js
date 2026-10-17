@@ -223,7 +223,7 @@ function initProfileEdit($page) {
         }
 
         stopEditing();
-        showToast('Changes saved.');
+        showToast('Changes applied.');
     });
 }
 
