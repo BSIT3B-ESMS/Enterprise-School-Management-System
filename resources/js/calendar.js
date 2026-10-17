@@ -10,7 +10,14 @@ import {
     monthGrid,
 } from './calendar-events.js';
 import { formatDate, formatTime } from './format.js';
-import { approveLeave, getPortalLeave, listApplications, listLeaveRequests, onMockDataChange } from './mock-data.js';
+import {
+    approveLeave,
+    getApplicantApplication,
+    getPortalLeave,
+    listApplications,
+    listLeaveRequests,
+    onMockDataChange,
+} from './mock-data.js';
 import { showToast } from './toast.js';
 
 const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -62,10 +69,30 @@ function eventSummary(event, labels) {
  *
  * With data-calendar-scope="own" (the Employee interface) it shows only the signed-in employee's own leave,
  * named by leave type, with no actions: nothing on it changes a request's status.
+ *
+ * With data-calendar-scope="applicant" (the Applicant interface) it shows only that applicant's own screenings and
+ * interviews (the application is found by the ?ref= in the address), named by type, with no actions: only HR's
+ * Recruitment page schedules or completes them, and nothing here changes the application's status.
  */
 function initCalendar($root) {
     const isOwn = $root.attr('data-calendar-scope') === 'own';
-    const labels = isOwn ? { ...eventTypes, leave: 'My Leave' } : eventTypes;
+    const isApplicant = $root.attr('data-calendar-scope') === 'applicant';
+    const applicantReference = new URLSearchParams(window.location.search).get('ref') ?? '';
+    const labels = (isOwn && { ...eventTypes, leave: 'My Leave' })
+        || (isApplicant && { ...eventTypes, screening: 'Screening', interview: 'Interview' })
+        || eventTypes;
+    const words = (isOwn && {
+        dataNotice: 'You have no leave requests on record.',
+        month: 'You have no leave this month.',
+        day: 'You have no leave on this date.',
+    }) || (isApplicant && {
+        dataNotice: 'You have no screening or interview scheduled yet.',
+        month: 'You have no screening or interview this month.',
+        day: 'You have no screening or interview on this date.',
+    }) || {
+        month: 'No events scheduled for this month.',
+        day: 'No events scheduled for this date.',
+    };
     const now = new Date();
     const state = {
         year: now.getFullYear(),
@@ -88,6 +115,14 @@ function initCalendar($root) {
     }
 
     function allEvents() {
+        if (isApplicant) {
+            const application = getApplicantApplication(applicantReference);
+
+            return application
+                ? buildCalendarEvents({ leaveRequests: [], applications: [application] }).map((event) => ({ ...event, name: labels[event.type] }))
+                : [];
+        }
+
         if (isOwn) {
             return buildCalendarEvents({
                 leaveRequests: getPortalLeave().map((leave) => ({ ...leave, employeeName: leave.type })),
@@ -131,12 +166,18 @@ function initCalendar($root) {
     function renderDataNotice(events) {
         const missing = [];
 
-        if (!events.some((event) => event.type === 'leave')) {
-            missing.push(isOwn ? 'You have no leave requests on record.' : 'No employee leave requests are on record.');
-        }
+        if (isApplicant) {
+            if (!events.length) {
+                missing.push(words.dataNotice);
+            }
+        } else {
+            if (!events.some((event) => event.type === 'leave')) {
+                missing.push(isOwn ? words.dataNotice : 'No employee leave requests are on record.');
+            }
 
-        if (!isOwn && !events.some((event) => event.type !== 'leave')) {
-            missing.push('No applicant screenings or interviews are on record.');
+            if (!isOwn && !events.some((event) => event.type !== 'leave')) {
+                missing.push('No applicant screenings or interviews are on record.');
+            }
         }
 
         $root.find('[data-calendar-data-notice]').text(missing.join(' ')).toggleClass('d-none', !missing.length);
@@ -148,7 +189,7 @@ function initCalendar($root) {
         let notice = '';
 
         if (!monthEvents.length) {
-            notice = isOwn ? 'You have no leave this month.' : 'No events scheduled for this month.';
+            notice = words.month;
         } else if (!shownInMonth.length) {
             notice = 'No events match your selected filters.';
         }
@@ -228,7 +269,7 @@ function initCalendar($root) {
         let empty = '';
 
         if (!all.length) {
-            empty = isOwn ? 'You have no leave on this date.' : 'No events scheduled for this date.';
+            empty = words.day;
         } else if (!matching.length) {
             empty = 'No events match your selected filters.';
         }
@@ -258,6 +299,27 @@ function initCalendar($root) {
                 detailRow('Status', statusPill(event.status)),
                 detailRow('Filed On', formatDate(event.detail.filedOn)),
             ));
+
+            return;
+        }
+
+        // The applicant's own screening or interview: its type, position, date, time, status, and when it was
+        // completed. No actions.
+        if (isApplicant) {
+            const { application, activity } = event.detail;
+            const applicantRows = [
+                detailRow('Event Type', labels[event.type]),
+                detailRow('Position', application.jobTitle),
+                detailRow('Date', dateText(event)),
+                detailRow('Time', formatTime(event.time)),
+                detailRow('Status', statusPill(event.status)),
+            ];
+
+            if (activity.completedOn) {
+                applicantRows.push(detailRow('Completed On', formatDate(activity.completedOn)));
+            }
+
+            $details.append($('<dl>', { class: 'row row-cols-1 row-cols-sm-2 row-cols-xl-1 g-2 mb-0 employee-details' }).append(...applicantRows));
 
             return;
         }
@@ -317,6 +379,14 @@ function initCalendar($root) {
             const activeFilters = filters();
             const events = allEvents();
             const shown = filterEvents(events, activeFilters);
+
+            // No application for this reference (or HR deleted it): show that instead of an empty calendar.
+            if (isApplicant) {
+                const hasApplication = Boolean(getApplicantApplication(applicantReference));
+
+                $root.find('[data-applicant-missing]').toggleClass('d-none', hasApplication);
+                $root.find('[data-applicant-content]').toggleClass('d-none', !hasApplication);
+            }
 
             if (state.selectedEventId && !shown.some((event) => event.id === state.selectedEventId)) {
                 state.selectedEventId = null;

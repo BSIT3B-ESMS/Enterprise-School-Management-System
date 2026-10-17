@@ -1,5 +1,6 @@
 import { Modal } from 'bootstrap';
 import $ from './jquery.js';
+import { documentItem } from './employee-documents.js';
 import { formatDate, formatDateTime, formatTime } from './format.js';
 import {
     cancelActivity,
@@ -51,6 +52,36 @@ function today() {
 
 function button(label, attributes, { variant = 'outline-primary', size = 'sm' } = {}) {
     return $('<button>', { type: 'button', class: `btn btn-${variant} btn-${size}`, text: label, ...attributes });
+}
+
+/**
+ * The applicant record: the 201 file details and document lists the applicant submitted (blank for applications
+ * HR added by hand and the samples).
+ */
+function renderSubmitted($modal, application) {
+    Object.entries({
+        birthdate: application.birthdate ? formatDate(application.birthdate) : '',
+        sex: application.sex,
+        civilStatus: application.civilStatus,
+        address: application.address,
+        sssNumber: application.sssNumber,
+        philhealthNumber: application.philhealthNumber,
+        pagibigNumber: application.pagibigNumber,
+        tin: application.tin,
+        birNumber: application.birNumber,
+    }).forEach(([field, value]) => {
+        $modal.find(`[data-application-field="${field}"]`)
+            .text(value || 'Not provided')
+            .toggleClass('text-body-secondary', !value);
+    });
+
+    $modal.find('[data-application-documents]').each(function () {
+        const key = $(this).attr('data-application-documents');
+        const files = application.documents?.[key] ?? [];
+
+        $(this).empty().append(...files.map((file) => documentItem(file)));
+        $modal.find(`[data-application-documents-empty="${key}"]`).toggleClass('d-none', files.length > 0);
+    });
 }
 
 function renderSteps($modal, application) {
@@ -243,6 +274,8 @@ export function initApplicationDetails($modal) {
         }).forEach(([field, value]) => {
             $modal.find(`[data-application-field="${field}"]`).text(value);
         });
+
+        renderSubmitted($modal, application);
 
         $modal.find('[data-application-employee-row]').toggleClass('d-none', !application.employeeId);
         $modal.find('[data-application-employee-link]')

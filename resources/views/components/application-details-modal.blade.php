@@ -7,6 +7,21 @@
         'appliedOn' => 'Application Date',
         'status' => 'Application Status',
     ];
+
+    // What the applicant submitted on the job application form (the 201 file details), shown as the applicant record.
+    $personal = ['birthdate' => 'Birthdate', 'sex' => 'Sex', 'civilStatus' => 'Civil Status'];
+    $government = [
+        'sssNumber' => 'SSS Number',
+        'philhealthNumber' => 'PhilHealth Number',
+        'pagibigNumber' => 'Pag-IBIG (HDMF) Number',
+        'tin' => 'Tax Identification Number (TIN)',
+        'birNumber' => 'BIR Number',
+    ];
+    $documents = [
+        'education' => 'Education Transcripts or Diplomas',
+        'workHistory' => 'Work History',
+        'hiringRequirements' => 'Hiring Requirements',
+    ];
 @endphp
 
 {{--
@@ -43,6 +58,47 @@
                         <dd class="mb-0"><a href="{{ route('employees.index') }}" data-application-employee-link></a></dd>
                     </div>
                 </dl>
+
+                <section aria-labelledby="application-personal-title">
+                    <h3 class="employee-form-section" id="application-personal-title">Personal Information</h3>
+                    <dl class="row row-cols-1 row-cols-md-2 g-3 mb-0 employee-details">
+                        @foreach ($personal as $field => $label)
+                            <div class="col">
+                                <dt>{{ $label }}</dt>
+                                <dd class="mb-0" data-application-field="{{ $field }}"></dd>
+                            </div>
+                        @endforeach
+                        <div class="col-12">
+                            <dt>Address</dt>
+                            <dd class="mb-0" data-application-field="address"></dd>
+                        </div>
+                    </dl>
+                </section>
+
+                <section aria-labelledby="application-government-title">
+                    <h3 class="employee-form-section" id="application-government-title">Government and Tax</h3>
+                    <dl class="row row-cols-1 row-cols-md-2 g-3 mb-0 employee-details">
+                        @foreach ($government as $field => $label)
+                            <div class="col">
+                                <dt>{{ $label }}</dt>
+                                <dd class="mb-0 tabular-nums" data-application-field="{{ $field }}"></dd>
+                            </div>
+                        @endforeach
+                    </dl>
+                </section>
+
+                <section aria-labelledby="application-documents-title">
+                    <h3 class="employee-form-section" id="application-documents-title">Documents</h3>
+                    <div class="d-grid gap-3">
+                        @foreach ($documents as $key => $label)
+                            <div>
+                                <div class="fw-medium mb-1">{{ $label }}</div>
+                                <ul class="list-group document-list" data-application-documents="{{ $key }}"></ul>
+                                <p class="small text-body-secondary mb-0" data-application-documents-empty="{{ $key }}">No files attached.</p>
+                            </div>
+                        @endforeach
+                    </div>
+                </section>
 
                 <section aria-labelledby="application-progress-title">
                     <h3 class="employee-form-section" id="application-progress-title">Recruitment Progress</h3>

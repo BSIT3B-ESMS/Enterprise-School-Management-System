@@ -1,13 +1,10 @@
 import $ from './jquery.js';
-import { documentItem } from './employee-documents.js';
+import { bindDocumentFields, readDocuments, setDocuments, todayIsoDate } from './employee-documents.js';
 import { addEmployee, findEmployee, getEmployeeFormOptions, updateEmployee } from './mock-data.js';
 import { queueToast, showToast } from './toast.js';
+import { idNumberRule } from './validation-rules.js';
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-const idNumberPattern = /^[0-9][0-9 -]*$/;
-
-// Government and tax ID numbers are optional; when given they are digits with dashes or spaces.
-const idNumberRule = (value) => (!value.trim() || idNumberPattern.test(value.trim()) ? '' : 'Use numbers, dashes, and spaces only.');
 
 // Each rule returns an error message, or '' when the value is valid.
 const validationRules = {
@@ -30,14 +27,6 @@ const recordFields = [
     'sssNumber', 'philhealthNumber', 'pagibigNumber', 'tin', 'birNumber',
 ];
 
-function todayIsoDate() {
-    const today = new Date();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const day = String(today.getDate()).padStart(2, '0');
-
-    return `${today.getFullYear()}-${month}-${day}`;
-}
-
 function optionsFor(placeholder, items) {
     return [
         $('<option>', { value: '', text: placeholder }),
@@ -57,19 +46,6 @@ function setFieldError($field, message) {
 
 function fieldFor($form, name) {
     return $form.find(`[name="${name}"]`);
-}
-
-// The form's document lists ({ key: [{ name, size, addedOn }] }), kept until the form is saved.
-function documentsOf($form) {
-    return $form.data('documents');
-}
-
-function renderDocuments($form) {
-    $form.find('[data-document-field]').each(function () {
-        const files = documentsOf($form)[$(this).attr('data-document-field')];
-
-        $(this).find('[data-document-list]').empty().append(...files.map((file, index) => documentItem(file, index)));
-    });
 }
 
 /**
@@ -108,15 +84,7 @@ function prepareForm($form, employee) {
         });
     }
 
-    const documents = {};
-
-    $form.find('[data-document-field]').each(function () {
-        const key = $(this).attr('data-document-field');
-
-        documents[key] = (employee?.documents?.[key] ?? []).map((file) => ({ ...file }));
-    });
-    $form.data('documents', documents);
-    renderDocuments($form);
+    setDocuments($form, employee?.documents);
 }
 
 function applyJobTitleDefaults($form, jobTitleId) {
@@ -162,7 +130,7 @@ function readEmployee($form) {
         benefits: $form.find('[name="benefits"]:checked').map(function () {
             return $(this).val();
         }).get(),
-        documents: documentsOf($form),
+        documents: readDocuments($form),
     };
 }
 
@@ -182,26 +150,7 @@ function bindForm($form, onValid) {
         setFieldError($(this), validationRules[name](String($(this).val() ?? '')));
     });
 
-    // Chosen files are listed by name only; the input is cleared so the same file can be picked again later.
-    $form.on('change', '[data-document-input]', function () {
-        const files = documentsOf($form)[$(this).closest('[data-document-field]').attr('data-document-field')];
-
-        Array.from(this.files ?? []).forEach((file) => {
-            if (!files.some((listed) => listed.name === file.name && listed.size === file.size)) {
-                files.push({ name: file.name, size: file.size, addedOn: todayIsoDate() });
-            }
-        });
-        this.value = '';
-        renderDocuments($form);
-    });
-
-    $form.on('click', '[data-document-remove]', function () {
-        const $field = $(this).closest('[data-document-field]');
-
-        documentsOf($form)[$field.attr('data-document-field')].splice(Number($(this).attr('data-document-remove')), 1);
-        renderDocuments($form);
-        $field.find('[data-document-input]').trigger('focus');
-    });
+    bindDocumentFields($form);
 
     $form.on('submit', function (event) {
         event.preventDefault();

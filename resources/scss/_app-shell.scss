@@ -180,6 +180,17 @@ $app-sidebar-width: 16.25rem;
     box-shadow: var(--ems-menu-shadow);
 }
 
+// The account menu always opens below its button, aligned to the button's right edge (data-bs-display="static"
+// on the trigger lets the CSS place it, so it can never flip upward). It stays inside the visible window: it
+// scrolls when the window is shorter than the menu, and is never wider than the window.
+.app-menu-account {
+    max-width: calc(100vw - 1.5rem);
+    max-height: calc(100vh - #{$app-header-height} - 1rem);
+    max-height: calc(100dvh - #{$app-header-height} - 1rem);
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
 .app-menu-wide {
     width: min(21.25rem, calc(100vw - 1.5rem));
 }
