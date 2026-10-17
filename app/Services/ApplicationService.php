@@ -183,6 +183,26 @@ class ApplicationService
     }
 
     /** Draft, or sent back for resubmission (the applicant fixes and resubmits). */
+    /**
+     * "My profile": the mobile number can be updated at any time so admissions
+     * can reach the applicant; names only while the form is still editable.
+     * Changes after the first submission are kept (FR-10, saveProfile).
+     * Returns the fields that were saved.
+     */
+    public function updateContact(Application $application, array $input, User $by): array
+    {
+        $rules = ['phone' => ['required', 'regex:'.ApplicantForm::PH_MOBILE]];
+        if ($this->isEditable($application)) {
+            $rules += ['firstName' => ['required', 'string', 'max:100'], 'lastName' => ['required', 'string', 'max:100']];
+        }
+        $input = array_map(fn ($v) => is_string($v) ? trim($v) : $v, Arr::only($input, array_keys($rules)));
+        $valid = Validator::make($input, $rules, ApplicantForm::MESSAGES)->validate();
+
+        DB::transaction(fn () => $this->saveProfile($application, $application->applicant, $valid, $by));
+
+        return array_keys($valid);
+    }
+
     public function isEditable(Application $application): bool
     {
         return in_array($application->status, [ApplicationStatus::Draft, ApplicationStatus::Resubmit], true);

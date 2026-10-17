@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\Applicant\DocumentController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\Integration\EnrollmentController;
 use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\Clinic;
 use App\Http\Controllers\Api\Office;
 use Illuminate\Support\Facades\Route;
 
@@ -43,6 +44,7 @@ Route::prefix('notifications')->middleware(['auth:api', 'active'])->group(functi
 Route::prefix('applicant')->middleware(['auth:api', 'active', 'role:applicant'])->group(function () {
     Route::get('portal', [ApplicationController::class, 'show']);
     Route::put('application', [ApplicationController::class, 'update']);
+    Route::put('profile', [ApplicationController::class, 'updateProfile']);
     Route::post('submit', [ApplicationController::class, 'submit']);
     Route::post('offer/accept', [ApplicationController::class, 'acceptOffer']);
 
@@ -55,32 +57,39 @@ Route::prefix('applicant')->middleware(['auth:api', 'active', 'role:applicant'])
     Route::delete('medical/{key}', [DocumentController::class, 'destroyMedical']);
 });
 
-// Admission office panel: admission personnel and the clinic. There are no
-// routes here for accounts, backups or security settings (NFR-01).
-Route::prefix('admin')->middleware(['auth:api', 'active', 'role:admission|clinic'])->group(function () {
+// Admission office panel: admission personnel only. Medical clearance shows
+// there read-only; the clinic has its own portal below. There are no routes
+// here for accounts, backups or security settings (NFR-01).
+Route::prefix('admin')->middleware(['auth:api', 'active', 'role:admission'])->group(function () {
     Route::get('state', [Office\StateController::class, 'show']);
 
     Route::prefix('applicants/{application}')->group(function () {
         Route::patch('documents/{key}', [Office\DocumentController::class, 'review']);
         Route::post('documents/verify-pending', [Office\DocumentController::class, 'verifyPending']);
         Route::get('documents/{key}/file', [Office\DocumentController::class, 'file']);
-
-        Route::patch('medical/{key}', [Office\DocumentController::class, 'reviewMedical']);
-        Route::post('medical/verify-pending', [Office\DocumentController::class, 'verifyPendingMedical']);
     });
 
-    // Admission personnel only: the clinic handles medical requirements, nothing else
-    Route::middleware('role:admission')->group(function () {
-        Route::post('applicants/{application}/approve', [Office\ExamController::class, 'approve']);
-        Route::post('applicants/{application}/reschedule', [Office\ExamController::class, 'reschedule']);
-        Route::patch('applicants/{application}/exam', [Office\ExamController::class, 'roster']);
-        Route::post('applicants/{application}/result', [Office\ExamController::class, 'recordResult']);
-        Route::post('results/release', [Office\ExamController::class, 'release']);
-        Route::post('exam-sessions', [Office\ExamController::class, 'storeSession']);
+    Route::post('applicants/{application}/approve', [Office\ExamController::class, 'approve']);
+    Route::post('applicants/{application}/reschedule', [Office\ExamController::class, 'reschedule']);
+    Route::patch('applicants/{application}/exam', [Office\ExamController::class, 'roster']);
+    Route::post('applicants/{application}/result', [Office\ExamController::class, 'recordResult']);
+    Route::post('results/release', [Office\ExamController::class, 'release']);
+    Route::post('exam-sessions', [Office\ExamController::class, 'storeSession']);
 
-        Route::post('programs', [Office\SetupController::class, 'storeProgram']);
-        Route::patch('programs/{program:code}', [Office\SetupController::class, 'updateProgram']);
-        Route::patch('requirements/{key}', [Office\SetupController::class, 'updateRequirement']);
-        Route::patch('admission-period', [Office\SetupController::class, 'updatePeriod']);
+    Route::post('programs', [Office\SetupController::class, 'storeProgram']);
+    Route::patch('programs/{program:code}', [Office\SetupController::class, 'updateProgram']);
+    Route::patch('requirements/{key}', [Office\SetupController::class, 'updateRequirement']);
+    Route::patch('admission-period', [Office\SetupController::class, 'updatePeriod']);
+});
+
+// Clinic portal (nurse/): the clinic nurse sees medical files only, sends a
+// file back or approves. Medical files are confidential to the clinic.
+Route::prefix('clinic')->middleware(['auth:api', 'active', 'role:clinic'])->group(function () {
+    Route::get('state', [Clinic\MedicalController::class, 'state']);
+
+    Route::prefix('applicants/{application}/medical')->group(function () {
+        Route::post('approve', [Clinic\MedicalController::class, 'approve']);
+        Route::get('{key}/file', [Clinic\MedicalController::class, 'file']);
+        Route::patch('{key}', [Clinic\MedicalController::class, 'review']);
     });
 });

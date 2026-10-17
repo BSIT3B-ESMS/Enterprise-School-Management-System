@@ -110,10 +110,12 @@ class ExamAndResultTest extends TestCase
             $this->assertStringNotContainsString('percentile', strtolower($response->getContent()));
         }
 
-        // Staff: admission sees the score, the clinic doesn't
+        // Staff: admission sees the score; the clinic can't load the office state, and its own has no score
         $this->asUser($this->officer())->getJson('/api/admin/state')->assertJsonPath('data.applicants.0.result.score', 87);
-        $clinicState = $this->asUser($this->makeUser(Role::Clinic))->getJson('/api/admin/state');
-        $this->assertArrayNotHasKey('score', $clinicState->json('data.applicants.0.result'));
+        $clinic = $this->makeUser(Role::Clinic);
+        $this->asUser($clinic)->getJson('/api/admin/state')->assertForbidden();
+        $clinicState = $this->asUser($clinic)->getJson('/api/clinic/state')->assertOk();
+        $this->assertStringNotContainsString('score', strtolower($clinicState->streamedContent()));
     }
 
     public function test_accept_offer(): void

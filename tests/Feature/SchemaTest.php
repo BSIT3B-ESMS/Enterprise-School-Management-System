@@ -20,7 +20,8 @@ class SchemaTest extends TestCase
         $this->seed(DatabaseSeeder::class);
 
         $this->assertSame(11, Program::count());
-        $this->assertSame(8, Requirement::admission()->count());
+        $this->assertSame(10, Requirement::admission()->count());   // 9 portal-mapped uploads + the envelope
+        $this->assertFalse(Requirement::where('key', 'payment')->where('is_active', true)->exists());   // no fee: public university
         $this->assertSame(3, Requirement::medical()->count());
     }
 

@@ -150,43 +150,8 @@
       return n;
     },
 
-    // Medical requirements: the university clinic's account
-    verifyMedical: function (a, key) {
-      var f = ADM.fileOf(a, key);
-      if (!f) return false;
-      f.status = "verified";
-      delete f.remark;
-      stamp(f);
-      ADM.logApplicant(a, "Verified medical requirement \"" + docTitle(key) + "\"");
-      if (ADM.medStatus(a) === "cleared") ADM.logApplicant(a, "Medically cleared · admission complete");
-      send("PATCH", applicantPath(a, "medical/" + key), { status: "verified" }, a);
-      return true;
-    },
-
-    resubmitMedical: function (a, key, remark) {
-      var f = ADM.fileOf(a, key);
-      if (!f) return false;
-      f.status = "resubmit";
-      f.remark = remark;
-      stamp(f);
-      ADM.logApplicant(a, "Asked to resubmit medical requirement \"" + docTitle(key) + "\": " + remark);
-      send("PATCH", applicantPath(a, "medical/" + key), { status: "resubmit", remark: remark }, a);
-      return true;
-    },
-
-    verifyAllMedical: function (a) {
-      var n = 0;
-      ADM.MED_TYPES.forEach(function (m) {
-        var f = ADM.fileOf(a, m.key);
-        if (f && f.status === "pending") { f.status = "verified"; stamp(f); n++; }
-      });
-      if (n) {
-        ADM.logApplicant(a, "Verified " + n + " medical requirement" + (n === 1 ? "" : "s"));
-        if (ADM.medStatus(a) === "cleared") ADM.logApplicant(a, "Medically cleared · admission complete");
-        send("POST", applicantPath(a, "medical/verify-pending"), {}, a);
-      }
-      return n;
-    },
+    // Medical requirements are checked and approved in the clinic portal
+    // (assets/nurse/js/nurse.js, /api/clinic). The office sees them read-only.
 
     createSession: function (date, batch, venue, capacity) {
       var dup = ADM.state.sessions.filter(function (s) { return s.date === date && s.batch === batch && s.venue.toLowerCase() === venue.toLowerCase(); })[0];

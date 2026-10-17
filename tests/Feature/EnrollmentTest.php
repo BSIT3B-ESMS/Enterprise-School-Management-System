@@ -30,7 +30,7 @@ class EnrollmentTest extends TestCase
             $this->uploadDoc($user, $key, 'medical')->assertCreated();
         }
         $this->asUser($user)->postJson('/api/applicant/medical/submit')->assertOk();
-        $this->asUser($this->makeUser(Role::Clinic))->postJson("/api/admin/applicants/{$number}/medical/verify-pending")->assertOk();
+        $this->asUser($this->makeUser(Role::Clinic))->postJson("/api/clinic/applicants/{$number}/medical/approve")->assertOk();
 
         return $number;
     }

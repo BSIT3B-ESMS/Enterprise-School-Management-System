@@ -31,8 +31,8 @@
     var passed = ADM.countBy(function (a) { return a.result && a.result.decision === "passed" ? a.programs[0] : "-"; });
 
     $el.html(
-      '<div class="page-title" data-reveal><p class="eyebrow">Admission period setup</p><h1>Programs &amp; requirements</h1>' +
-      '<p class="lede">Keep programs, slots, and requirements current before each admission period. Every change is written to the audit log.</p></div>' +
+      '<div class="page-title" data-reveal><h1>Programs &amp; requirements</h1>' +
+      '</div>' +
 
       '<section class="table-card" data-reveal><div class="table-toolbar"><div><strong>Programs and slots</strong><small class="d-block text-muted">' + esc(st.settings.period) + "</small></div>" +
       '<button class="btn btn-ghost ms-auto" type="button" id="add-program">' + icon("plus") + "Add program</button></div>" +

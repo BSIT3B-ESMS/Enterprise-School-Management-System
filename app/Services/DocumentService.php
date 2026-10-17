@@ -162,8 +162,36 @@ class DocumentService
         return $document;
     }
 
+    /**
+     * The clinic nurse's "Approve" (clinic portal): every medical file is in,
+     * sent by the applicant and none is waiting on a replacement. Verifies
+     * them all; the office then sees the applicant as Approved.
+     */
+    public function approveMedical(Application $application, User $staff): int
+    {
+        $this->assertReviewer($staff, new Requirement(['stage' => Requirement::STAGE_MEDICAL]));
+        $this->assertReviewable($application, new Requirement(['stage' => Requirement::STAGE_MEDICAL]));
+        if ($this->medicallyCleared($application)) {
+            throw new BusinessRuleException('This applicant is already approved.');
+        }
+        if (! $application->medical_submitted_at) {
+            throw new BusinessRuleException('The applicant hasn’t sent their medical requirements yet.');
+        }
+        $docs = $application->documents()->where('is_current', true)
+            ->whereHas('requirement', fn ($q) => $q->where('stage', Requirement::STAGE_MEDICAL)->where('is_active', true))
+            ->get();
+        if ($docs->count() < Requirement::medical()->where('is_active', true)->count()) {
+            throw new BusinessRuleException('A medical file is still missing.');
+        }
+        if ($docs->contains('status', ApplicationDocument::RESUBMIT)) {
+            throw new BusinessRuleException('A file was sent back. Approve once the applicant replaces it.');
+        }
+
+        return $this->verifyPending($application, Requirement::STAGE_MEDICAL, $staff, 'Approved the medical requirements and sent the approval to the admission office');
+    }
+
     /** "Verify all pending" on the review screen. Returns how many were verified. */
-    public function verifyPending(Application $application, string $stage, User $staff): int
+    public function verifyPending(Application $application, string $stage, User $staff, ?string $description = null): int
     {
         $medical = $stage === Requirement::STAGE_MEDICAL;
         $this->assertReviewer($staff, new Requirement(['stage' => $stage]));
@@ -177,12 +205,12 @@ class DocumentService
             return 0;
         }
 
-        DB::transaction(function () use ($application, $pending, $medical, $staff) {
+        DB::transaction(function () use ($application, $pending, $medical, $staff, $description) {
             $pending->each->update(['status' => ApplicationDocument::VERIFIED, 'remark' => null, 'reviewed_by' => $staff->id, 'reviewed_at' => now()]);
             $n = $pending->count();
             $this->audit->record(
                 $medical ? 'medical.reviewed' : 'document.reviewed',
-                $medical ? "Verified {$n} medical requirement".($n === 1 ? '' : 's') : "Verified {$n} document".($n === 1 ? '' : 's'),
+                $description ?? ($medical ? "Verified {$n} medical requirement".($n === 1 ? '' : 's') : "Verified {$n} document".($n === 1 ? '' : 's')),
                 $application, $application, ['decision' => 'verified', 'count' => $n],
             );
             $medical ? $this->afterMedicalReview($application, $staff) : $this->syncStatus($application, $staff);

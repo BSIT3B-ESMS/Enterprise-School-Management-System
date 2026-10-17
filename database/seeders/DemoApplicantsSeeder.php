@@ -16,6 +16,7 @@ use Illuminate\Database\Seeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use PHPOpenSourceSaver\JWTAuth\JWTGuard;
 
 /**
  * Local/testing only. Walks sample applicants through the real services
@@ -177,12 +178,21 @@ class DemoApplicantsSeeder extends Seeder
             $this->documents->submitMedical($application->fresh());
             if (mt_rand(1, 100) <= 50) {
                 $this->at($released->copy()->addDays(5), $clinic);
-                $this->documents->verifyPending($application->fresh(), 'medical', $clinic);
+                $this->documents->approveMedical($application->fresh(), $clinic);
             }
         }
 
         Carbon::setTestNow();
-        Auth::guard('api')->forgetUser();
+        $this->guard()->forgetUser();
+    }
+
+    /** The API's JWT guard (typed, so editors know it has setUser/forgetUser). */
+    private function guard(): JWTGuard
+    {
+        /** @var JWTGuard $guard */
+        $guard = Auth::guard('api');
+
+        return $guard;
     }
 
     /** Pretend "now" is $time and $user is signed in, so timestamps and audit lines read right. */
@@ -190,7 +200,7 @@ class DemoApplicantsSeeder extends Seeder
     {
         // Compare with the real clock, not the one frozen by the previous step
         Carbon::setTestNow($time->gt($this->realNow) ? $this->realNow : $time);
-        $user ? Auth::guard('api')->setUser($user) : Auth::guard('api')->forgetUser();
+        $user ? $this->guard()->setUser($user) : $this->guard()->forgetUser();
     }
 
     /** A small real PDF or PNG, so files open in the panel. */

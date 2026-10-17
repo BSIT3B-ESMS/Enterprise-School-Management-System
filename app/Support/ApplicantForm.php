@@ -47,7 +47,7 @@ class ApplicantForm
 
     public const CAMPUSES = ['Main Campus', 'North Campus'];
 
-    private const PH_MOBILE = '/^(\+63|0)\s?9\d{2}\s?\d{3}\s?\d{4}$/';
+    public const PH_MOBILE = '/^(\+63|0)\s?9\d{2}\s?\d{3}\s?\d{4}$/';
 
     /**
      * Format rules, used for autosave: a value that breaks one is skipped

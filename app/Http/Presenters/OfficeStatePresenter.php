@@ -109,7 +109,7 @@ class OfficeStatePresenter
             ->whereNull('a.deleted_at')
             ->orderBy('a.id')
             ->get([
-                'a.id', 'a.number', 'a.status', 'a.created_at', 'a.submitted_at',
+                'a.id', 'a.number', 'a.status', 'a.created_at', 'a.submitted_at', 'a.medical_submitted_at',
                 'p.lrn', 'p.last_name', 'p.first_name', 'p.middle_name', 'p.sex', 'p.phone', 'p.is_resident', 'p.district',
                 'p.barangay', 'p.address', 'p.city', 'p.province', 'p.birthday', 'p.school_type', 'p.last_school', 'p.strand',
                 'p.applicant_type', 'p.has_guardian', 'u.email',
@@ -197,7 +197,7 @@ class OfficeStatePresenter
             ];
             // Medical requirements apply after a released pass (Application::medicalApplies)
             if ($a->status === 'passed' && $a->is_released) {
-                $item['medical'] = ['files' => $docs['medical']];
+                $item['medical'] = ['files' => $docs['medical'], 'submittedAt' => $this->at($a->medical_submitted_at)];
             }
             $out[] = $item;
         }

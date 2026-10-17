@@ -3,9 +3,8 @@
    Needs assets/shared/js/core.js loaded first (window.AO).
    Sign-in, the application form, the exam, the result, the offer and the
    medical requirements come from the Laravel API (/api/applicant/*).
-   Still in the browser only, until the team settles how the 8 document
-   cards map to the official requirements (PROGRESS.md, H1): the document
-   cards and the "Submit" button.
+   The document cards come from the server too: one per requirement that
+   applies to the student (7 for Grade 12 students).
    ========================================================================== */
 $(function () {
   "use strict";
@@ -13,7 +12,6 @@ $(function () {
   /* ==========================================================================
      CONFIG
      ========================================================================== */
-  var LOCAL_KEY = "admitone.portal.local.";   // + application number: document cards (H1)
   var REMEMBER_KEY = "admitone.rememberEmail";
   var APP_ID = "";                             // from the server
 
@@ -44,23 +42,34 @@ $(function () {
   ];
 
   // Required documents — edit titles and descriptions here
-  var DOCS = [
-    { key: "id", title: "Valid ID", desc: "Government-issued or school ID with photo. Put the front and back in one file.", icon: "idcard", tone: 1 },
-    { key: "guardianId", title: "Parent / Guardian ID", desc: "Valid ID of your parent or legal guardian, showing their signature.", icon: "users", tone: 2 },
-    { key: "ctcG11", title: "CTC Grade 11 Report Card", desc: "Certified true copy of your Grade 11 report card, signed by the school registrar.", icon: "stamp", tone: 3 },
-    { key: "form138", title: "Form 138", desc: "Your Grade 12 report card showing the latest available grading period.", icon: "file", tone: 4 },
-    { key: "goodMoral", title: "Certificate of Good Moral Character", desc: "Issued by your last school's guidance office, dated within the last 6 months.", icon: "shield", tone: 1 },
-    { key: "psa", title: "PSA Birth Certificate", desc: "A clear copy of your birth certificate issued by the Philippine Statistics Authority.", icon: "scroll", tone: 2 },
-    { key: "photo", title: "Passport-size photo with name tag", desc: "Recent photo on a white background with a name tag below.", icon: "camera", tone: 3, imageOnly: true, extra: "photo" },
-    { key: "payment", title: "GCash / Dragonpay payment", desc: "Screenshot or receipt of your application fee payment with the reference number visible.", icon: "wallet", tone: 4, extra: "payment" }
-  ];
+  // How each document card reads, keyed by the official requirement key the
+  // server uses (H1). Which cards a student sees
+  // comes from the server (`requirements`): Grade 12 students get 7 cards;
+  // SHS graduates get Form 137 instead of the two report cards; the
+  // guardianship affidavit is added for students with a guardian.
+  var CARD_TEXT = {
+    applicantId: { title: "Valid ID", desc: "Government-issued or school ID with photo. Put the front and back in one file." },
+    parentId: { title: "Parent / Guardian ID", desc: "Valid ID of your parent or legal guardian, showing their signature." },
+    affidavit: { title: "Affidavit of guardianship", desc: "Notarized affidavit of guardianship, since a guardian is listed on your application." },
+    form137: { title: "CTC of Form 137", desc: "Certified true copy of your Form 137 marked \"For Evaluation Purposes Only\"." },
+    form138: { title: "CTC Grade 11 Report Card", desc: "Certified true copy of your Grade 11 report card, signed by the school registrar." },
+    reportCard: { title: "Form 138", desc: "Your Grade 12 report card showing the latest available grading period." },
+    goodMoral: { title: "Certificate of Good Moral Character", desc: "Issued by your last school's guidance office, dated within the last 6 months." },
+    psa: { title: "PSA Birth Certificate", desc: "A clear copy of your birth certificate issued by the Philippine Statistics Authority." },
+    photo: { title: "Passport-size photo with name tag", desc: "Recent photo on a white background with a name tag below.", imageOnly: true, extra: "photo" }
+  };
+  var DOCS = [];   // filled from the server: one card per requirement that applies to this student
+  function cardsFrom(requirements) {
+    return requirements.map(function (r, i) {
+      return $.extend({ key: r.key, title: r.title, desc: "", icon: r.icon || "file", tone: (i % 4) + 1 }, CARD_TEXT[r.key]);
+    });
+  }
 
   // Open programs, key dates and the exam schedule come from the server
   var PROGRAMS = [];
   var KEY_DATES = [];
   var EXAM = { date: AO.toISO(AO.today()), time: "", venue: "", permit: "" };
   function keyDate(title, fallback) { var k = KEY_DATES.filter(function (x) { return x.title === title; })[0]; return k ? k.date : fallback; }
-  var APP_FEE = "₱500";
 
   /* ==========================================================================
      SHARED CORE (assets/shared/js/core.js)
@@ -148,24 +157,23 @@ $(function () {
     state.step = p.step || 1;
     state.completed = p.completed || [];
     state.data = $.extend({}, p.data);
+    ACCOUNT_EMAIL = p.data.email || ACCOUNT_EMAIL;
     Object.keys(state.data).forEach(function (k) { if (state.data[k] == null) delete state.data[k]; });
     state.phase = p.phase;
     state.submittedAt = p.submittedAt;
     state.accepted = p.accepted;
     state.medical = { files: p.medical.files || {}, status: p.medical.status };
-    // Document cards and their submit stay in this browser for now (H1)
-    var local = readJSON("local", LOCAL_KEY + APP_ID) || {};
-    state.docs = local.docs || {};
-    if (p.phase === "draft" && local.phase === "review") { state.phase = "review"; state.submittedAt = local.submittedAt; }
+    // Document cards: which ones apply and what was uploaded, from the server
+    DOCS = cardsFrom(p.requirements || []);
+    state.docs = $.extend({}, p.documents);
   }
   function loadPortal() {
     return AO.api("GET", "/api/applicant/portal").done(function (res) { applyPortal(res.data); fillPrograms(); });
   }
 
-  /* Save: the document cards locally (H1); the form and its progress to the server */
+  /* Save the form and its progress to the server (documents upload on their own) */
   var syncTimer;
   function save() {
-    if (APP_ID) writeJSON("local", LOCAL_KEY + APP_ID, { docs: state.docs, phase: serverPhase === "draft" && state.phase === "review" ? "review" : null, submittedAt: state.submittedAt });
     if (serverPhase !== "draft") return;
     clearTimeout(syncTimer);
     syncTimer = setTimeout(function () {
@@ -184,7 +192,9 @@ $(function () {
   function sectionsDone() { return state.completed.length >= SECTIONS.length; }
   function firstOpenSection() { for (var i = 1; i <= SECTIONS.length; i++) if (!isDone(i)) return i; return SECTIONS.length; }
   function canVisitSection(n) { return n <= firstOpenSection() || isDone(n); }
-  function docCount() { return DOCS.filter(function (d) { return state.docs[d.key]; }).length; }
+  // A file sent back for resubmission doesn't count until it's replaced
+  function hasDoc(key) { var f = state.docs[key]; return !!f && f.status !== "resubmit"; }
+  function docCount() { return DOCS.filter(function (d) { return hasDoc(d.key); }).length; }
   function locked() { return state.phase !== "draft"; }
 
   function medCount() { return MEDICAL.filter(function (m) { return state.medical.files[m.key]; }).length; }
@@ -302,7 +312,7 @@ $(function () {
   /* ==========================================================================
      NAVIGATION
      ========================================================================== */
-  var PAGE_LABELS = { overview: "Overview", application: "My application", documents: "Documents" };
+  var PAGE_LABELS = { overview: "Overview", application: "My application", documents: "Documents", profile: "My profile" };
 
   function openView(name) {
     var $target = $("#view-" + name);
@@ -317,6 +327,7 @@ $(function () {
     if (name === "overview") { celebrated = false; renderJourney(); }
     if (name === "application") renderApplication(false);
     if (name === "documents") renderDocs();
+    if (name === "profile") renderProfile();
     revealView($target);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -379,6 +390,12 @@ $(function () {
   /* ==========================================================================
      OVERVIEW JOURNEY
      ========================================================================== */
+  /* [pill class, label] for where the application is */
+  function statusPill() {
+    var med = state.medical.status;
+    return { draft: ["draft", "Draft"], review: ["review", "Under review"], exam: ["exam", "Exam scheduled"], result: state.accepted && med !== "cleared" ? ["review", med === "submitted" ? "Medical check" : "Medical pending"] : ["admitted", "Admitted"] }[state.phase];
+  }
+
   function renderJourney() {
     var $list = $("#journey-stepper");
     var current = journeyCurrent();
@@ -403,7 +420,7 @@ $(function () {
     var resultTitle = !state.accepted ? "Your admission result is in" : med === "cleared" ? "Admission complete · See you in August" : med === "submitted" ? "Your medical requirements are being checked" : "Last step · Submit your medical requirements";
     var titles = { draft: "Step " + current + " of " + STAGES + " · " + JOURNEY[current - 1].title, review: "Your application is under review", exam: "You're scheduled for the entrance exam", result: resultTitle };
     $("#journey-title").text(titles[state.phase]);
-    var pill = { draft: ["draft", "Draft"], review: ["review", "Under review"], exam: ["exam", "Exam scheduled"], result: state.accepted && med !== "cleared" ? ["review", med === "submitted" ? "Medical check" : "Medical pending"] : ["admitted", "Admitted"] }[state.phase];
+    var pill = statusPill();
     $("#status-pill").attr("class", "status-pill " + pill[0]).text(pill[1]);
 
     renderStagePanel(selectedStage);
@@ -450,11 +467,11 @@ $(function () {
     if (n === 2) {
       var count = docCount();
       var docChips = DOCS.map(function (doc) {
-        var ok = !!state.docs[doc.key];
+        var ok = hasDoc(doc.key);
         return '<span class="chip-doc' + (ok ? " ok" : "") + '">' + (ok ? icon("check") : "") + esc(doc.title.replace(" with name tag", "")) + "</span>";
       }).join("");
       return '<div class="sp-row"><span class="sp-icon">' + icon("folder") + '</span><div class="sp-body">' +
-        "<h3>" + (done ? "All 8 documents submitted" : count + " of 8 documents uploaded") + "</h3>" +
+        "<h3>" + (done ? "All " + DOCS.length + " documents submitted" : count + " of " + DOCS.length + " documents uploaded") + "</h3>" +
         "<p>" + (done ? "Sent to admissions on " + fmt(state.submittedAt, { month: "long", day: "numeric", year: "numeric" }) + "." : "Upload every requirement, then submit them for review.") + "</p>" +
         '<div class="sp-chips">' + docChips + "</div></div>" +
         '<div class="sp-actions"><button class="btn ' + (done ? "btn-ghost" : "btn-brand") + '" type="button" data-view="documents">' + (done ? "View documents" : "Upload documents") + icon("arrowR") + "</button></div></div>";
@@ -463,26 +480,29 @@ $(function () {
     // Review
     if (n === 3) {
       if (done) {
-        return '<div class="sp-row"><span class="sp-icon">' + icon("shield") + '</span><div class="sp-body"><h3>Application approved for the entrance exam</h3><p>Your form and all 8 documents were verified by the admissions team.</p></div></div>';
+        return '<div class="sp-row"><span class="sp-icon">' + icon("shield") + '</span><div class="sp-body"><h3>Application approved for the entrance exam</h3><p>Your form and all your documents were verified by the admissions team.</p></div></div>';
       }
       return '<div class="sp-row"><span class="scan-doc" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><div class="sp-body">' +
         "<h3>Admissions is reviewing your application</h3><p>This usually takes 3 to 5 working days. We'll email you once it's done.</p>" +
         '<ul class="review-steps"><li><span class="rs-mark">' + icon("check") + '</span>Application form received</li>' +
-        '<li class="working"><span class="rs-mark"></span>Verifying your 8 documents</li>' +
+        '<li class="working"><span class="rs-mark"></span>Verifying your documents</li>' +
         '<li class="waiting"><span class="rs-mark"></span>Exam eligibility</li></ul></div></div>';
     }
 
     // Exam
     if (n === 4) {
       var ed = parseDate(EXAM.date);
-      var ticket = '<div class="exam-ticket"><div class="ticket-date"><span>' + ed.toLocaleDateString("en-US", { month: "short" }) + "</span><strong>" + ed.getDate() + "</strong></div>" +
-        '<div class="ticket-info"><strong>' + ed.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" }) + "</strong>" +
-        "<span>" + icon("clock") + EXAM.time + "</span><span>" + icon("pin") + esc(EXAM.venue) + "</span><span>" + icon("ticket") + "Exam permit " + EXAM.permit + "</span></div></div>";
+      // Clicking the ticket downloads the exam permit (PDF, see EXAM PERMIT below)
+      var ticket = '<button class="exam-ticket ticket-download" type="button" id="download-permit" aria-label="Download your exam permit as a PDF">' +
+        '<span class="ticket-date"><span>' + ed.toLocaleDateString("en-US", { month: "short" }) + "</span><strong>" + ed.getDate() + "</strong></span>" +
+        '<span class="ticket-info"><strong>' + ed.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" }) + "</strong>" +
+        "<span>" + icon("clock") + esc(EXAM.time) + "</span><span>" + icon("pin") + esc(EXAM.venue) + "</span><span>" + icon("ticket") + "Exam permit " + esc(EXAM.permit) + "</span></span>" +
+        '<span class="ticket-cta">' + icon("download") + '<span class="btn-label">Download permit</span></span></button>';
       if (done) {
         return '<div class="sp-row"><span class="sp-icon">' + icon("pencil") + '</span><div class="sp-body"><h3>Entrance exam completed</h3><p>You took the exam on ' + fmt(EXAM.date, { month: "long", day: "numeric", year: "numeric" }) + ". Your result is ready.</p></div></div>";
       }
       return '<div class="sp-row"><span class="sp-icon">' + icon("pencil") + '</span><div class="sp-body"><h3>Your entrance exam schedule</h3>' +
-        "<p>Arrive 30 minutes early. Bring the valid ID you uploaded, your exam permit, two pencils, and an eraser.</p>" + ticket + "</div></div>";
+        "<p>Arrive 30 minutes early. Click the ticket to download your exam permit, then print it and bring it with the valid ID you uploaded.</p>" + ticket + "</div></div>";
     }
 
     // Medical requirements (last step)
@@ -495,7 +515,7 @@ $(function () {
       '<div class="fact"><span>Campus</span><strong>' + esc(d.campus || "Main Campus") + " · AY 2027–2028</strong></div>" +
       '<div class="fact"><span>Entrance exam</span><strong>Passed · 89th percentile</strong></div></div>';
     var steps = '<ol class="next-steps">' +
-      '<li><span>1</span><strong>Accept your offer and pay the reservation fee</strong><time>by ' + fmt(keyDate("Reservation fee deadline", "2027-03-20")) + "</time></li>" +
+      '<li><span>1</span><strong>Accept your offer</strong><time>in this portal</time></li>' +
       '<li><span>2</span><strong>Submit your medical requirements</strong><time>after accepting</time></li>' +
       '<li><span>3</span><strong>Enroll and choose your block section</strong><time>Jun 1 – 30, 2027</time></li></ol>';
     var actions = state.accepted
@@ -521,7 +541,7 @@ $(function () {
     }
     var count = medCount();
     return '<div class="sp-row sp-row-top"><span class="sp-icon">' + icon("shield") + '</span><div class="sp-body">' +
-      "<h3>Submit your medical requirements</h3><p>This is the last step of your admission. Upload a clear PDF, JPG, or PNG of each one, up to 10 MB.</p>" +
+      "<h3>Submit your medical requirements</h3><p>This is the last step of your admission. Upload a clear PDF, JPG, or PNG of each one, up to 5 MB.</p>" +
       '<ul class="med-list">' + MEDICAL.map(function (m) {
         var f = med.files[m.key];
         return '<li class="' + (f ? "ok" : "") + '"><span class="mini-check">' + (f ? icon("check") : "") + "</span><div><strong>" + esc(m.title) + "</strong><small>" + esc(f ? f.name + " · " + fileSize(f.size) : m.desc) + "</small></div>" +
@@ -537,7 +557,7 @@ $(function () {
     this.value = "";
     if (!file) return;
     if (["application/pdf", "image/jpeg", "image/png"].indexOf(file.type) === -1) { $("#med-error").text("Choose a PDF, JPG, or PNG file."); return; }
-    if (file.size > 10 * 1024 * 1024) { $("#med-error").text("This file is over 10 MB. Compress it or choose a smaller file."); return; }
+    if (file.size > 5 * 1024 * 1024) { $("#med-error").text("This file is over 5 MB. Compress it or choose a smaller file."); return; }
     var form = new FormData();
     form.append("file", file);
     AO.api("POST", "/api/applicant/medical/" + encodeURIComponent(key), form)
@@ -591,8 +611,8 @@ $(function () {
       "<h2>Offer of Admission</h2>" +
       "<p>Dear " + esc(name || "Applicant") + ",</p>" +
       "<p>Congratulations! On behalf of the Office of Admissions, we are pleased to offer you admission as a first-year student for the first semester of Academic Year 2027–2028.</p>" +
-      '<dl class="letter-box"><dt>Applicant</dt><dd>' + esc(name) + "</dd><dt>Application ID</dt><dd>" + APP_ID + "</dd><dt>Program</dt><dd>" + esc(d.program1 || PROGRAMS[0]) + "</dd><dt>Campus</dt><dd>" + esc(d.campus || "Main Campus") + "</dd><dt>Confirm by</dt><dd>" + fmt(keyDate("Reservation fee deadline", "2027-03-20"), { month: "long", day: "numeric", year: "numeric" }) + "</dd></dl>" +
-      "<p>To secure your slot, accept this offer in the applicant portal and pay the reservation fee on or before the date above. Enrollment runs from June 1 to 30, 2027. Please bring the original copies of all documents you uploaded.</p>" +
+      '<dl class="letter-box"><dt>Applicant</dt><dd>' + esc(name) + "</dd><dt>Application ID</dt><dd>" + APP_ID + "</dd><dt>Program</dt><dd>" + esc(d.program1 || PROGRAMS[0]) + "</dd><dt>Campus</dt><dd>" + esc(d.campus || "Main Campus") + "</dd></dl>" +
+      "<p>To secure your slot, accept this offer in the applicant portal. Enrollment runs from June 1 to 30, 2027. Please bring the original copies of all documents you uploaded.</p>" +
       "<p>We look forward to seeing you on campus.</p>" +
       '<div class="letter-sign"><strong>Office of Admissions</strong>Pamantasan ng Lungsod ng Pasig</div>');
     bootstrap.Modal.getOrCreateInstance(document.getElementById("offerModal")).show();
@@ -602,9 +622,10 @@ $(function () {
   function renderOverviewCards() {
     var count = docCount();
     animateCount($("#overview-doc-count"), count);
-    setRing($("#overview-ring"), count, 8);
+    setRing($("#overview-ring"), count, DOCS.length);
+    $(".doc-total").text(DOCS.length);   // 7 for Grade 12; differs for graduates or with a guardian
     $("#doc-mini-list").html(DOCS.map(function (doc) {
-      var ok = !!state.docs[doc.key];
+      var ok = hasDoc(doc.key);
       return '<li class="' + (ok ? "ok" : "") + '"><span class="mini-check">' + (ok ? icon("check") : "") + "</span><span>" + esc(doc.title) + "</span></li>";
     }).join(""));
     $("#program-first").text(state.data.program1 || "Not chosen yet");
@@ -680,7 +701,7 @@ $(function () {
       $("#edit-answers").prop("hidden", locked());
       $("#complete-card .lede").text(locked()
         ? "Your application has been sent to admissions. Follow its progress on the Overview."
-        : "Your personal, academic, and program details are saved. Next, upload your 8 required documents so admissions can review your application.");
+        : "Your personal, academic, and program details are saved. Next, upload your required documents so admissions can review your application.");
       $("#complete-card [data-view]").html(locked() ? "Go to overview" + icon("arrowR") : "Upload documents" + icon("arrowR")).attr("data-view", locked() ? "overview" : "documents").data("view", locked() ? "overview" : "documents");
       // replay the check animation
       var $svg = $("#complete-card .check-draw");
@@ -745,43 +766,46 @@ $(function () {
      DOCUMENTS
      ========================================================================== */
   function docTag(doc) {
+    var f = state.docs[doc.key];
+    if (f && f.status === "verified") return '<span class="tag tag-verified">' + icon("check") + "Verified</span>";
+    if (f && f.status === "resubmit") return '<span class="tag tag-required">Replace this file</span>';
     if (state.phase === "review") return '<span class="tag tag-review">In review</span>';
-    if (state.phase === "exam" || state.phase === "result") return '<span class="tag tag-verified">' + icon("check") + "Verified</span>";
-    return state.docs[doc.key] ? '<span class="tag tag-uploaded">' + icon("check") + "Uploaded</span>" : '<span class="tag tag-required">Required</span>';
+    return f ? '<span class="tag tag-uploaded">' + icon("check") + "Uploaded</span>" : '<span class="tag tag-required">Required</span>';
   }
+  // Admissions verified it: it can't be replaced or removed any more
+  function docFixed(key) { var f = state.docs[key]; return locked() || (f && f.status === "verified"); }
 
   function docExtra(doc) {
     if (doc.extra === "photo") {
       var tag = ((state.data.lastName || "LAST NAME").toUpperCase()) + ", " + (state.data.firstName || "Given Name");
       return '<p class="doc-extra">Name tag: <span class="name-tag">' + esc(tag) + "</span></p>";
     }
-    if (doc.extra === "payment") {
-      return '<p class="doc-extra">Fee: <strong>' + APP_FEE + "</strong> via GCash or Dragonpay. Reference number must be readable.</p>";
-    }
     return "";
   }
 
   function docCardHTML(doc, uploading) {
-    var f = state.docs[doc.key];
+    var f = hasDoc(doc.key) || uploading ? state.docs[doc.key] : null;
+    var sentBack = state.docs[doc.key] && state.docs[doc.key].status === "resubmit" ? state.docs[doc.key] : null;
     var body;
     if (f) {
       var thumb = previews[doc.key] ? '<img src="' + previews[doc.key] + '" alt="">' : icon(f.type === "application/pdf" ? "file" : doc.icon);
-      var actions = locked() ? "" :
+      var actions = docFixed(doc.key) ? "" :
         '<div class="file-actions"><button class="icon-button doc-replace" type="button" data-key="' + doc.key + '" aria-label="Replace ' + esc(doc.title) + '" data-bs-toggle="tooltip" data-bs-title="Replace">' + icon("refresh") + "</button>" +
         '<button class="icon-button doc-remove" type="button" data-key="' + doc.key + '" aria-label="Remove ' + esc(doc.title) + '" data-bs-toggle="tooltip" data-bs-title="Remove">' + icon("trash") + "</button></div>";
       body = '<div class="file-row"><span class="file-thumb">' + thumb + '</span><span class="file-meta"><strong>' + esc(f.name) + "</strong><span>" +
         (uploading ? "Uploading…" : fileSize(f.size)) + "</span>" +
         (uploading ? '<span class="upload-progress"><span></span></span>' : "") + "</span>" + actions + "</div>";
     } else {
-      body = '<label class="upload-btn" for="file-' + doc.key + '" title="' + (doc.imageOnly ? "JPG or PNG" : "PDF, JPG, or PNG") + ', 10 MB max">' + icon("upload") + "Upload</label>";
+      body = '<label class="upload-btn" for="file-' + doc.key + '" title="' + (doc.imageOnly ? "JPG or PNG" : "PDF, JPG, or PNG") + ', 5 MB max">' + icon("upload") + "Upload</label>";
     }
     return '<article class="doc-card' + (f ? " has-file" : "") + '" data-key="' + doc.key + '">' +
       '<span class="doc-icon tone-' + doc.tone + '">' + icon(doc.icon) + "</span>" +
       '<div class="doc-main"><div class="doc-title-row"><h3>' + esc(doc.title) + "</h3>" + docTag(doc) + "</div>" +
       '<p class="doc-desc">' + esc(doc.desc) + "</p>" + docExtra(doc) +
+      (sentBack && sentBack.remark ? '<p class="upload-error">Admissions: ' + esc(sentBack.remark) + "</p>" : "") +
       '<p class="upload-error" id="err-' + doc.key + '" role="alert"></p></div>' +
       '<div class="doc-action">' + body + "</div>" +
-      '<input class="file-input" type="file" id="file-' + doc.key + '" data-key="' + doc.key + '" accept="' + (doc.imageOnly ? ".jpg,.jpeg,.png" : ".pdf,.jpg,.jpeg,.png") + '"' + (locked() ? " disabled" : "") + ">" +
+      '<input class="file-input" type="file" id="file-' + doc.key + '" data-key="' + doc.key + '" accept="' + (doc.imageOnly ? ".jpg,.jpeg,.png" : ".pdf,.jpg,.jpeg,.png") + '"' + (docFixed(doc.key) ? " disabled" : "") + ">" +
       "</article>";
   }
 
@@ -803,40 +827,53 @@ $(function () {
   }
 
   function renderDocSummary() {
-    var count = docCount();
+    var count = docCount(), total = DOCS.length;
+    var sentBack = DOCS.filter(function (d) { return state.docs[d.key] && state.docs[d.key].status === "resubmit"; }).length;
     animateCount($("#docs-count"), count);
-    setRing($("#docs-ring"), count, 8);
+    setRing($("#docs-ring"), count, total);
     var headline, sub;
     if (state.phase === "review") { headline = "Submitted for review"; sub = "Admissions is checking your documents. You'll be notified when they're verified."; }
     else if (locked()) { headline = "All documents verified"; sub = "Every requirement passed review. Keep the originals for enrollment."; }
-    else if (count === 8) { headline = "Ready to submit"; sub = sectionsDone() ? "All 8 documents are in. Send them to admissions for review." : "All 8 documents are in. Finish My application before submitting."; }
-    else { headline = (8 - count) + " document" + (8 - count === 1 ? "" : "s") + " to go"; sub = "Upload every requirement, then send them to admissions for review."; }
+    else if (sentBack) { headline = sentBack + " document" + (sentBack === 1 ? "" : "s") + " to replace"; sub = "Admissions sent " + (sentBack === 1 ? "a file" : "some files") + " back. Read the note on the card, upload a new file, then send them again."; }
+    else if (count === total) { headline = sectionsDone() ? "Ready to submit" : "Documents complete"; sub = sectionsDone() ? "All " + total + " documents are in. Send them to admissions for review." : "All " + total + " documents are in. Finish the 3 sections of My application, then submit."; }
+    else { headline = (total - count) + " document" + (total - count === 1 ? "" : "s") + " to go"; sub = "Upload every requirement, then send them to admissions for review."; }
     $("#docs-headline").text(headline);
     $("#docs-subline").text(sub);
-    $("#submit-docs").prop("disabled", locked() || count < 8 || !sectionsDone()).prop("hidden", locked());
-    $("#nav-doc-count").text(count + "/8").toggleClass("full", count === 8);
+    // Clickable once every document is in; if My application isn't finished, the click says so
+    $("#submit-docs").prop("disabled", locked() || !total || count < total).prop("hidden", locked());
+    $("#nav-doc-count").text(count + "/" + total).toggleClass("full", total > 0 && count === total);
+  }
+
+  // After a document call: take the server's copy of the portal and redraw
+  function afterDocs(res) {
+    applyPortal(res.data);
+    renderDocs();
+    refreshSummary();
   }
 
   function handleFile(file, key) {
-    if (!file || locked()) return;
+    if (!file || docFixed(key)) return;
     var doc = DOCS.filter(function (d) { return d.key === key; })[0];
     var allowed = doc.imageOnly ? ["image/jpeg", "image/png"] : ["application/pdf", "image/jpeg", "image/png"];
     var $err = $("#err-" + key);
+    $err.text("");
     if (allowed.indexOf(file.type) === -1) { $err.text(doc.imageOnly ? "Choose a JPG or PNG photo." : "Choose a PDF, JPG, or PNG file."); return; }
-    if (file.size > 10 * 1024 * 1024) { $err.text("This file is over 10 MB. Compress it or choose a smaller file."); return; }
+    if (file.size > 5 * 1024 * 1024) { $err.text("This file is over 5 MB. Compress it or choose a smaller file."); return; }
 
-    // ON HOLD (PROGRESS.md, H1): POST /api/applicant/documents/{requirement key} once the cards are mapped
+    var before = state.docs[key];
     if (previews[key]) URL.revokeObjectURL(previews[key]);
     if (file.type.indexOf("image/") === 0) previews[key] = URL.createObjectURL(file); else delete previews[key];
     state.docs[key] = { name: file.name, size: file.size, type: file.type };
-    save();
     renderDocCard(key, true);
-    setTimeout(function () {
-      renderDocCard(key, false);
-      renderDocSummary();
-      refreshSummary();
-      showToast(doc.title + " uploaded.");
-    }, 850);
+    var form = new FormData();
+    form.append("file", file);
+    AO.api("POST", "/api/applicant/documents/" + encodeURIComponent(key), form)
+      .done(function (res) { afterDocs(res); showToast(doc.title + " uploaded."); })
+      .fail(function (xhr) {
+        if (before) state.docs[key] = before; else delete state.docs[key];
+        renderDocCard(key, false);
+        $("#err-" + key).text(AO.apiError(xhr));
+      });
   }
 
   $(document).on("change", ".file-input", function () {
@@ -847,12 +884,12 @@ $(function () {
   $(document).on("click", ".doc-remove", function () {
     var key = $(this).data("key");
     var t = bootstrap.Tooltip.getInstance(this); if (t) t.dispose();
-    delete state.docs[key];
-    if (previews[key]) { URL.revokeObjectURL(previews[key]); delete previews[key]; }
-    save();
-    renderDocCard(key, false);
-    renderDocSummary();
-    refreshSummary();
+    AO.api("DELETE", "/api/applicant/documents/" + encodeURIComponent(key))
+      .done(function (res) {
+        if (previews[key]) { URL.revokeObjectURL(previews[key]); delete previews[key]; }
+        afterDocs(res);
+      })
+      .fail(function (xhr) { $("#err-" + key).text(AO.apiError(xhr)); });
   });
   $(document).on("dragover", "#doc-grid .doc-card", function (e) { if (locked()) return; e.preventDefault(); $(this).addClass("drag-over"); })
     .on("dragleave", "#doc-grid .doc-card", function () { $(this).removeClass("drag-over"); })
@@ -864,23 +901,237 @@ $(function () {
     });
 
   var submitModal = bootstrap.Modal.getOrCreateInstance(document.getElementById("submitModal"));
-  $("#submit-docs").on("click", function () { submitModal.show(); });
+  $("#submit-docs").on("click", function () {
+    if (!sectionsDone()) {
+      var left = SECTIONS.length - state.completed.length;
+      openView("application");
+      showToast("Your documents are ready. Finish My application first (" + left + " section" + (left === 1 ? "" : "s") + " left), then submit.");
+      return;
+    }
+    submitModal.show();
+  });
   $("#confirm-submit").on("click", function () {
-    // ON HOLD (PROGRESS.md, H1): POST /api/applicant/submit once the cards upload to the server
-    withLoading($(this), 800, function () {
-      submitModal.hide();
-      submitApplication();
-      showToast("Sent to admissions. We'll let you know once it's reviewed.");
-    });
+    AO.busy($(this), AO.api("POST", "/api/applicant/submit"))
+      .done(function (res) {
+        submitModal.hide();
+        afterDocs(res);
+        showToast(res.message || "Sent to admissions. We'll let you know once it's reviewed.");
+      })
+      .fail(function (xhr) { submitModal.hide(); showToast(AO.apiError(xhr)); });
   });
 
-  function submitApplication() {
-    state.phase = "review";
-    state.submittedAt = toISO(today());
-    save();
-    renderDocs();
-    refreshSummary();
+  /* ==========================================================================
+     EXAM PERMIT (PDF), downloaded by clicking the exam ticket
+     Built in the browser with jsPDF, loaded from the CDN on first use. Shows
+     the seal, the applicant's uploaded 2x2 photo, the schedule, what to bring
+     and signature lines. Admissions checks the printed permit at the venue.
+     ========================================================================== */
+  var JSPDF_URL = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+  var EXAM_KIT = ["Printed exam permit (this page) and application form", "Valid ID / school ID", "Two (2) passport-size photos with name tag",
+    "Two (2) Mongol No. 2 pencils and two (2) black ballpens", "Glue, eraser and sharpener", "Water bottle"];
+  var jspdfLoading = null;
+
+  function loadJsPDF() {
+    if (window.jspdf) return $.Deferred().resolve().promise();
+    if (!jspdfLoading) {
+      jspdfLoading = $.Deferred();
+      var s = document.createElement("script");
+      s.src = JSPDF_URL;
+      s.onload = function () { jspdfLoading.resolve(); };
+      s.onerror = function () { jspdfLoading.reject(); jspdfLoading = null; };
+      document.head.appendChild(s);
+    }
+    return jspdfLoading.promise();
   }
+
+  // An image as a data URL for jsPDF (null if it can't be loaded)
+  function imageData(url, auth) {
+    var d = $.Deferred();
+    fetch(url, auth ? { headers: { Authorization: "Bearer " + AO.getToken() } } : {})
+      .then(function (r) { if (!r.ok) throw r; return r.blob(); })
+      .then(function (blob) {
+        if (blob.type.indexOf("image/") !== 0) throw blob;
+        var reader = new FileReader();
+        reader.onload = function () { d.resolve({ data: reader.result, type: blob.type === "image/png" ? "PNG" : "JPEG" }); };
+        reader.onerror = function () { d.resolve(null); };
+        reader.readAsDataURL(blob);
+      })
+      .catch(function () { d.resolve(null); });
+    return d.promise();
+  }
+
+  // jsPDF's built-in fonts drop characters outside their set (– — • and curly quotes)
+  function pdfSafe(v) {
+    return String(v == null ? "" : v).replace(/[–—]/g, "-").replace(/[‘’]/g, "'").replace(/[“”]/g, '"');
+  }
+
+  function buildPermit(seal, photo) {
+    var doc = new window.jspdf.jsPDF({ unit: "mm", format: "a4" });
+    var text = doc.text.bind(doc);
+    doc.text = function (str, x, y, opts) { return text(Array.isArray(str) ? str.map(pdfSafe) : pdfSafe(str), x, y, opts); };
+    var split = doc.splitTextToSize.bind(doc);
+    doc.splitTextToSize = function (str, w) { return split(pdfSafe(str), w); };
+    var d = state.data;
+    var W = 210, M = 16;
+    var green = [16, 92, 48], ink = [21, 38, 28], muted = [100, 119, 107], line = [208, 220, 212];
+    var name = [d.lastName ? d.lastName.toUpperCase() + "," : "", d.firstName, d.middleName].filter(Boolean).join(" ");
+    var ed = parseDate(EXAM.date);
+
+    // Header band
+    doc.setFillColor(13, 95, 51);
+    doc.rect(0, 0, W, 38, "F");
+    if (seal) doc.addImage(seal.data, seal.type, M, 6, 26, 26);
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold").setFontSize(15);
+    doc.text("PAMANTASAN NG LUNGSOD NG PASIG", M + 32, 16);
+    doc.setFont("helvetica", "normal").setFontSize(10);
+    doc.text("Office of Admissions · Academic Year 2027–2028", M + 32, 22.5);
+    doc.setFont("helvetica", "bold").setFontSize(12);
+    doc.text("ENTRANCE EXAMINATION PERMIT", M + 32, 30.5);
+
+    // Permit number
+    doc.setTextColor(muted[0], muted[1], muted[2]).setFont("helvetica", "normal").setFontSize(9);
+    doc.text("PERMIT NO.", M, 52);
+    doc.setTextColor(green[0], green[1], green[2]).setFont("helvetica", "bold").setFontSize(22);
+    doc.text(EXAM.permit || "—", M, 61);
+
+    // 2x2 photo (the one uploaded with the application), or an empty box to paste one
+    var px = W - M - 40, py = 46;
+    doc.setDrawColor(line[0], line[1], line[2]).setLineWidth(0.4);
+    if (photo) doc.addImage(photo.data, photo.type, px, py, 40, 40);
+    else {
+      doc.rect(px, py, 40, 40);
+      doc.setTextColor(muted[0], muted[1], muted[2]).setFont("helvetica", "normal").setFontSize(8);
+      doc.text(["Paste a 2x2", "photo here"], px + 20, py + 18, { align: "center" });
+    }
+    doc.rect(px, py, 40, 40);
+
+    // Applicant and schedule
+    var rows = [
+      ["Applicant", name || "—"],
+      ["Application ID", APP_ID || "—"],
+      ["LRN", d.lrn || "—"],
+      ["First-choice program", d.program1 || "—"],
+      ["Exam date", ed.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })],
+      ["Time", EXAM.time || "—"],
+      ["Venue", EXAM.venue || "—"]
+    ];
+    var y = 74;
+    rows.forEach(function (r) {
+      doc.setTextColor(muted[0], muted[1], muted[2]).setFont("helvetica", "normal").setFontSize(9);
+      doc.text(r[0].toUpperCase(), M, y);
+      doc.setTextColor(ink[0], ink[1], ink[2]).setFont("helvetica", "bold").setFontSize(12);
+      var lines = doc.splitTextToSize(String(r[1]), px - M - 8);
+      doc.text(lines, M, y + 5.5);
+      y += 6 + lines.length * 5.5 + 3;
+    });
+
+    // What to bring
+    y = Math.max(y, py + 52) + 4;
+    doc.setDrawColor(line[0], line[1], line[2]).line(M, y, W - M, y);
+    y += 9;
+    doc.setTextColor(green[0], green[1], green[2]).setFont("helvetica", "bold").setFontSize(11);
+    doc.text("What to bring", M, y);
+    doc.setTextColor(ink[0], ink[1], ink[2]).setFont("helvetica", "normal").setFontSize(10);
+    EXAM_KIT.forEach(function (item, i) {
+      doc.setFillColor(green[0], green[1], green[2]).circle(M + 3, y + 5.8 + i * 6, 0.8, "F");
+      doc.text(item, M + 6, y + 7 + i * 6);
+    });
+    y += 7 + EXAM_KIT.length * 6 + 4;
+
+    // Reminders
+    doc.setTextColor(green[0], green[1], green[2]).setFont("helvetica", "bold").setFontSize(11);
+    doc.text("Reminders", M, y);
+    doc.setTextColor(ink[0], ink[1], ink[2]).setFont("helvetica", "normal").setFontSize(10);
+    var notes = doc.splitTextToSize("Arrive at least 30 minutes before your batch starts. Present this printed permit and a valid ID at the venue; the proctor checks both before you are seated. Applicants without a permit may not be allowed to take the exam.", W - 2 * M - 2);
+    doc.text(notes, M + 2, y + 7);
+    y += 7 + notes.length * 5 + 16;
+
+    // Signatures
+    var sw = (W - 2 * M - 20) / 2;
+    doc.setDrawColor(ink[0], ink[1], ink[2]).setLineWidth(0.3);
+    doc.line(M, y, M + sw, y);
+    doc.line(W - M - sw, y, W - M, y);
+    doc.setTextColor(muted[0], muted[1], muted[2]).setFontSize(9);
+    doc.text("Applicant's signature", M, y + 5);
+    doc.text("Proctor's signature / date", W - M - sw, y + 5);
+
+    // Footer
+    doc.setFontSize(8);
+    doc.text("Generated " + new Date().toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }) + " · PLP Online Admission", M, 287);
+    doc.text(EXAM.permit || "", W - M, 287, { align: "right" });
+
+    doc.save("PLP-Exam-Permit-" + (EXAM.permit || APP_ID || "applicant") + ".pdf");
+  }
+
+  $(document).on("click", "#download-permit", function () {
+    var $btn = $(this);
+    if ($btn.hasClass("loading")) return;
+    $btn.addClass("loading");
+    $.when(loadJsPDF(), imageData("/assets/shared/img/plp-logo.png", false), imageData("/api/applicant/documents/photo/file", true))
+      .done(function (_, seal, photo) {
+        try { buildPermit(seal, photo); showToast("Exam permit downloaded. Print it and bring it to the exam."); }
+        catch (e) { showToast("The permit couldn't be created. Please try again."); }
+      })
+      .fail(function () { showToast("Couldn't load the PDF tool. Check your internet connection and try again."); })
+      .always(function () { $btn.removeClass("loading"); });
+  });
+
+  /* ==========================================================================
+     PROFILE (opened from the top bar)
+     Mobile number can change any time; names only while the application is
+     still a draft (afterwards they're part of the record admissions reviewed).
+     ========================================================================== */
+  var ACCOUNT_EMAIL = "";   // the sign-in email, from the server's form values
+
+  function renderProfile() {
+    var d = state.data;
+    var name = [d.firstName, d.lastName].filter(Boolean).join(" ") || "Applicant";
+    var pill = statusPill();
+    $("#profile-avatar").text(((d.firstName || "").charAt(0) + (d.lastName || "").charAt(0)).toUpperCase() || "A");
+    $("#profile-name").text(name);
+    $("#profile-email-label").text(d.email || ACCOUNT_EMAIL);
+    $("#profile-status").attr("class", "status-pill " + pill[0]).text(pill[1]);
+
+    $("#profile-first").val(d.firstName || "").prop("disabled", locked());
+    $("#profile-last").val(d.lastName || "").prop("disabled", locked());
+    $("#profile-email").val(d.email || ACCOUNT_EMAIL);
+    $("#profile-phone").val(d.phone || "");
+    $("#profile-form .is-invalid").each(function () { clearError($(this)); });
+    $("#profile-note").text(locked()
+      ? "Your application has been sent, so your name can't be changed here. Keep your mobile number current so admissions can reach you."
+      : "Changes here also update your application form.");
+    $("#profile-saved").text("");
+
+    $("#profile-appid").text(APP_ID || "—");
+    $("#profile-program").text(d.program1 || "Not chosen yet");
+    $("#profile-sections").text(state.completed.length + " of " + SECTIONS.length);
+    $("#profile-docs").text(DOCS.length ? docCount() + " of " + DOCS.length : "—");
+  }
+
+  $("#profile-form").on("submit", function (e) {
+    e.preventDefault();
+    if (!validateFields($(this))) return;
+    var body = { phone: $("#profile-phone").val().trim() };
+    if (!locked()) { body.firstName = $("#profile-first").val().trim(); body.lastName = $("#profile-last").val().trim(); }
+    AO.busy($("#profile-submit"), AO.api("PUT", "/api/applicant/profile", body))
+      .done(function (res) {
+        applyPortal(res.data);
+        restoreForm();
+        refreshIdentity();
+        refreshSummary();
+        renderProfile();
+        $("#profile-saved").text("Saved");
+        showToast("Profile saved.");
+      })
+      .fail(function (xhr) {
+        var errs = (xhr.responseJSON && xhr.responseJSON.errors) || {};
+        var map = { phone: "#profile-phone", firstName: "#profile-first", lastName: "#profile-last" };
+        var shown = false;
+        Object.keys(errs).forEach(function (k) { if (map[k]) { setError($(map[k]), errs[k][0]); shown = true; } });
+        if (!shown) showToast(AO.apiError(xhr));
+      });
+  });
 
   /* ==========================================================================
      SHARED REFRESH
@@ -902,7 +1153,7 @@ $(function () {
 
   function refreshSummary() {
     $("#nav-app-count").text(state.completed.length + "/3").toggleClass("full", sectionsDone());
-    $("#nav-doc-count").text(docCount() + "/8").toggleClass("full", docCount() === 8);
+    $("#nav-doc-count").text(docCount() + "/" + DOCS.length).toggleClass("full", DOCS.length > 0 && docCount() === DOCS.length);
     renderOverviewCards();
     if ($("#view-overview").hasClass("active")) renderJourney();
   }

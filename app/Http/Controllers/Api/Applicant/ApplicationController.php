@@ -45,6 +45,18 @@ class ApplicationController extends Controller
         ]);
     }
 
+    /** "My profile": mobile number any time, names while the form is still editable (FR-01, FR-10). */
+    public function updateProfile(Request $request): JsonResponse
+    {
+        $application = $this->application($request);
+        $this->applications->updateContact($application, $request->all(), $request->user());
+
+        return response()->json([
+            'data' => $this->presenter->present($application->fresh()),
+            'message' => 'Profile saved.',
+        ]);
+    }
+
     /** Send to admissions (FR-03, FR-05). */
     public function submit(Request $request): JsonResponse
     {

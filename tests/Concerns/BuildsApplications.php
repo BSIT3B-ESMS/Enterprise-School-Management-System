@@ -26,7 +26,7 @@ trait BuildsApplications
 
     protected function uploadDoc(User $user, string $key, string $stage = 'documents')
     {
-        $file = $key === 'photo' ? UploadedFile::fake()->image('photo.jpg') : UploadedFile::fake()->create("{$key}.pdf", 200, 'application/pdf');
+        $file = $key === 'photo' ? $this->fakePhoto() : UploadedFile::fake()->create("{$key}.pdf", 200, 'application/pdf');
 
         return $this->asUser($user)->post("/api/applicant/{$stage}/{$key}", ['file' => $file], ['Accept' => 'application/json']);
     }

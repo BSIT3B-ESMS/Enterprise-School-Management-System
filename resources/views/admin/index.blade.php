@@ -20,7 +20,7 @@
       <span class="float-star s4" data-icon="star"></span>
 
       <div class="brand brand-lg">
-        <span class="brand-mark" aria-hidden="true">PLP</span>
+        <img class="brand-mark brand-logo" src="{{ asset('assets/shared/img/plp-logo.png') }}" alt="" aria-hidden="true">
         <span class="brand-text"><span class="brand-name">Pamantasan ng Lungsod ng Pasig</span><span class="brand-sub">Online Admission</span></span>
       </div>
 
@@ -72,7 +72,7 @@
             characters will work. Accounts and roles are managed by the system administrator.</p>
           <a class="link-button align-self-center" href="{{ route('applicant') }}"><span data-icon="arrowL"></span>Go to the
             applicant portal</a>
-          <a class="link-button align-self-center" href="../nurse/index.html"><span data-icon="shield"></span>Clinic nurse?
+          <a class="link-button align-self-center" href="{{ route('nurse') }}"><span data-icon="shield"></span>Clinic nurse?
             Go to the clinic portal</a>
         </form>
       </div>
@@ -85,7 +85,7 @@
   <div class="app-shell" id="app" hidden>
     <aside class="sidebar" id="sidebar">
       <a class="brand" href="#/dashboard" aria-label="Pamantasan ng Lungsod ng Pasig, dashboard">
-        <span class="brand-mark" aria-hidden="true">PLP</span>
+        <img class="brand-mark brand-logo" src="{{ asset('assets/shared/img/plp-logo.png') }}" alt="" aria-hidden="true">
         <span class="brand-text"><span class="brand-name">Pamantasan ng Lungsod ng Pasig</span><span class="brand-sub">Online Admission</span></span>
       </a>
 
@@ -93,24 +93,25 @@
       <nav class="sidebar-nav" aria-label="Office navigation">
         <span class="nav-indicator" aria-hidden="true"></span>
         <a class="nav-link" href="#/dashboard" data-nav="dashboard"><span data-icon="grid"></span>Dashboard</a>
-        <a class="nav-link" href="#/applicants" data-nav="applicants"><span data-icon="users"></span>Applicants<span
-            class="nav-count" id="nav-count-applicants">0</span></a>
+        <a class="nav-link" href="#/applicants" data-nav="applicants"><span data-icon="users"></span>Applicants</a>
         <a class="nav-link" href="#/documents" data-nav="documents"><span data-icon="folder"></span>Document
           review<span class="nav-count" id="nav-count-documents">0</span></a>
         <a class="nav-link" href="#/exams" data-nav="exams"><span data-icon="calendar"></span>Entrance exams</a>
         <a class="nav-link" href="#/results" data-nav="results"><span data-icon="award"></span>Results<span
             class="nav-count" id="nav-count-results">0</span></a>
-        <a class="nav-link" href="#/medical" data-nav="medical"><span data-icon="shield"></span>Medical<span
-            class="nav-count" id="nav-count-medical">0</span></a>
-        <a class="nav-link" href="#/reports" data-nav="reports"><span data-icon="chart"></span>Reports</a>
+        <a class="nav-link" href="#/medical" data-nav="medical"><span data-icon="shield"></span>Medical</a>
       </nav>
 
-      <p class="sidebar-label mt-4">Setup</p>
-      <nav class="sidebar-nav sidebar-nav-plain" aria-label="Setup navigation">
-        <a class="nav-link" href="#/settings" data-nav="settings"><span data-icon="settings"></span>Programs &amp;
-          requirements</a>
-        <a class="nav-link" href="#/audit" data-nav="audit"><span data-icon="history"></span>Audit log</a>
-      </nav>
+      <!-- Less frequent screens, folded away; opens by itself when one of them is the current page -->
+      <details class="sidebar-more" id="sidebar-more">
+        <summary class="sidebar-label">More</summary>
+        <nav class="sidebar-nav sidebar-nav-plain" aria-label="More navigation">
+          <a class="nav-link" href="#/reports" data-nav="reports"><span data-icon="chart"></span>Reports</a>
+          <a class="nav-link" href="#/settings" data-nav="settings"><span data-icon="settings"></span>Programs &amp;
+            requirements</a>
+          <a class="nav-link" href="#/audit" data-nav="audit"><span data-icon="history"></span>Audit log</a>
+        </nav>
+      </details>
 
       <div class="sidebar-footer">
         <span class="avatar" id="sidebar-avatar">MS</span>
@@ -143,6 +144,7 @@
         <section class="view-section" id="view-applicants"></section>
         <section class="view-section" id="view-applicant"></section>
         <section class="view-section" id="view-documents"></section>
+        <section class="view-section" id="view-docreview"></section>
         <section class="view-section" id="view-exams"></section>
         <section class="view-section" id="view-session"></section>
         <section class="view-section" id="view-results"></section>

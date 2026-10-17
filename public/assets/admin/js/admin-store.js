@@ -12,6 +12,10 @@
      ========================================================================== */
   // Filled from the signed-in account when the state loads
   var STAFF = { name: "", initials: "", role: "", email: "" };
+  // <body data-role="nurse"> is the clinic portal (resources/views/nurse.blade.php):
+  // it loads a medical-only state from /api/clinic instead of /api/admin.
+  var ROLE = document.body.getAttribute("data-role") === "nurse" ? "nurse" : "admin";
+  var API = ROLE === "nurse" ? "/api/clinic" : "/api/admin";
   var REVIEW_SLA_DAYS = 3;        // working days to review a new application
   var PASSING_SCORE = 60;         // internal; scores are never shown to applicants
   var PAGE_SIZE = 12;
@@ -34,14 +38,18 @@
   };
 
   // Freshmen documentary requirements. "when" decides who must upload it.
+  // Same list and order as the server (AdmissionSetupSeeder::ADMISSION_REQUIREMENTS)
+  // and the applicant portal's document cards.
   var DOC_TYPES = [
-    { key: "psa", title: "PSA Birth Certificate", when: "all", icon: "scroll" },
+    { key: "applicantId", title: "Applicant's government-issued or school ID", when: "all", icon: "idcard" },
     { key: "parentId", title: "Parent's government-issued ID", when: "all", icon: "users" },
     { key: "affidavit", title: "Notarized affidavit of guardianship", when: "guardian", icon: "stamp", note: "Applicants with a guardian" },
-    { key: "photo", title: "2 passport-size photos, white background with nameplate", when: "all", icon: "camera" },
     { key: "form137", title: "CTC of Form 137 — \"For Evaluation Purposes Only\"", when: "graduate", icon: "file", note: "SHS graduates" },
-    { key: "form138", title: "CTC of Grade 11 Form 138", when: "grade12", icon: "file", note: "Ongoing Grade 12" },
-    { key: "applicantId", title: "Applicant's government-issued or school ID", when: "all", icon: "idcard" }
+    { key: "form138", title: "CTC of Grade 11 Form 138", when: "grade12", icon: "stamp", note: "Ongoing Grade 12" },
+    { key: "reportCard", title: "Grade 12 Form 138 (latest grading period)", when: "grade12", icon: "file", note: "Ongoing Grade 12" },
+    { key: "goodMoral", title: "Certificate of Good Moral Character", when: "all", icon: "shield" },
+    { key: "psa", title: "PSA Birth Certificate", when: "all", icon: "scroll" },
+    { key: "photo", title: "2 passport-size photos, white background with nameplate", when: "all", icon: "camera" }
   ];
   var PHYSICAL_ITEMS = ["Long brown envelope with plastic envelope"];
 
@@ -106,7 +114,7 @@
   /* Load everything the panel shows. The state object is updated in place,
      so code holding ADM.state keeps working. */
   function load() {
-    return AO.api("GET", "/api/admin/state").done(function (res) {
+    return AO.api("GET", API + "/state").done(function (res) {
       var d = res.data;
       $.extend(STAFF, d.staff);
       ["version", "programs", "sessions", "applicants", "settings", "audit"].forEach(function (k) { state[k] = d[k]; });
@@ -167,15 +175,18 @@
     while (d < t) { d.setDate(d.getDate() + 1); var w = d.getDay(); if (w !== 0 && w !== 6) n++; }
     return n;
   }
-  /* Medical clearance: null when it doesn't apply yet (not a released pass) */
+  /* Medical clearance: null when it doesn't apply yet (not a released pass).
+     "pending" = sent to the clinic nurse; "cleared" = the nurse approved. */
   function medStatus(a) {
     if (!a.result || a.result.decision !== "passed" || !a.result.released) return null;
-    var files = (a.medical && a.medical.files) || {};
+    var med = a.medical || {};
+    var files = med.files || {};
     var st = MED_TYPES.map(function (m) { return files[m.key] ? files[m.key].status : "missing"; });
-    if (st.every(function (x) { return x === "missing"; })) return "none";
-    if (st.indexOf("resubmit") !== -1) return "resubmit";
     if (st.every(function (x) { return x === "verified"; })) return "cleared";
-    return "pending";
+    if (st.indexOf("resubmit") !== -1) return "resubmit";
+    if (med.submittedAt) return "pending";
+    // Not sent (again) yet: replacing a file the nurse sent back, or still uploading
+    return MED_TYPES.some(function (m) { return files[m.key] && files[m.key].reviewedAt; }) ? "resubmit" : "none";
   }
   /* The clinic can approve once every file is in and none is waiting on a resubmission */
   function canApproveMedical(a) {
@@ -196,6 +207,11 @@
   function findType(key) { return DOC_TYPES.concat(MED_TYPES).filter(function (d) { return d.key === key; })[0]; }
   function isMedical(key) { return MED_TYPES.some(function (m) { return m.key === key; }); }
   function fileOf(a, key) { return isMedical(key) ? (a.medical && a.medical.files[key]) : a.docs[key]; }
+  /* Where to fetch an uploaded file. Medical files are confidential: clinic portal only. */
+  function fileUrl(a, key) {
+    var id = encodeURIComponent(a.id), k = encodeURIComponent(key);
+    return isMedical(key) ? "/api/clinic/applicants/" + id + "/medical/" + k + "/file" : "/api/admin/applicants/" + id + "/documents/" + k + "/file";
+  }
 
   function isOverdue(a) { return statusOf(a) === "submitted" && docSummary(a).pending > 0 && workingDaysSince(a.submittedAt) > REVIEW_SLA_DAYS; }
   function canApprove(a) { var s = docSummary(a); return statusOf(a) === "submitted" && s.verified === s.total; }
@@ -260,11 +276,11 @@
   }
 
   window.ADM = {
-    STAFF: STAFF, REVIEW_SLA_DAYS: REVIEW_SLA_DAYS, PASSING_SCORE: PASSING_SCORE, PAGE_SIZE: PAGE_SIZE,
+    ROLE: ROLE, API: API, STAFF: STAFF, REVIEW_SLA_DAYS: REVIEW_SLA_DAYS, PASSING_SCORE: PASSING_SCORE, PAGE_SIZE: PAGE_SIZE,
     STATUSES: STATUSES, STATUS_ORDER: STATUS_ORDER, DOC_STATUS: DOC_STATUS, DOC_TYPES: DOC_TYPES,
     PHYSICAL_ITEMS: PHYSICAL_ITEMS, EXAM_KIT: EXAM_KIT, REMARK_PRESETS: REMARK_PRESETS,
     MED_TYPES: MED_TYPES, MED_STATUS: MED_STATUS, MED_REMARKS: MED_REMARKS, medStatus: medStatus, canApproveMedical: canApproveMedical, medApproval: medApproval,
-    findType: findType, isMedical: isMedical, fileOf: fileOf,
+    findType: findType, isMedical: isMedical, fileOf: fileOf, fileUrl: fileUrl,
     STRAND_SUGGEST: STRAND_SUGGEST, STRANDS: STRANDS, BARANGAYS: BARANGAYS, BATCHES: BATCHES,
     state: state, load: load, invalidate: invalidate, save: save, reset: reset, replaceApplicant: replaceApplicant, nowISO: nowISO, logApplicant: logApplicant, logOffice: logOffice,
     requiredDocs: requiredDocs, docSummary: docSummary, statusOf: statusOf, workingDaysSince: workingDaysSince,

@@ -1587,3 +1587,220 @@ button.step-dot:hover {
 .stepper-caption {
   margin: 14px 0 0;
 }
+
+/* ==========================================================================
+   MY PROFILE (opened from the avatar in the top bar)
+   ========================================================================== */
+.profile-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px 4px 4px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color .2s, box-shadow .2s;
+}
+
+.profile-button:hover,
+.profile-button:focus-visible {
+  border-color: var(--accent-line);
+  box-shadow: 0 4px 12px rgba(16, 92, 48, .12);
+}
+
+/* Small "open" chevron drawn in CSS (there is no chevron icon) */
+.profile-button .chevron {
+  width: 6px;
+  height: 6px;
+  margin-left: 2px;
+  border-right: 1.5px solid var(--muted);
+  border-bottom: 1.5px solid var(--muted);
+  transform: rotate(-45deg);
+}
+
+.profile-hero {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+  padding: 22px 24px;
+  border-radius: calc(var(--radius) + 4px);
+  background: var(--grad);
+  color: #fff;
+  box-shadow: 0 14px 34px rgba(13, 95, 51, .22);
+}
+
+/* The university seal, faded into the right side */
+.profile-hero::after {
+  content: "";
+  position: absolute;
+  right: -30px;
+  top: 50%;
+  width: 190px;
+  height: 190px;
+  transform: translateY(-50%);
+  background: url("../../shared/img/plp-logo.png") center / contain no-repeat;
+  opacity: .12;
+  pointer-events: none;
+}
+
+.profile-hero .avatar-xl {
+  position: relative;
+  z-index: 1;
+  background: #fff;
+  color: var(--accent-strong);
+}
+
+.profile-hero-text {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  min-width: 0;
+}
+
+.profile-hero-text h2 {
+  margin: 0;
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: clamp(22px, 3vw, 28px);
+  font-weight: 400;
+}
+
+.profile-hero-text p {
+  margin: 2px 0 0;
+  color: rgba(255, 255, 255, .82);
+  overflow-wrap: anywhere;
+}
+
+.profile-hero .status-pill {
+  position: relative;
+  z-index: 1;
+  background: rgba(255, 255, 255, .92);
+}
+
+.profile-card .form-control[readonly] {
+  background: var(--tint);
+  color: var(--ink-2);
+}
+
+.profile-card .form-control:disabled {
+  background: var(--tint);
+  color: var(--muted);
+}
+
+.save-note {
+  color: var(--success);
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.summary-list {
+  margin: 4px 0 0;
+}
+
+.summary-list>div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+}
+
+.summary-list>div:first-child {
+  border-top: 0;
+}
+
+.summary-list dt {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.summary-list dd {
+  margin: 0;
+  font-weight: 600;
+  text-align: right;
+}
+
+.summary-list .mono {
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  font-size: 12.5px;
+}
+
+@media (max-width: 560px) {
+  .profile-name {
+    display: none;
+  }
+
+  .profile-button {
+    padding-right: 8px;
+  }
+}
+
+/* ==========================================================================
+   EXAM TICKET → download the exam permit (PDF)
+   ========================================================================== */
+.ticket-download {
+  width: 100%;
+  align-items: center;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .2s, box-shadow .2s, transform .2s var(--ease);
+}
+
+.ticket-download:hover,
+.ticket-download:focus-visible {
+  border-style: solid;
+  border-color: var(--accent);
+  box-shadow: 0 10px 24px rgba(16, 92, 48, .14);
+  transform: translateY(-1px);
+}
+
+.ticket-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.ticket-cta .ico {
+  width: 15px;
+  height: 15px;
+}
+
+.ticket-download.loading {
+  cursor: progress;
+  opacity: .7;
+}
+
+.ticket-download.loading .ticket-cta .btn-label::after {
+  content: "…";
+}
+
+@media (max-width: 560px) {
+  .ticket-cta {
+    width: 100%;
+    justify-content: center;
+    margin-left: 0;
+  }
+}
+
+.ticket-download .ticket-date {
+  align-self: stretch;
+}

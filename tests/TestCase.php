@@ -10,6 +10,7 @@ use Database\Seeders\AdmissionSetupSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
+use Illuminate\Http\UploadedFile;
 use PHPOpenSourceSaver\JWTAuth\Facades\JWTAuth;
 
 abstract class TestCase extends BaseTestCase
@@ -20,6 +21,20 @@ abstract class TestCase extends BaseTestCase
     {
         parent::setUp();
         $this->seed([RoleSeeder::class, AdmissionSetupSeeder::class]);
+    }
+
+    /**
+     * A real (1×1) JPEG. UploadedFile::fake()->image() would need PHP's GD
+     * extension, which some PHP builds (e.g. php.new) don't include.
+     */
+    protected function fakePhoto(string $name = 'photo.jpg'): UploadedFile
+    {
+        return UploadedFile::fake()->createWithContent($name, base64_decode(
+            '/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/'.
+            'wAALCAABAAEBAREA/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0Kx'.
+            'wRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2'.
+            't7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/9oACAEBAAA/APn+iiigD//Z'
+        ));
     }
 
     protected function makeUser(Role $role, array $attributes = []): User

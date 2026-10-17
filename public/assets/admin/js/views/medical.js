@@ -48,8 +48,6 @@
 
   function render($el) {
     var ui = ADM.ui;
-    var all = eligible();
-    var by = {}; all.forEach(function (a) { var st = ADM.medStatus(a); by[st] = (by[st] || 0) + 1; });
     var list = applicantsIn(f.tab);
     f.page = ui.clampPage(f.page, list.length);
     var rows = list.slice((f.page - 1) * ADM.PAGE_SIZE, f.page * ADM.PAGE_SIZE);
@@ -67,13 +65,7 @@
         }).join("") + "</tbody></table></div>";
 
     $el.html(
-      '<div class="page-title" data-reveal><p class="eyebrow">Last admission step</p><h1>Medical clearance</h1>' +
-      '<p class="lede">The university clinic nurse checks each applicant\'s medical files and sends an approval here. Approved applicants have completed their admission. Checking files is done by the clinic only.</p></div>' +
-      '<div class="kpi-grid kpi-grid-4" data-reveal>' +
-      ui.kpi({ label: "Approved", value: by.cleared || 0, sub: ui.pct(by.cleared || 0, all.length) + "% of " + all.length + " passers", icon: "shield" }) +
-      ui.kpi({ label: "With the nurse", value: by.pending || 0, sub: "Files being checked", icon: "inbox" }) +
-      ui.kpi({ label: "Resubmit", value: by.resubmit || 0, sub: "Fixing a file", icon: "flag", tone: by.resubmit ? "warn" : "" }) +
-      ui.kpi({ label: "Not submitted", value: by.none || 0, sub: "Passed, no files yet", icon: "clock" }) + "</div>" +
+      '<div class="page-title" data-reveal><h1>Medical clearance</h1></div>' +
       '<nav class="tabs" role="tablist" data-reveal>' + Object.keys(TABS).map(function (k) {
         return '<button type="button" role="tab" class="tab' + (f.tab === k ? " active" : "") + '" aria-selected="' + (f.tab === k) + '" data-mtab="' + k + '">' + TABS[k] + " <span>" + counts[k] + "</span></button>";
       }).join("") + "</nav>" +
