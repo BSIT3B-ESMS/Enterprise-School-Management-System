@@ -4,36 +4,43 @@ namespace App\Http\Presenters;
 
 use App\Models\AdmissionPeriod;
 use App\Models\Application;
-use App\Models\ApplicationDocument;
-use App\Models\AuditLog;
 use App\Models\ExamSession;
 use App\Models\Program;
 use App\Models\Requirement;
 use App\Models\User;
-use Carbon\CarbonInterface;
-use Illuminate\Support\Collection;
+use DateTimeImmutable;
+use DateTimeZone;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Builds the admission office panel's state (ADM.state in admin-store.js):
  * { programs, sessions, applicants, settings, audit, staff }. Every screen,
  * chart, report and CSV export in the panel is derived from it.
  *
+ * Built from plain query rows, not Eloquent models, in batches of
+ * BATCH applicants: `applicants` is a generator, so the controller streams
+ * the JSON and memory stays flat at peak (~20,000 applicants). Measured
+ * numbers are in PROGRESS.md.
+ *
  * The internal score is included for admission personnel only (NFR-02).
  */
 class OfficeStatePresenter
 {
-    private const RELATIONS = [
-        'applicant.user', 'choices.program', 'documents.requirement', 'documents.reviewer',
-        'examRegistration', 'result.recorder', 'auditLogs',
-    ];
+    private const BATCH = 1000;
+
+    private DateTimeZone $utc;
+
+    private DateTimeZone $local;
+
+    public function __construct()
+    {
+        $this->utc = new DateTimeZone('UTC');
+        $this->local = new DateTimeZone(config('admission.display_timezone'));
+    }
 
     public function state(User $staff): array
     {
         $period = AdmissionPeriod::current();
-        $applications = Application::where('admission_period_id', $period->id)
-            ->with(self::RELATIONS)
-            ->orderBy('id')
-            ->get();
 
         return [
             'version' => 2,
@@ -49,21 +56,31 @@ class OfficeStatePresenter
             ])->all(),
             'sessions' => ExamSession::where('admission_period_id', $period->id)->orderBy('date')->orderBy('batch')->get()
                 ->map(fn (ExamSession $s) => $this->session($s))->all(),
-            'applicants' => $applications->map(fn (Application $a) => $this->present($a, $staff))->all(),
+            'applicants' => $this->allApplicants($staff, $period->id),
             'settings' => [
                 'deadline' => $period->application_deadline->toDateString(),
                 'period' => $period->label,
                 'inactiveDocs' => Requirement::admission()->where('is_active', false)->pluck('key')->all(),
             ],
-            'audit' => AuditLog::whereNull('application_id')->orderBy('id')->get()
-                ->map(fn (AuditLog $l) => $this->entry($l))->all(),
+            'audit' => DB::table('audit_logs')->whereNull('application_id')->orderBy('id')
+                ->get(['actor_name', 'description', 'created_at'])
+                ->map(fn ($l) => $this->entry($l))->all(),
         ];
     }
 
     /** One applicant, after an action (the panel replaces its copy). */
     public function applicant(Application $application, ?User $staff = null): array
     {
-        return $this->present($application->load(self::RELATIONS), $staff ?? request()->user());
+        return $this->applicants($staff ?? request()->user(), [$application->id])[0];
+    }
+
+    /** Every applicant of the period, one batch at a time. */
+    private function allApplicants(User $staff, int $periodId): \Generator
+    {
+        $ids = DB::table('applications')->where('admission_period_id', $periodId)->whereNull('deleted_at')->orderBy('id')->pluck('id')->all();
+        foreach (array_chunk($ids, self::BATCH) as $batch) {
+            yield from $this->applicants($staff, $batch);
+        }
     }
 
     public function session(ExamSession $s): array
@@ -77,83 +94,125 @@ class OfficeStatePresenter
         ];
     }
 
-    private function present(Application $application, User $staff): array
+    /** The given applications, in id order. */
+    private function applicants(User $staff, array $ids): array
     {
-        $p = $application->applicant;
-        $docs = $application->documents->groupBy(fn (ApplicationDocument $d) => $d->requirement->stage);
-        $reg = $application->examRegistration;
-        $result = $application->result;
+        $withScore = $staff->hasRole('admission');
 
-        $out = [
-            'id' => $application->number,
-            'lrn' => $p->lrn,
-            'lastName' => $p->last_name,
-            'firstName' => $p->first_name,
-            'middleName' => $p->middle_name,
-            'sex' => $p->sex,
-            'email' => $p->user->email,
-            'phone' => $p->phone,
-            'resident' => (bool) $p->is_resident,
-            // The applicant form has no district/barangay fields yet (decision T7): "—" = unknown
-            'district' => $p->district ?? ($p->is_resident ? '—' : null),
-            'barangay' => $p->barangay ?? ($p->is_resident ? '—' : ''),
-            'address' => implode(', ', array_filter([$p->address, $p->city, $p->province])),
-            'birthday' => $p->birthday?->toDateString(),
-            'schoolType' => $p->school_type,
-            'lastSchool' => $p->last_school,
-            'strand' => $p->strand,
-            'applicantType' => $p->applicant_type ?? 'grade12',
-            'hasGuardian' => (bool) $p->has_guardian,
-            'programs' => $application->choices->map(fn ($c) => $c->program->code)->values()->all(),
-            'createdAt' => $this->at($application->created_at),
-            'submittedAt' => $application->submitted_at ? $this->at($application->submitted_at) : null,
-            'docs' => $this->files($docs->get(Requirement::STAGE_ADMISSION, collect())),
-            'exam' => $reg ? [
-                'sessionId' => 'S'.$reg->exam_session_id,
-                'permit' => $reg->permit_no,
-                'attendance' => $reg->attendance,
-                'permitChecked' => $reg->permit_checked,
-                'formChecked' => $reg->form_checked,
-            ] : null,
-            'result' => $result ? array_filter([
-                'score' => $staff->hasRole('admission') ? $result->score : null,
-                'decision' => $result->decision,
-                'recordedBy' => $result->recorder->name,
-                'recordedAt' => $this->at($result->recorded_at),
-                'released' => $result->is_released,
-                'releasedAt' => $result->released_at ? $this->at($result->released_at) : null,
-            ], fn ($v) => $v !== null) : null,
-            'history' => $application->auditLogs->map(fn (AuditLog $l) => $this->entry($l))->all(),
-        ];
+        $rows = DB::table('applications as a')
+            ->join('applicants as p', 'p.id', '=', 'a.applicant_id')
+            ->join('users as u', 'u.id', '=', 'p.user_id')
+            ->leftJoin('exam_registrations as r', 'r.application_id', '=', 'a.id')
+            ->leftJoin('exam_results as res', 'res.application_id', '=', 'a.id')
+            ->leftJoin('users as rec', 'rec.id', '=', 'res.recorded_by')
+            ->whereIn('a.id', $ids)
+            ->whereNull('a.deleted_at')
+            ->orderBy('a.id')
+            ->get([
+                'a.id', 'a.number', 'a.status', 'a.created_at', 'a.submitted_at',
+                'p.lrn', 'p.last_name', 'p.first_name', 'p.middle_name', 'p.sex', 'p.phone', 'p.is_resident', 'p.district',
+                'p.barangay', 'p.address', 'p.city', 'p.province', 'p.birthday', 'p.school_type', 'p.last_school', 'p.strand',
+                'p.applicant_type', 'p.has_guardian', 'u.email',
+                'r.exam_session_id', 'r.permit_no', 'r.attendance', 'r.permit_checked', 'r.form_checked',
+                'res.score', 'res.decision', 'res.recorded_at', 'res.is_released', 'res.released_at', 'rec.name as recorder',
+            ]);
+        if ($rows->isEmpty()) {
+            return [];
+        }
 
-        if ($application->medicalApplies()) {
-            $out['medical'] = ['files' => $this->files($docs->get(Requirement::STAGE_MEDICAL, collect()))];
+        $scope = fn ($q, string $col) => $q->whereIn($col, $ids);
+
+        $choices = $scope(DB::table('application_program_choices as c')->join('programs as pr', 'pr.id', '=', 'c.program_id'), 'c.application_id')
+            ->orderBy('c.rank')->get(['c.application_id', 'pr.code'])
+            ->groupBy('application_id');
+
+        $documents = $scope(DB::table('application_documents as d')
+            ->join('requirements as q', 'q.id', '=', 'd.requirement_id')
+            ->leftJoin('users as rv', 'rv.id', '=', 'd.reviewed_by')
+            ->where('d.is_current', true), 'd.application_id')
+            ->orderBy('d.id')
+            ->get(['d.application_id', 'q.key', 'q.stage', 'd.status', 'd.original_name', 'd.size', 'd.created_at', 'rv.name as reviewer', 'd.reviewed_at', 'd.remark'])
+            ->groupBy('application_id');
+
+        $history = $scope(DB::table('audit_logs'), 'application_id')
+            ->orderBy('id')->get(['application_id', 'actor_name', 'description', 'created_at'])
+            ->groupBy('application_id');
+
+        $out = [];
+        foreach ($rows as $a) {
+            $docs = ['admission' => [], 'medical' => []];
+            foreach ($documents[$a->id] ?? [] as $d) {
+                $docs[$d->stage][$d->key] = array_filter([
+                    'status' => $d->status,
+                    'file' => $d->original_name,
+                    'size' => (int) $d->size,
+                    'uploadedAt' => $this->at($d->created_at),
+                    'reviewedBy' => $d->reviewer,
+                    'reviewedAt' => $this->at($d->reviewed_at),
+                    'remark' => $d->remark,
+                ], fn ($v) => $v !== null);
+            }
+            $resident = (bool) $a->is_resident;
+
+            $item = [
+                'id' => $a->number,
+                'lrn' => $a->lrn,
+                'lastName' => $a->last_name,
+                'firstName' => $a->first_name,
+                'middleName' => $a->middle_name,
+                'sex' => $a->sex,
+                'email' => $a->email,
+                'phone' => $a->phone,
+                'resident' => $resident,
+                // The applicant form has no district/barangay fields yet (decision T7): "—" = unknown
+                'district' => $a->district !== null ? (int) $a->district : ($resident ? '—' : null),
+                'barangay' => $a->barangay ?? ($resident ? '—' : ''),
+                'address' => implode(', ', array_filter([$a->address, $a->city, $a->province])),
+                'birthday' => $a->birthday ? substr($a->birthday, 0, 10) : null,
+                'schoolType' => $a->school_type,
+                'lastSchool' => $a->last_school,
+                'strand' => $a->strand,
+                'applicantType' => $a->applicant_type ?? 'grade12',
+                'hasGuardian' => (bool) $a->has_guardian,
+                'programs' => ($choices[$a->id] ?? collect())->pluck('code')->all(),
+                'createdAt' => $this->at($a->created_at),
+                'submittedAt' => $this->at($a->submitted_at),
+                'docs' => $docs['admission'],
+                'exam' => $a->permit_no ? [
+                    'sessionId' => 'S'.$a->exam_session_id,
+                    'permit' => $a->permit_no,
+                    'attendance' => $a->attendance,
+                    'permitChecked' => (bool) $a->permit_checked,
+                    'formChecked' => (bool) $a->form_checked,
+                ] : null,
+                'result' => $a->decision ? array_filter([
+                    'score' => $withScore ? (int) $a->score : null,
+                    'decision' => $a->decision,
+                    'recordedBy' => $a->recorder,
+                    'recordedAt' => $this->at($a->recorded_at),
+                    'released' => (bool) $a->is_released,
+                    'releasedAt' => $this->at($a->released_at),
+                ], fn ($v) => $v !== null) : null,
+                'history' => ($history[$a->id] ?? collect())->map(fn ($l) => $this->entry($l))->all(),
+            ];
+            // Medical requirements apply after a released pass (Application::medicalApplies)
+            if ($a->status === 'passed' && $a->is_released) {
+                $item['medical'] = ['files' => $docs['medical']];
+            }
+            $out[] = $item;
         }
 
         return $out;
     }
 
-    private function files(Collection $documents): array
-    {
-        return $documents->mapWithKeys(fn (ApplicationDocument $d) => [$d->requirement->key => array_filter([
-            'status' => $d->status,
-            'file' => $d->original_name,
-            'size' => $d->size,
-            'uploadedAt' => $this->at($d->created_at),
-            'reviewedBy' => $d->reviewer?->name,
-            'reviewedAt' => $d->reviewed_at ? $this->at($d->reviewed_at) : null,
-            'remark' => $d->remark,
-        ], fn ($v) => $v !== null)])->all();
-    }
-
-    private function entry(AuditLog $log): array
+    private function entry(object $log): array
     {
         return ['at' => $this->at($log->created_at), 'by' => $log->actor_name, 'text' => $log->description];
     }
 
-    /** "2026-10-17T09:05", the timestamp format the panel uses. */
-    private function at(CarbonInterface $time): string
+    /** "2026-10-17T09:05" in Philippine time, the format the panel uses. Stored values are UTC. */
+    private function at(?string $utc): ?string
     {
-        return $time->copy()->setTimezone(config('admission.display_timezone'))->format('Y-m-d\TH:i');
+        return $utc === null ? null : (new DateTimeImmutable($utc, $this->utc))->setTimezone($this->local)->format('Y-m-d\TH:i');
     }
 }

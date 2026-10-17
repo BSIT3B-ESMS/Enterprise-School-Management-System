@@ -23,6 +23,7 @@
   function reload() { return ADM.load().done(function () { if (ADM.refresh) ADM.refresh(); }); }
 
   function send(method, path, data, a) {
+    ADM.invalidate();                          // the action just changed local data
     var run = function () {
       return AO.api(method, "/api/admin/" + path, data)
         .done(function (res) {
@@ -196,7 +197,7 @@
       ADM.logOffice("Created exam session " + ADM.sessionLabel(s) + " at " + venue + " (" + capacity + " seats)");
       // The server assigns the real id: take it before anyone is added to the session
       send("POST", "exam-sessions", { date: date, batch: batch, venue: venue, capacity: capacity }).done(function (res) {
-        if (res && res.data) s.id = res.data.id;
+        if (res && res.data) { s.id = res.data.id; ADM.invalidate(); }
       });
       return s;
     },

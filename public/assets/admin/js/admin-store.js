@@ -110,6 +110,7 @@
       var d = res.data;
       $.extend(STAFF, d.staff);
       ["version", "programs", "sessions", "applicants", "settings", "audit"].forEach(function (k) { state[k] = d[k]; });
+      invalidate();
     });
   }
   // The server saves every change as it is made
@@ -121,6 +122,7 @@
   function replaceApplicant(a, fresh) {
     Object.keys(a).forEach(function (k) { if (!(k in fresh)) delete a[k]; });
     $.extend(a, fresh);
+    invalidate();
   }
 
   function nowISO() { var d = new Date(); return AO.toISO(d) + "T" + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); }
@@ -190,12 +192,29 @@
   function initials(a) { return (a.firstName.charAt(0) + a.lastName.charAt(0)).toUpperCase(); }
   function residency(a) { return a.resident ? "Pasig · District " + a.district : "Non-resident"; }
 
-  function program(code) { return state.programs.filter(function (p) { return p.code === code; })[0] || { code: code, name: code, slots: 0 }; }
-  function session(id) { return state.sessions.filter(function (s) { return s.id === id; })[0]; }
+  /* Lookups by id/code go through an index instead of scanning every applicant
+     (a screen with many sessions would otherwise scan the whole list per session).
+     Rebuilt lazily after any change: load, a server copy, or an action. */
+  var idx = null;
+  function invalidate() { idx = null; }
+  function index() {
+    if (idx) return idx;
+    idx = { programs: {}, sessions: {}, applicants: {}, rosters: {} };
+    state.programs.forEach(function (p) { idx.programs[p.code] = p; });
+    state.sessions.forEach(function (s) { idx.sessions[s.id] = s; });
+    state.applicants.forEach(function (a) {
+      idx.applicants[a.id] = a;
+      if (a.exam) (idx.rosters[a.exam.sessionId] = idx.rosters[a.exam.sessionId] || []).push(a);
+    });
+    return idx;
+  }
+
+  function program(code) { return index().programs[code] || { code: code, name: code, slots: 0 }; }
+  function session(id) { return index().sessions[id]; }
   function sessionLabel(s) { return BATCHES[s.batch].label + " · " + AO.fmt(s.date, { weekday: "short", month: "short", day: "numeric" }); }
-  function sessionRoster(id) { return state.applicants.filter(function (a) { return a.exam && a.exam.sessionId === id; }); }
+  function sessionRoster(id) { return (index().rosters[id] || []).slice(); }
   function sessionPast(s) { return AO.parseDate(s.date) <= AO.today(); }
-  function applicant(id) { return state.applicants.filter(function (a) { return a.id === id; })[0]; }
+  function applicant(id) { return index().applicants[id]; }
 
   function sortedSessions() {
     return state.sessions.slice().sort(function (x, y) { return x.date === y.date ? (x.batch < y.batch ? -1 : 1) : (x.date < y.date ? -1 : 1); });
@@ -233,7 +252,7 @@
     MED_TYPES: MED_TYPES, MED_STATUS: MED_STATUS, MED_REMARKS: MED_REMARKS, medStatus: medStatus,
     findType: findType, isMedical: isMedical, fileOf: fileOf,
     STRAND_SUGGEST: STRAND_SUGGEST, STRANDS: STRANDS, BARANGAYS: BARANGAYS, BATCHES: BATCHES,
-    state: state, load: load, save: save, reset: reset, replaceApplicant: replaceApplicant, nowISO: nowISO, logApplicant: logApplicant, logOffice: logOffice,
+    state: state, load: load, invalidate: invalidate, save: save, reset: reset, replaceApplicant: replaceApplicant, nowISO: nowISO, logApplicant: logApplicant, logOffice: logOffice,
     requiredDocs: requiredDocs, docSummary: docSummary, statusOf: statusOf, workingDaysSince: workingDaysSince,
     isOverdue: isOverdue, canApprove: canApprove, fullName: fullName, initials: initials, residency: residency,
     program: program, session: session, sessionLabel: sessionLabel, sessionRoster: sessionRoster, sessionPast: sessionPast,

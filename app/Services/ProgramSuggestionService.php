@@ -16,10 +16,12 @@ class ProgramSuggestionService
     /** @return Collection<int, Program> */
     public function suggestFor(Applicant $applicant): Collection
     {
+        $filled = Program::filledCounts();
+
         return Program::where('is_open', true)
             ->orderBy('name')
             ->get()
-            ->filter(fn (Program $p) => $p->filledSlots() < $p->slots)
+            ->filter(fn (Program $p) => ($filled[$p->id] ?? 0) < $p->slots)
             ->values();
     }
 }
