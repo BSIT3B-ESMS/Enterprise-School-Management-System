@@ -10,7 +10,7 @@ import {
     monthGrid,
 } from './calendar-events.js';
 import { formatDate, formatTime } from './format.js';
-import { approveLeave, listApplications, listLeaveRequests, onMockDataChange } from './mock-data.js';
+import { approveLeave, getPortalLeave, listApplications, listLeaveRequests, onMockDataChange } from './mock-data.js';
 import { showToast } from './toast.js';
 
 const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -52,15 +52,20 @@ function statusPill(status) {
     return $('<span>', { class: `status-pill calendar-status-${status.toLowerCase()}`, text: status });
 }
 
-function eventSummary(event) {
-    return `${eventTypes[event.type]}: ${event.name}, ${event.status}${event.time ? `, ${formatTime(event.time)}` : ''}`;
+function eventSummary(event, labels) {
+    return `${labels[event.type]}: ${event.name}, ${event.status}${event.time ? `, ${formatTime(event.time)}` : ''}`;
 }
 
 /**
  * The Calendar page. State: the month shown, the selected date and event, and the selected event types
  * and statuses. Everything re-renders from the mock data, so changes on other pages (or tabs) show here.
+ *
+ * With data-calendar-scope="own" (the Employee interface) it shows only the signed-in employee's own leave,
+ * named by leave type, with no actions: nothing on it changes a request's status.
  */
 function initCalendar($root) {
+    const isOwn = $root.attr('data-calendar-scope') === 'own';
+    const labels = isOwn ? { ...eventTypes, leave: 'My Leave' } : eventTypes;
     const now = new Date();
     const state = {
         year: now.getFullYear(),
@@ -76,15 +81,25 @@ function initCalendar($root) {
     }
 
     function filters() {
-        return { types: selectedValues('[data-calendar-type-filter]'), statuses: selectedValues('[data-calendar-status-filter]') };
+        return {
+            types: isOwn ? ['leave'] : selectedValues('[data-calendar-type-filter]'),
+            statuses: selectedValues('[data-calendar-status-filter]'),
+        };
     }
 
     function allEvents() {
+        if (isOwn) {
+            return buildCalendarEvents({
+                leaveRequests: getPortalLeave().map((leave) => ({ ...leave, employeeName: leave.type })),
+                applications: [],
+            });
+        }
+
         return buildCalendarEvents({ leaveRequests: listLeaveRequests(), applications: listApplications() });
     }
 
     function renderLegend({ types, statuses }) {
-        const items = Object.entries(eventTypes)
+        const items = Object.entries(labels)
             .filter(([type]) => types.includes(type))
             .map(([type, label]) => $('<span>', { class: 'd-inline-flex align-items-center gap-2', role: 'listitem' }).append(
                 $('<span>', { class: `calendar-swatch type-${type} is-confirmed`, 'aria-hidden': 'true' }),
@@ -117,10 +132,10 @@ function initCalendar($root) {
         const missing = [];
 
         if (!events.some((event) => event.type === 'leave')) {
-            missing.push('No employee leave requests are on record.');
+            missing.push(isOwn ? 'You have no leave requests on record.' : 'No employee leave requests are on record.');
         }
 
-        if (!events.some((event) => event.type !== 'leave')) {
+        if (!isOwn && !events.some((event) => event.type !== 'leave')) {
             missing.push('No applicant screenings or interviews are on record.');
         }
 
@@ -133,7 +148,7 @@ function initCalendar($root) {
         let notice = '';
 
         if (!monthEvents.length) {
-            notice = 'No events scheduled for this month.';
+            notice = isOwn ? 'You have no leave this month.' : 'No events scheduled for this month.';
         } else if (!shownInMonth.length) {
             notice = 'No events match your selected filters.';
         }
@@ -167,8 +182,8 @@ function initCalendar($root) {
                     class: `calendar-event ${styleClass(event)}${event.id === state.selectedEventId ? ' is-active' : ''}`,
                     'data-calendar-event': event.id,
                     'data-calendar-event-date': date,
-                    'aria-label': eventSummary(event),
-                    title: eventSummary(event),
+                    'aria-label': eventSummary(event, labels),
+                    title: eventSummary(event, labels),
                 }).append($('<span>', { class: 'calendar-event-label', text: event.time ? `${formatTime(event.time)} ${event.name}` : event.name }))
             )));
 
@@ -203,7 +218,7 @@ function initCalendar($root) {
                     $('<span>', { class: `calendar-swatch ${styleClass(event)}`, 'aria-hidden': 'true' }),
                     $('<span>', { class: 'min-w-0' }).append(
                         $('<span>', { class: 'd-block fw-medium text-truncate', text: event.name }),
-                        $('<small>', { class: 'd-block opacity-75', text: `${eventTypes[event.type]}${event.time ? ` · ${formatTime(event.time)}` : ''}` }),
+                        $('<small>', { class: 'd-block opacity-75', text: `${labels[event.type]}${event.time ? ` · ${formatTime(event.time)}` : ''}` }),
                     ),
                 ),
                 statusPill(event.status),
@@ -213,7 +228,7 @@ function initCalendar($root) {
         let empty = '';
 
         if (!all.length) {
-            empty = 'No events scheduled for this date.';
+            empty = isOwn ? 'You have no leave on this date.' : 'No events scheduled for this date.';
         } else if (!matching.length) {
             empty = 'No events match your selected filters.';
         }
@@ -232,6 +247,18 @@ function initCalendar($root) {
         $root.find('[data-calendar-details-empty]').toggleClass('d-none', Boolean(event));
 
         if (!event) {
+            return;
+        }
+
+        // The employee's own leave: its type, dates, status, and when it was filed. No actions.
+        if (isOwn) {
+            $details.append($('<dl>', { class: 'row row-cols-1 row-cols-sm-2 row-cols-xl-1 g-2 mb-0 employee-details' }).append(
+                detailRow('Leave Type', event.detail.type),
+                detailRow('Date', dateText(event)),
+                detailRow('Status', statusPill(event.status)),
+                detailRow('Filed On', formatDate(event.detail.filedOn)),
+            ));
+
             return;
         }
 

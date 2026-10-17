@@ -6,7 +6,7 @@ import { formatDate, formatTime, initialsOf } from './format.js';
 import { progressForStatus, statusAfterCompleting, workflowFor } from './recruitment-workflow.js';
 
 const storageKey = 'ems-mock-data';
-const storageVersion = 9;
+const storageVersion = 11;
 
 const benefitNames = [
     'SSS',
@@ -18,6 +18,19 @@ const benefitNames = [
     'Transportation Allowance',
     'Research Allowance',
 ];
+
+// What each benefit is, as the Employee interface describes it. Who is eligible comes from the job titles
+// (the benefits each one includes), so it always matches what HR sets.
+const benefitDescriptions = {
+    SSS: 'Social Security System contributions that cover retirement, disability, sickness, and death benefits.',
+    PhilHealth: 'National health insurance contributions that help cover hospital and medical expenses.',
+    'Pag-IBIG': 'Pag-IBIG Fund contributions for savings, with access to housing and short-term loans.',
+    '13th Month Pay': 'A yearly pay equal to one-twelfth of the basic salary earned during the year.',
+    'Paid Leave Credits': 'Paid time off for vacation, sick, and emergency leave.',
+    'Health Insurance (HMO)': 'Health maintenance organization coverage for medical consultations and hospitalization.',
+    'Transportation Allowance': 'A regular allowance to help with the cost of commuting to work.',
+    'Research Allowance': 'Funding that supports research work and related expenses.',
+};
 
 // The signed-in HR user's account. Kept apart from the employee and applicant records; `state.hrProfile`
 // starts from this and holds the user's edits.
@@ -194,11 +207,14 @@ function generateRoster() {
     return roster.map((employee, index) => {
         const jobTitle = findById(seedJobTitles, employee.jobTitleId);
 
+        const id = `EMP-${1001 + index}`;
+
         return {
-            id: `EMP-${1001 + index}`,
+            id,
             ...employee,
             salary: employee.salary ?? jobTitle.salary,
             benefits: [...jobTitle.benefits],
+            ...(id === portalEmployeeId ? { documents: portalDocuments() } : {}),
         };
     });
 }
@@ -268,9 +284,71 @@ const otherLeavePlan = [
     [17, 2, 'Filed'], [22, 3, 'Pending'], [27, 2, 'Approved'], [-3, 2, 'Approved'],
 ];
 
+// The employee the Employee interface is signed in as (Juan Carlos Reyes). The leave below is his: days
+// from today it starts, how many days, type, and status. HR sees it too, on the Calendar and his profile.
+const portalEmployeeId = 'EMP-1002';
+const portalLeavePlan = [
+    [-35, 2, 'Sick Leave', 'Approved'],
+    [10, 3, 'Vacation Leave', 'Approved'],
+    [32, 2, 'Vacation Leave', 'Approved'],
+    [18, 1, 'Emergency Leave', 'Pending'],
+    [50, 2, 'Vacation Leave', 'Filed'],
+];
+
+// The 201 file document categories, in the order the HR employee form lists them: [key, label].
+const documentCategories = [
+    ['hiringRequirements', 'Hiring Requirements'],
+    ['birForm2316', 'BIR Form 2316'],
+    ['education', 'Education Transcripts or Diplomas'],
+    ['workHistory', 'Work History'],
+    ['performance', 'Performance Assessments'],
+    ['correctiveActions', 'Corrective Actions'],
+    ['clearances', 'Clearances'],
+    ['postEmployment', 'Post-Employment Information'],
+];
+
+// Sample 201 file records for the signed-in employee. Like every document record here they hold only the
+// file's name, size, and the date it was added; no file content is kept.
+function portalDocuments() {
+    return {
+        hiringRequirements: [
+            { name: 'Employment Contract.pdf', size: 184320, addedOn: '2024-10-22' },
+            { name: 'NBI Clearance.pdf', size: 96256, addedOn: '2024-10-21' },
+            { name: 'Medical Certificate.pdf', size: 142336, addedOn: '2024-10-21' },
+        ],
+        birForm2316: [{ name: 'BIR Form 2316 - 2025.pdf', size: 71680, addedOn: '2026-02-03' }],
+        education: [
+            { name: 'Diploma - Master of Arts in Education.pdf', size: 1258291, addedOn: '2024-10-18' },
+            { name: 'Transcript of Records.pdf', size: 2097152, addedOn: '2024-10-18' },
+        ],
+        workHistory: [{ name: 'Certificate of Employment - Previous School.pdf', size: 88064, addedOn: '2024-10-18' }],
+        performance: [],
+        correctiveActions: [],
+        clearances: [],
+        postEmployment: [],
+    };
+}
+
+function portalLeaveRequests(firstNumber, today) {
+    return portalLeavePlan.map(([startOffset, days, type, status], index) => {
+        const startDate = addDaysIso(today, startOffset);
+
+        return {
+            id: `lv${firstNumber + index}`,
+            employeeId: portalEmployeeId,
+            type,
+            startDate,
+            endDate: addDaysIso(startDate, days - 1),
+            status,
+            filedOn: addDaysIso(today, Math.min(startOffset, 0) - 7),
+        };
+    });
+}
+
 /**
  * Sample leave requests: the approved leave of everyone on leave today, plus filed, pending, upcoming
- * approved (scheduled), and past leave for a few others. Dates are relative to today.
+ * approved (scheduled), and past leave for a few others, and the signed-in employee's own leave. Dates
+ * are relative to today.
  */
 function seedLeaveState(employees, today) {
     const leaveRequests = [];
@@ -301,6 +379,10 @@ function seedLeaveState(employees, today) {
             otherCount += 1;
         }
     });
+
+    if (employees.some((employee) => employee.id === portalEmployeeId)) {
+        leaveRequests.push(...portalLeaveRequests(leaveRequests.length + 1, today));
+    }
 
     return { leaveRequests, nextLeaveNumber: leaveRequests.length + 1 };
 }
@@ -381,15 +463,27 @@ function loadState() {
 
         // Employment status (5 and earlier) and job title openings (5 and earlier) start from the
         // sample values, so saved employees and job titles keep their edits.
-        const employees = migrated.employees.map((employee) => (employee.status
-            ? employee
-            : { ...employee, status: employmentStatusFor(Number(String(employee.id).replace(/\D/g, '')) - 1001) }));
+        const employees = migrated.employees
+            .map((employee) => (employee.status
+                ? employee
+                : { ...employee, status: employmentStatusFor(Number(String(employee.id).replace(/\D/g, '')) - 1001) }))
+            // The signed-in employee's sample 201 file records (10 and earlier), only if none are saved.
+            .map((employee) => (saved.version < 11 && employee.id === portalEmployeeId && !employee.documents
+                ? { ...employee, documents: portalDocuments() }
+                : employee));
+
+        // Saved leave (9 and earlier) gets the signed-in employee's sample leave added once.
+        const savedLeave = Array.isArray(migrated.leaveRequests) ? migrated.leaveRequests : null;
+        const nextLeaveNumber = Math.max(migrated.nextLeaveNumber ?? 0, (savedLeave?.length ?? 0) + 1);
+        const addsPortalLeave = saved.version < 10 && savedLeave && employees.some((employee) => employee.id === portalEmployeeId);
+        const portalLeave = addsPortalLeave ? portalLeaveRequests(nextLeaveNumber, today) : [];
 
         return {
             ...migrated,
             employees,
             // Leave requests (7 and earlier) start from the sample, covering whoever was on leave.
-            ...(Array.isArray(migrated.leaveRequests) ? {} : seedLeaveState(employees, today)),
+            ...(savedLeave ? {} : seedLeaveState(employees, today)),
+            ...(addsPortalLeave ? { leaveRequests: [...savedLeave, ...portalLeave], nextLeaveNumber: nextLeaveNumber + portalLeave.length } : {}),
             jobTitles: migrated.jobTitles.map((jobTitle) => (jobTitle.openings === undefined
                 ? { ...jobTitle, openings: findById(seedJobTitles, jobTitle.id)?.openings ?? 0 }
                 : jobTitle)),
@@ -434,13 +528,13 @@ function formatSalary(amount) {
     return `₱${Number(amount).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-function logActivity(action, entity, detail) {
+function logActivity(action, entity, detail, user = state.hrProfile.name) {
     state.activity.unshift({
         id: `l${state.nextActivityNumber}`,
         action,
         entity,
         detail,
-        user: state.hrProfile.name,
+        user,
         at: Date.now(),
     });
     state.nextActivityNumber += 1;
@@ -520,6 +614,21 @@ export function recordPasswordChange() {
 }
 
 /**
+ * Records that the signed-in employee changed their own password, under their own name. As with the HR
+ * user's, nothing about the password is kept; only the fact that it changed is logged.
+ */
+export function recordPortalPasswordChange() {
+    const record = findById(state.employees, portalEmployeeId);
+
+    if (!record) {
+        return;
+    }
+
+    logActivity('Updated', `Employee · ${record.name} (${record.id})`, 'Password changed by the employee', record.name);
+    commitChange();
+}
+
+/**
  * Data every page inside the app shell (header and sidebar) needs.
  */
 export function getShellData() {
@@ -527,6 +636,233 @@ export function getShellData() {
         currentUser: currentUserView(),
         pendingCandidates: countForStatus('Applied'),
         notifications: activityWithDates(state.activity.slice(0, 4)),
+    };
+}
+
+/**
+ * The signed-in employee's own 201 file documents by category, for My Files. `hasContent` is true only
+ * for a record that carries file content; records that hold just a filename are placeholders, and there
+ * is nothing to preview or download. `employee` is false when that employee no longer exists.
+ */
+export function getPortalFiles() {
+    const record = findById(state.employees, portalEmployeeId);
+
+    if (!record) {
+        return { employee: false, categories: [] };
+    }
+
+    return {
+        employee: true,
+        categories: documentCategories.map(([key, label]) => ({
+            key,
+            label,
+            files: (record.documents?.[key] ?? []).map((file) => ({
+                name: file.name,
+                size: file.size,
+                addedOn: file.addedOn,
+                hasContent: Boolean(file.content),
+            })),
+        })),
+    };
+}
+
+/**
+ * The signed-in employee's own leave requests (filed, pending, and approved), and nothing of anyone
+ * else's, for the Employee Calendar.
+ */
+export function getPortalLeave() {
+    return state.leaveRequests
+        .filter((leave) => leave.employeeId === portalEmployeeId)
+        .map(({ id, type, startDate, endDate, status, filedOn }) => ({ id, type, startDate, endDate, status, filedOn }));
+}
+
+/**
+ * What the Employee interface's Benefits page shows: every benefit with its description, the job
+ * titles it is offered with (eligibility), and whether it is included for the signed-in employee.
+ * `employee` is null when that employee no longer exists. Nothing about pay or other employees is
+ * included.
+ */
+export function getEmployeeBenefitsData() {
+    const record = findById(state.employees, portalEmployeeId);
+
+    if (!record) {
+        return { employee: null, benefits: [] };
+    }
+
+    const own = record.benefits ?? [];
+
+    return {
+        employee: { jobTitle: findById(state.jobTitles, record.jobTitleId)?.name ?? '—' },
+        benefits: benefitNames.map((name) => {
+            const eligibleJobTitles = state.jobTitles
+                .filter((jobTitle) => jobTitle.benefits.includes(name))
+                .map((jobTitle) => jobTitle.name)
+                .sort((first, second) => first.localeCompare(second));
+
+            return {
+                name,
+                description: benefitDescriptions[name] ?? '',
+                eligibleJobTitles,
+                isForAllJobTitles: eligibleJobTitles.length > 0 && eligibleJobTitles.length === state.jobTitles.length,
+                isIncluded: own.includes(name),
+            };
+        }),
+    };
+}
+
+/**
+ * The Directory for the signed-in employee: everyone in the department on their profile, whatever their
+ * job title, A to Z (the employee included). Employees of other departments are never returned. Only each
+ * person's name, position, and work email are passed on, so addresses, phone numbers, government IDs, pay,
+ * and 201 file records never reach the Directory page.
+ *
+ * `employee` is false when the employee's record no longer exists; `department` is the department's name,
+ * or '' when the profile has no department (or one that no longer exists), in which case `people` is empty.
+ */
+export function getDirectoryData() {
+    const record = findById(state.employees, portalEmployeeId);
+
+    if (!record) {
+        return { employee: false, department: '', people: [] };
+    }
+
+    const department = findById(state.departments, record.departmentId);
+
+    if (!department) {
+        return { employee: true, department: '', people: [] };
+    }
+
+    return {
+        employee: true,
+        department: department.name,
+        people: state.employees
+            .filter((employee) => employee.departmentId === department.id)
+            .map(withNames)
+            .map((employee) => ({
+                name: employee.name,
+                initials: initialsOf(employee.name),
+                jobTitle: employee.jobTitle,
+                email: employee.email,
+            }))
+            .sort((first, second) => first.name.localeCompare(second.name)),
+    };
+}
+
+// The only parts of their own record the employee may change; everything else is HR's to edit.
+const selfEditableFields = ['civilStatus', 'phone', 'address'];
+
+/**
+ * The signed-in employee's full record (with job title, department, and status names), or undefined
+ * when HR has deleted it.
+ */
+export function getPortalProfile() {
+    const record = findById(state.employees, portalEmployeeId);
+
+    return record ? withNames(record) : undefined;
+}
+
+/**
+ * Saves the signed-in employee's own edits. Only civil status, phone, and address are accepted; any
+ * other field passed in is ignored. The change is logged under the employee's own name, and nothing is
+ * logged when nothing changed.
+ *
+ * @returns the updated record, or undefined when the employee no longer exists
+ */
+export function updatePortalProfile(details) {
+    const index = state.employees.findIndex((employee) => employee.id === portalEmployeeId);
+
+    if (index === -1) {
+        return undefined;
+    }
+
+    const current = state.employees[index];
+    const changes = Object.fromEntries(
+        selfEditableFields.filter((field) => field in details).map((field) => [field, String(details[field]).trim()]),
+    );
+
+    if (selfEditableFields.every((field) => !(field in changes) || changes[field] === (current[field] ?? ''))) {
+        return withNames(current);
+    }
+
+    const employee = { ...current, ...changes };
+
+    state.employees[index] = employee;
+    logActivity('Updated', `Employee · ${employee.name} (${employee.id})`, 'Personal details updated by the employee', employee.name);
+    commitChange();
+
+    return withNames(employee);
+}
+
+// Whole calendar days from one ISO date to another, counting both ends ("2026-10-17" to "2026-10-19" is 3).
+function inclusiveDays(startDate, endDate) {
+    const toDay = (isoDate) => Date.UTC(...isoDate.split('-').map((part, index) => Number(part) - (index === 1 ? 1 : 0))) / 86400000;
+
+    return Math.round(toDay(endDate) - toDay(startDate)) + 1;
+}
+
+// Days of a leave that fall inside a window of dates (0 when they do not overlap).
+function leaveDaysWithin(leave, windowStart, windowEnd) {
+    const first = leave.startDate > windowStart ? leave.startDate : windowStart;
+    const last = leave.endDate < windowEnd ? leave.endDate : windowEnd;
+
+    return first > last ? 0 : inclusiveDays(first, last);
+}
+
+/**
+ * What the Employee interface shows for the signed-in employee: their details, leave summary,
+ * approved leave still ahead (or under way), and benefits. `employee` is null when that employee
+ * no longer exists (HR deleted the record).
+ */
+export function getEmployeePortalData() {
+    const record = findById(state.employees, portalEmployeeId);
+
+    if (!record) {
+        return { employee: null };
+    }
+
+    const employee = withNames(record);
+    const today = isoDateOf(new Date());
+    const yearStart = `${today.slice(0, 4)}-01-01`;
+    const leave = state.leaveRequests.filter((request) => request.employeeId === employee.id);
+    const approved = leave.filter((request) => request.status === 'Approved');
+    const ahead = approved
+        .filter((request) => request.endDate >= today)
+        .sort((first, second) => first.startDate.localeCompare(second.startDate));
+    const underWay = ahead.find((request) => request.startDate <= today);
+    const total = (days) => days.reduce((sum, count) => sum + count, 0);
+
+    return {
+        employee: {
+            id: employee.id,
+            name: employee.name,
+            firstName: employee.name.split(/\s+/)[0],
+            initials: initialsOf(employee.name),
+            email: employee.email,
+            phone: employee.phone,
+            department: employee.department,
+            jobTitle: employee.jobTitle,
+            hiredOn: employee.hiredOn,
+            status: employee.status,
+        },
+        benefits: [...(employee.benefits ?? [])],
+        leave: {
+            // Approved leave days so far this year, and the approved days still ahead (all calendar days).
+            takenDays: total(approved.map((request) => leaveDaysWithin(request, yearStart, today))),
+            aheadDays: total(ahead.map((request) => leaveDaysWithin(request, today, '9999-12-31'))),
+            aheadCount: ahead.length,
+            awaitingCount: leave.filter((request) => request.status === 'Filed' || request.status === 'Pending').length,
+            onLeaveUntil: underWay?.endDate ?? '',
+            year: Number(today.slice(0, 4)),
+        },
+        upcomingLeave: ahead.map((request) => ({
+            id: request.id,
+            type: request.type,
+            startDate: request.startDate,
+            endDate: request.endDate,
+            days: inclusiveDays(request.startDate, request.endDate),
+            isUnderWay: request.startDate <= today,
+            startsInDays: request.startDate > today ? inclusiveDays(today, request.startDate) - 1 : 0,
+        })),
     };
 }
 

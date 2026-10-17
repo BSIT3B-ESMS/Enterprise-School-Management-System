@@ -1,6 +1,6 @@
 @extends('layouts.admin')
 
-@section('title', 'My Profile · '.config('app.name'))
+@section('title', 'My Profile Â· '.config('app.name'))
 
 {{--
     The signed-in HR user's profile. Values are filled in by resources/js/hr-profile.js from the HR profile in
@@ -88,39 +88,6 @@
             </div>
         </form>
 
-        {{-- Mock only: the passwords are checked in the form and never stored or sent anywhere (password-change.js). --}}
-        <section class="card employee-form-card hr-security" id="security">
-            <h2 class="employee-form-section">Security</h2>
-
-            <form novalidate data-password-form>
-                <h3 class="fs-6 fw-semibold mb-3">Change Password</h3>
-
-                <div class="row g-3">
-                    <div class="col-lg-4">
-                        <x-password-field id="current-password" name="currentPassword" label="Current Password"
-                            autocomplete="current-password" />
-                    </div>
-
-                    <div class="col-lg-4">
-                        <x-password-field id="new-password" name="newPassword" label="New Password"
-                            autocomplete="new-password"
-                            hint="At least 8 characters, with an uppercase letter, a lowercase letter, and a number." />
-                    </div>
-
-                    <div class="col-lg-4">
-                        <x-password-field id="confirm-password" name="confirmPassword" label="Confirm New Password"
-                            autocomplete="new-password" />
-                    </div>
-                </div>
-
-                <div class="alert alert-success d-none mt-3 mb-0" role="status" data-password-success>
-                    Your password has been changed.
-                </div>
-
-                <div class="d-flex justify-content-end mt-3">
-                    <button type="submit" class="btn btn-primary">Update Password</button>
-                </div>
-            </form>
-        </section>
+        <x-password-change-section />
     </div>
 @endsection

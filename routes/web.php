@@ -32,3 +32,21 @@ Route::view('/audit-logs', 'audit.index')->name('audit.index');
 
 // The signed-in HR user's own profile, filled in by resources/js/hr-profile.js.
 Route::view('/profile', 'profile.show')->name('profile.show');
+
+// The Employee interface: a separate dashboard and sidebar from the HR pages above, filled in from the
+// mock data by resources/js/employee-shell.js and employee-dashboard.js.
+Route::redirect('/employee', '/employee/dashboard');
+
+Route::prefix('employee')->name('employee.')->group(function () {
+    Route::view('/dashboard', 'employee.dashboard')->name('dashboard');
+
+    Route::view('/profile', 'employee.profile')->name('profile');
+
+    Route::view('/files', 'employee.files')->name('files');
+
+    Route::view('/benefits', 'employee.benefits')->name('benefits');
+
+    Route::view('/directory', 'employee.directory')->name('directory');
+
+    Route::view('/calendar', 'employee.calendar')->name('calendar');
+});

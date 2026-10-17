@@ -1,5 +1,5 @@
 import $ from './jquery.js';
-import { formatDate, formatDateTime } from './format.js';
+import { formatDate, formatDateTime, greetingForHour } from './format.js';
 import { getDashboardData, onMockDataChange } from './mock-data.js';
 import { renderPipelineBar } from './pipeline.js';
 
@@ -14,14 +14,6 @@ function percentOf(value, total) {
 // "92%" — a whole-number share, or "0%" when there is nothing to divide by.
 function sharePercent(value, total) {
     return `${total ? Math.round((value / total) * 100) : 0}%`;
-}
-
-function greetingForHour(hour) {
-    if (hour < 12) {
-        return 'Good morning';
-    }
-
-    return hour < 18 ? 'Good afternoon' : 'Good evening';
 }
 
 function countForStage(candidateStages, stage) {

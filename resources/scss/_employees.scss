@@ -230,8 +230,8 @@ th[aria-sort="descending"] .sort-icon-descending {
     }
 }
 
-// Security card on My Profile; the menu's Security link scrolls to it, clear of the sticky header.
-.hr-security {
+// Security card on the HR and employee profiles; the menus' Security link scrolls to it, clear of the sticky header.
+.security-section {
     scroll-margin-top: 5rem;
 }
 
