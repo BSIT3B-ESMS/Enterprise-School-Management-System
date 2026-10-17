@@ -10,8 +10,7 @@ Responsive frontend for the PLP online admission system. It has two separate sid
 This is a Laravel app (PHP 8.3+, Composer, MySQL or SQLite). Full step-by-step guide, demo logins and troubleshooting: **[PROGRESS.md → How to run the system](PROGRESS.md)**.
 
 ```
-copy .env.example .env      # then set the database in .env
-composer setup              # first time only: packages, keys, tables, demo data
+composer setup              # first time only: packages, keys, tables, demo data (SQLite, no edits needed)
 php artisan app:start       # every time: web server + queue worker + scheduler
 ```
 

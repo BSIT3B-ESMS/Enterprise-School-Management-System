@@ -1,6 +1,62 @@
 # Backend Progress
 
-## ▶ How to run the system (step by step)
+## ▶ Quick start: the simplest way to run the system
+
+**On this computer (already set up):** open a terminal in the project folder and run one command:
+
+```powershell
+cd D:\Admission_System
+php artisan app:start
+```
+
+Open **http://127.0.0.1:8000/admin** (staff) or **http://127.0.0.1:8000/** (applicants). Press `Ctrl+C` in the terminal to stop.
+
+| Who | Email | Password |
+|---|---|---|
+| Admission staff | `admissions@plpasig.edu.ph` | `password123` |
+| Clinic | `clinic@plpasig.edu.ph` | `password123` |
+| Applicant | click **Create account** on http://127.0.0.1:8000/ | your own |
+
+**On a new computer (one time):** install [Laravel Herd](https://herd.laravel.com) (it gives you PHP and Composer), then:
+
+```powershell
+git clone -b backend https://github.com/hanimehub06-eng/Admission_System.git
+cd Admission_System
+composer setup
+php artisan app:start
+```
+
+That's it: no settings to edit. It uses SQLite (a single file, no database server) and writes emails to `storage/logs/laravel.log` instead of sending them. To use MySQL instead, see "Full setup guide" below.
+
+## ❓ Open questions (everything waiting on a decision)
+
+**Blocking features**
+1. **H1 · Applicant document cards.** How do the portal's 8 cards map to the official 7 requirements? (Details under "On hold" below.) Until this is settled, applicants can't upload documents or submit through the portal.
+2. **Reservation deadline.** What happens when a passer doesn't accept the offer or pay by the reservation deadline (the diagram's "slot deadlines" job)? Free the slot, notify, change status? Nothing is automated until this is defined.
+3. **When is an applicant "Admitted" for Enrollment?** Built as: after medical clearance (admission complete). Confirm, or name another point (e.g. offer accepted, fee paid).
+
+**Needed from other teams**
+4. **Enrollment API contract.** The integration is built and switched off (`ENROLLMENT_ENABLED=false`); the endpoint (`POST /admitted`), payload and callback (`POST /api/integrations/enrollment/student-number`) are assumed. Needs the real contract and API keys.
+5. **Document Management API contract.** The DMS driver is built (`DOCUMENT_STORE=dms`) on an assumed API. Needs the real contract and API key.
+6. **The clinic's real medical requirement list.** The seeded one (medical certificate, chest X-ray, CBC/urinalysis) is a placeholder.
+
+**UI team (the backend is ready; the screens can't show it yet)**
+7. 2FA code screen · "new password" screen for the reset link · notification list · "Did not pass" result screen (failed applicants currently stay on the exam step) · district/barangay fields in the applicant form · the unreachable profile view.
+8. Hide admin screens by role: the clinic account sees every screen (the server refuses what isn't theirs) and the sidebar always says "Admission personnel".
+9. Remove the hard-coded "Passed · 89th percentile" from the result screen (the backend never sends a score or percentile, NFR-02).
+10. "Saved on this device" autosave label: the form is now saved on the server.
+
+**Ownership and policy**
+11. Who owns the sysadmin duties (accounts, backups, security settings) (D7)?
+12. Who may open the Pulse monitoring dashboard in production (sysadmin over VPN via the Nginx allowlist is the suggestion)?
+13. What should "Reset demo data" in the panel do on a real server? It currently just reloads.
+14. Still on defaults from the plan: D6 file types (PDF/JPG/PNG), D8 status set, D9 freshmen only, D10 retention (soft deletes).
+
+Tracks the backend build on the `backend` branch. Guide: [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md). Architecture: the system architecture diagram (Nginx communication layer → Laravel on EC2 → RDS MySQL; DMS and Enrollment as external systems). UI audit: [docs/UI_BACKEND_MATRIX.md](docs/UI_BACKEND_MATRIX.md).
+
+The system is one module of the university ERP. Other systems (Document Mgmt, Enrollment) connect through REST + API key, so integrations go behind interfaces and are switched on through `.env`.
+
+## Full setup guide (details, troubleshooting, production)
 
 Windows with [Laravel Herd](https://herd.laravel.com) (it installs PHP and Composer). Run every command in PowerShell or the VS Code terminal, inside the project folder.
 
@@ -13,18 +69,14 @@ git checkout backend
 git pull
 ```
 
-**2. Choose a database.** Copy the settings file first:
-```powershell
-copy .env.example .env
-```
-Then open `.env` and pick one:
-- **MySQL (what this project uses):** keep `DB_CONNECTION=mysql` and fill in `DB_HOST=127.0.0.1`, `DB_PORT=3306`, `DB_DATABASE=admission_system`, `DB_USERNAME`, `DB_PASSWORD`. The database must already exist. MySQL also needs this run **once** as the root user (it allows the audit-log protection triggers):
+**2. Choose a database (optional).** `composer setup` creates `.env` from `.env.example`, which uses **SQLite** by default, so nothing needs changing for a demo. To use **MySQL** instead (this project's local setup), create `.env` first (`copy .env.example .env`) and in it:
+- set `DB_CONNECTION=mysql` and uncomment/fill `DB_HOST=127.0.0.1`, `DB_PORT=3306`, `DB_DATABASE=admission_system`, `DB_USERNAME`, `DB_PASSWORD` (the database must already exist);
+- run this **once** as the MySQL root user (it allows the audit-log protection triggers):
   ```sql
   SET PERSIST log_bin_trust_function_creators = 1;
   ```
-- **SQLite (no database server needed):** set `DB_CONNECTION=sqlite` and delete the other `DB_` lines. The database file is created for you.
 
-For local use, also set these in `.env`: `APP_ENV=local` (adds demo staff and 60 sample applicants) and `MAIL_MAILER=log` (emails are written to `storage/logs/laravel.log` instead of being sent).
+Emails go to `storage/logs/laravel.log` by default. For real email, set `MAIL_MAILER=failover` and the Gmail/Brevo lines.
 
 **3. Run the setup**
 ```powershell
@@ -77,34 +129,6 @@ For backups on MySQL, set `BACKUP_MYSQLDUMP_PATH` in `.env` if `mysqldump` isn't
 
 ### Production (architecture diagram)
 Nginx in front ([docs/deploy/nginx.conf](docs/deploy/nginx.conf): TLS, gzip, rate limits, 5 MB uploads), PHP-FPM with OPcache, Amazon RDS for MySQL (parameter group: `log_bin_trust_function_creators = 1`), least-privilege DB users from `php artisan app:db-privileges`, `MAIL_MAILER=failover` with the Gmail and Brevo credentials, `QUEUE_CONNECTION=database`, and two background services: `php artisan queue:work` and `php artisan schedule:work` (or cron running `schedule:run` every minute). Run `php artisan optimize` after each deploy. Never commit `.env`.
-
-## ❓ Open questions (everything waiting on a decision)
-
-**Blocking features**
-1. **H1 · Applicant document cards.** How do the portal's 8 cards map to the official 7 requirements? (Details under "On hold" below.) Until this is settled, applicants can't upload documents or submit through the portal.
-2. **Reservation deadline.** What happens when a passer doesn't accept the offer or pay by the reservation deadline (the diagram's "slot deadlines" job)? Free the slot, notify, change status? Nothing is automated until this is defined.
-3. **When is an applicant "Admitted" for Enrollment?** Built as: after medical clearance (admission complete). Confirm, or name another point (e.g. offer accepted, fee paid).
-
-**Needed from other teams**
-4. **Enrollment API contract.** The integration is built and switched off (`ENROLLMENT_ENABLED=false`); the endpoint (`POST /admitted`), payload and callback (`POST /api/integrations/enrollment/student-number`) are assumed. Needs the real contract and API keys.
-5. **Document Management API contract.** The DMS driver is built (`DOCUMENT_STORE=dms`) on an assumed API. Needs the real contract and API key.
-6. **The clinic's real medical requirement list.** The seeded one (medical certificate, chest X-ray, CBC/urinalysis) is a placeholder.
-
-**UI team (the backend is ready; the screens can't show it yet)**
-7. 2FA code screen · "new password" screen for the reset link · notification list · "Did not pass" result screen (failed applicants currently stay on the exam step) · district/barangay fields in the applicant form · the unreachable profile view.
-8. Hide admin screens by role: the clinic account sees every screen (the server refuses what isn't theirs) and the sidebar always says "Admission personnel".
-9. Remove the hard-coded "Passed · 89th percentile" from the result screen (the backend never sends a score or percentile, NFR-02).
-10. "Saved on this device" autosave label: the form is now saved on the server.
-
-**Ownership and policy**
-11. Who owns the sysadmin duties (accounts, backups, security settings) (D7)?
-12. Who may open the Pulse monitoring dashboard in production (sysadmin over VPN via the Nginx allowlist is the suggestion)?
-13. What should "Reset demo data" in the panel do on a real server? It currently just reloads.
-14. Still on defaults from the plan: D6 file types (PDF/JPG/PNG), D8 status set, D9 freshmen only, D10 retention (soft deletes).
-
-Tracks the backend build on the `backend` branch. Guide: [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md). Architecture: the system architecture diagram (Nginx communication layer → Laravel on EC2 → RDS MySQL; DMS and Enrollment as external systems). UI audit: [docs/UI_BACKEND_MATRIX.md](docs/UI_BACKEND_MATRIX.md).
-
-The system is one module of the university ERP. Other systems (Document Mgmt, Enrollment) connect through REST + API key, so integrations go behind interfaces and are switched on through `.env`.
 
 ## Decisions made with the team (2026-10-17)
 
