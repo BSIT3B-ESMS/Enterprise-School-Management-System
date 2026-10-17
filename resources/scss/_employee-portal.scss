@@ -46,6 +46,14 @@
     padding: 1rem;
 }
 
+// Applicant interface: a position that is closed to applications looks muted next to the open ones.
+.position-closed {
+    h3,
+    p {
+        opacity: 0.75;
+    }
+}
+
 .quick-link-label {
     font-weight: 600;
 }

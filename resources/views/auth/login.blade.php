@@ -57,6 +57,12 @@
                 </div>
 
                 <button type="submit" class="btn btn-primary login-submit">Sign In</button>
+
+                <div class="d-grid gap-2 border-top pt-3 text-center">
+                    <span class="text-body-secondary">Looking for a job?</span>
+                    <a class="btn btn-outline-primary login-submit d-inline-flex align-items-center justify-content-center"
+                        href="{{ route('applicant.apply') }}">Apply for a Position</a>
+                </div>
             </form>
         </section>
     </div>

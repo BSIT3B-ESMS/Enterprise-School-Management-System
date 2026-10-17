@@ -45,7 +45,7 @@
         </div>
 
         <div class="dropdown">
-            <button type="button" class="app-user" data-bs-toggle="dropdown" aria-expanded="false">
+            <button type="button" class="app-user" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false">
                 <span class="app-avatar" data-user-initials></span>
                 <span class="d-none d-lg-block">
                     <span class="app-user-name" data-user-name></span>
@@ -54,7 +54,7 @@
                 <span class="visually-hidden d-lg-none">Account menu</span>
             </button>
 
-            <div class="dropdown-menu dropdown-menu-end app-menu">
+            <div class="dropdown-menu dropdown-menu-end app-menu app-menu-account">
                 <div class="app-menu-profile">
                     <span class="app-avatar app-avatar-lg" data-user-initials></span>
                     <div class="min-w-0">

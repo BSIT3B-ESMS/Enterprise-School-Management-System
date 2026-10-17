@@ -33,6 +33,25 @@ Route::view('/audit-logs', 'audit.index')->name('audit.index');
 // The signed-in HR user's own profile, filled in by resources/js/hr-profile.js.
 Route::view('/profile', 'profile.show')->name('profile.show');
 
+// The Applicant interface: applying for a position (open to anyone, reached from the login page) and then
+// following that application. Filled in from the mock data by resources/js/applicant-apply.js and
+// applicant-portal.js; the application is identified by the ?ref= in the address, not by an account.
+Route::prefix('applicant')->name('applicant.')->group(function () {
+    Route::view('/apply', 'applicant.apply')->name('apply');
+
+    Route::view('/dashboard', 'applicant.dashboard')->name('dashboard');
+
+    Route::view('/profile', 'applicant.profile')->name('profile');
+
+    Route::view('/calendar', 'applicant.calendar')->name('calendar');
+
+    Route::view('/positions', 'applicant.positions')->name('positions');
+
+    Route::view('/applications', 'applicant.applications')->name('applications');
+
+    Route::view('/application', 'applicant.application')->name('application');
+});
+
 // The Employee interface: a separate dashboard and sidebar from the HR pages above, filled in from the
 // mock data by resources/js/employee-shell.js and employee-dashboard.js.
 Route::redirect('/employee', '/employee/dashboard');

@@ -32,6 +32,51 @@ const benefitDescriptions = {
     'Research Allowance': 'Funding that supports research work and related expenses.',
 };
 
+// What each of the sample positions involves and asks for, as the Applicant interface shows it (job titles hold
+// no description or qualifications of their own). A position HR adds later has none until this lists it.
+const positionDetails = {
+    t1: {
+        description: 'Leads the college: sets its academic direction, oversees faculty and programs, and represents the college within the university.',
+        qualifications: ['Doctoral degree in a relevant field', 'At least 8 years of teaching experience, including academic leadership', 'A record of research or professional publications', 'Strong leadership and communication skills'],
+    },
+    t2: {
+        description: 'Manages the department’s faculty, course offerings, and schedules, and supports students and faculty.',
+        qualifications: ['Master’s degree required; doctoral degree preferred', 'At least 5 years of teaching experience', 'Experience coordinating academic programs'],
+    },
+    t3: {
+        description: 'Teaches advanced courses, mentors junior faculty, and leads research in the department.',
+        qualifications: ['Doctoral degree in the discipline', 'At least 8 years of teaching experience', 'Published research in peer-reviewed journals'],
+    },
+    t4: {
+        description: 'Teaches undergraduate and graduate courses, conducts research, and serves on department committees.',
+        qualifications: ['Doctoral degree in the discipline', 'At least 5 years of teaching experience', 'Research output in peer-reviewed publications'],
+    },
+    t5: {
+        description: 'Teaches courses, advises students, and builds an independent research program.',
+        qualifications: ['Doctoral degree, or a master’s degree with relevant experience', 'Teaching experience or strong teaching potential', 'Evidence of research interest'],
+    },
+    t6: {
+        description: 'Teaches a full load of courses and helps coordinate the curriculum for the unit.',
+        qualifications: ['Master’s degree in the subject', 'At least 5 years of teaching experience', 'Experience developing course materials'],
+    },
+    t7: {
+        description: 'Teaches introductory and general education courses and supports students in class.',
+        qualifications: ['Master’s degree in the subject, or a bachelor’s degree with relevant experience', 'Classroom teaching experience', 'Clear and engaging presentation skills'],
+    },
+    t8: {
+        description: 'Teaches for a limited term and brings outside expertise into the program.',
+        qualifications: ['Doctoral degree or equivalent professional standing', 'An established teaching or industry record', 'Availability for a fixed term'],
+    },
+    t9: {
+        description: 'Delivers lectures and assessments for assigned courses.',
+        qualifications: ['Master’s degree in the subject', 'College-level teaching experience', 'Good communication skills'],
+    },
+    t10: {
+        description: 'Supports research projects by collecting and analyzing data and writing up findings.',
+        qualifications: ['Master’s degree in a relevant field', 'Experience with research methods and data analysis', 'Attention to detail and good writing'],
+    },
+};
+
 // The signed-in HR user's account. Kept apart from the employee and applicant records; `state.hrProfile`
 // starts from this and holds the user's edits.
 const seedHrProfile = {
@@ -1312,14 +1357,211 @@ function moveTo(application, status, action, detail) {
 }
 
 /**
- * New applications always start as Applied.
+ * The positions an applicant can apply for: job titles with at least one opening, by department then
+ * name. Nothing about pay or benefits is included.
+ */
+export function listOpenPositions() {
+    return state.jobTitles
+        .filter((jobTitle) => Number(jobTitle.openings || 0) > 0)
+        .map((jobTitle) => ({
+            id: jobTitle.id,
+            name: jobTitle.name,
+            departmentId: jobTitle.departmentId,
+            department: findById(state.departments, jobTitle.departmentId)?.name ?? '—',
+            openings: Number(jobTitle.openings),
+        }))
+        .sort((first, second) => first.department.localeCompare(second.department) || first.name.localeCompare(second.name));
+}
+
+/**
+ * Every position for the Applicant interface's Open Positions page, open (at least one opening) and closed
+ * (none), by department then name. Pay is not included.
+ */
+export function listPositions() {
+    return state.jobTitles
+        .map((jobTitle) => ({
+            id: jobTitle.id,
+            name: jobTitle.name,
+            departmentId: jobTitle.departmentId,
+            department: findById(state.departments, jobTitle.departmentId)?.name ?? '—',
+            openings: Number(jobTitle.openings || 0),
+            isOpen: Number(jobTitle.openings || 0) > 0,
+            description: positionDetails[jobTitle.id]?.description ?? '',
+            qualifications: [...(positionDetails[jobTitle.id]?.qualifications ?? [])],
+            benefits: [...jobTitle.benefits],
+        }))
+        .sort((first, second) => first.department.localeCompare(second.department) || first.name.localeCompare(second.name));
+}
+
+/**
+ * What the Applicant interface shows for one application: the applicant's own details, where it stands,
+ * and their screening and interview schedule, or undefined when it does not exist. Recruitment's
+ * internal fields (such as the offer response or a linked employee record) are not passed on.
+ */
+export function getApplicantApplication(id) {
+    const application = findApplication(id ?? '');
+
+    if (!application) {
+        return undefined;
+    }
+
+    return {
+        id: application.id,
+        name: application.name,
+        email: application.email,
+        phone: application.phone,
+        jobTitle: application.jobTitle,
+        department: application.department,
+        appliedOn: application.appliedOn,
+        status: application.status,
+        ...submittedDetails(application),
+        milestones: application.milestones.map(({ key, at }) => ({ key, at })),
+        activities: application.activities.map(({ id: activityId, type, date, time, status, completedOn }) => ({ id: activityId, type, date, time, status, completedOn })),
+    };
+}
+
+/**
+ * All of one applicant's applications. There are no accounts, so an applicant is the email address on the
+ * application they came in with: every application from that address (any case) is theirs.
+ */
+function applicationsOfApplicant(application) {
+    const email = application.email.toLowerCase();
+
+    return state.applications.filter((candidate) => candidate.email.toLowerCase() === email);
+}
+
+/**
+ * The applicant's applications for the Applicant interface's Applications page, newest first: where each
+ * stands and the next screening or interview HR has scheduled. `found` is false when the application the
+ * applicant came in with no longer exists. Recruitment's internal fields are not passed on.
+ */
+export function listApplicantApplications(id) {
+    const current = findById(state.applications, id ?? '');
+
+    if (!current) {
+        return { found: false, applications: [] };
+    }
+
+    return {
+        found: true,
+        applications: applicationsOfApplicant(current)
+            .map(withApplicationNames)
+            .map((application) => {
+                const next = application.activities
+                    .filter((activity) => activity.status === 'Scheduled')
+                    .sort((first, second) => `${first.date} ${first.time}`.localeCompare(`${second.date} ${second.time}`))[0];
+
+                return {
+                    id: application.id,
+                    jobTitle: application.jobTitle,
+                    jobTitleId: application.jobTitleId,
+                    department: application.department,
+                    appliedOn: application.appliedOn,
+                    status: application.status,
+                    next: next ? { type: next.type, date: next.date, time: next.time } : null,
+                };
+            })
+            .sort((first, second) => second.appliedOn.localeCompare(first.appliedOn) || second.id.localeCompare(first.id, undefined, { numeric: true })),
+    };
+}
+
+/**
+ * Whether the applicant's own email address would clash with another applicant's application for a position
+ * they have applied to (one application per email per position). The applicant's own applications do not count.
+ */
+export function isApplicantEmailTaken(id, email) {
+    const application = findById(state.applications, id ?? '');
+
+    if (!application) {
+        return false;
+    }
+
+    const own = applicationsOfApplicant(application);
+    const ownIds = new Set(own.map((candidate) => candidate.id));
+    const jobTitleIds = new Set(own.map((candidate) => candidate.jobTitleId));
+    const normalized = email.trim().toLowerCase();
+
+    return state.applications.some((candidate) => (
+        !ownIds.has(candidate.id) && jobTitleIds.has(candidate.jobTitleId) && candidate.email.toLowerCase() === normalized
+    ));
+}
+
+/**
+ * Saves the applicant's own edits. Only the email and phone number are accepted: the name, position, department,
+ * application date, and status stay as HR has them. They are the applicant's contact details, so they change on all
+ * of their applications and stay together. Each is logged under the applicant's name, and nothing is logged when
+ * nothing changed.
+ *
+ * @returns the applicant's updated view (see getApplicantApplication), or undefined if the application is gone
+ */
+export function updateApplicantProfile(id, { email, phone }) {
+    const application = findById(state.applications, id ?? '');
+
+    if (!application) {
+        return undefined;
+    }
+
+    const changes = { email: String(email).trim(), phone: String(phone).trim() };
+    const changed = applicationsOfApplicant(application)
+        .filter((candidate) => changes.email !== candidate.email || changes.phone !== candidate.phone);
+
+    if (changed.length) {
+        changed.forEach((candidate) => {
+            Object.assign(candidate, changes);
+            logActivity('Updated', applicationEntity(candidate), 'Contact details updated by the applicant', candidate.name);
+        });
+        commitChange();
+    }
+
+    return getApplicantApplication(id);
+}
+
+// The 201 file details an applicant gives on the job application form. They use the employee record's field names,
+// so they carry over to the employee record when the applicant is hired. Applications HR adds by hand, and the sample
+// ones, have none of them (they read as blank).
+const applicantDetailFields = ['birthdate', 'sex', 'civilStatus', 'address', 'sssNumber', 'philhealthNumber', 'pagibigNumber', 'tin', 'birNumber'];
+
+// The 201 file documents that apply at the application stage (the others belong to employment).
+const applicantDocumentKeys = ['hiringRequirements', 'education', 'workHistory'];
+
+/**
+ * An applicant's submitted documents: their lists of file records (name, size, date added), copied, with every
+ * list present.
+ */
+function applicantDocuments(source) {
+    return Object.fromEntries(applicantDocumentKeys.map((key) => [key, (source?.[key] ?? []).map((file) => ({ ...file }))]));
+}
+
+/**
+ * The 201 file details and documents on an application, as plain values (blank when not given).
+ */
+function submittedDetails(source) {
+    return {
+        ...Object.fromEntries(applicantDetailFields.map((field) => [field, String(source[field] ?? '').trim()])),
+        documents: applicantDocuments(source.documents),
+    };
+}
+
+/**
+ * New applications always start as Applied. `loggedBy` names who made the entry in the audit log (the
+ * HR user when omitted; an applicant's own name when they apply themselves).
  *
  * @param {{ name: string, email: string, phone: string, jobTitleId: string, departmentId: string, appliedOn: string }} details
  */
-export function addApplication(details) {
+export function addApplication(details, loggedBy = undefined) {
     const { name, email, phone, jobTitleId, departmentId, appliedOn } = details;
     const application = progressForStatus(
-        { id: `c${state.nextApplicationNumber}`, name, email, phone, jobTitleId, departmentId, appliedOn, status: 'Applied' },
+        {
+            id: `c${state.nextApplicationNumber}`,
+            name,
+            email,
+            phone,
+            jobTitleId,
+            departmentId,
+            appliedOn,
+            status: 'Applied',
+            ...submittedDetails(details),
+        },
         todayIso(),
     );
     const jobTitle = findById(state.jobTitles, application.jobTitleId);
@@ -1330,6 +1572,7 @@ export function addApplication(details) {
         'Created',
         applicationEntity(application),
         `Added to Recruitment as Applied for ${jobTitle?.name ?? 'a position'}`,
+        loggedBy,
     );
     commitChange();
 
@@ -1566,14 +1809,16 @@ export function completeHiring(id) {
         return failure('The position for this application no longer exists.');
     }
 
+    // What the applicant already submitted carries over, so nothing is asked for twice; the employee-only
+    // document lists (BIR 2316, performance, and so on) start empty.
+    const submitted = submittedDetails(application);
+
     const employee = addEmployee({
+        ...submitted,
+        documents: Object.fromEntries(documentCategories.map(([key]) => [key, submitted.documents[key] ?? []])),
         name: application.name,
         email: application.email,
         phone: application.phone,
-        address: '',
-        birthdate: '',
-        sex: '',
-        civilStatus: '',
         departmentId: application.departmentId,
         jobTitleId: application.jobTitleId,
         hiredOn: todayIso(),
