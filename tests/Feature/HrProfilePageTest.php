@@ -10,9 +10,10 @@ it('shows the profile menu with the account details, My Profile, Account Setting
         ], escape: false);
 });
 
-it('shows Account Settings as unavailable and links Security to the profile security section', function () {
+it('links Account Settings and Security from the profile menu', function () {
     $this->get(route('dashboard'))
-        ->assertSee('<button type="button" class="dropdown-item d-flex align-items-center gap-2 py-2" disabled>', escape: false)
+        ->assertSee('href="'.route('account.settings').'"', escape: false)
+        ->assertDontSee('disabled>', escape: false)
         ->assertSee('href="'.route('profile.show').'#security"', escape: false);
 });
 

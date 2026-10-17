@@ -2,7 +2,8 @@
 
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', fn () => view('home'))->name('home');
+// The EMS opens on the sign-in page: the root address goes to the existing Login route.
+Route::get('/', fn () => redirect()->route('login'))->name('home');
 
 Route::view('/login', 'auth.login')->name('login');
 
@@ -32,6 +33,10 @@ Route::view('/audit-logs', 'audit.index')->name('audit.index');
 
 // The signed-in HR user's own profile, filled in by resources/js/hr-profile.js.
 Route::view('/profile', 'profile.show')->name('profile.show');
+
+// The HR user's Account Settings (appearance and notification preferences), separate from My Profile and its
+// Security section; filled in by resources/js/account-settings.js.
+Route::view('/account-settings', 'account.settings')->name('account.settings');
 
 // The Applicant interface: applying for a position (open to anyone, reached from the login page) and then
 // following that application. Filled in from the mock data by resources/js/applicant-apply.js and

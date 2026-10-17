@@ -1,11 +1,13 @@
 import $ from './jquery.js';
 
-// Dark is the default (set on <html> by the layouts); a saved choice overrides it.
+// Dark is the default (set on <html> by the layouts); a saved choice overrides it. The choice is Light, Dark,
+// or System (follow the device's light or dark setting); the header toggle and Account Settings both use it.
 const storageKey = 'ems-theme';
-const themes = ['dark', 'light'];
+const choices = ['light', 'dark', 'system'];
 const $html = $(document.documentElement);
+const systemQuery = typeof window.matchMedia === 'function' ? window.matchMedia('(prefers-color-scheme: dark)') : null;
 
-function readSavedTheme() {
+function readSavedChoice() {
     try {
         return localStorage.getItem(storageKey);
     } catch {
@@ -13,30 +15,63 @@ function readSavedTheme() {
     }
 }
 
-function saveTheme(theme) {
+function saveChoice(choice) {
     try {
-        localStorage.setItem(storageKey, theme);
+        localStorage.setItem(storageKey, choice);
     } catch {
         // Storage unavailable (private mode or blocked); the choice lasts for this page only.
     }
 }
 
-function applyTheme(theme) {
-    $html.attr('data-bs-theme', theme);
+// The mode a choice looks like right now: System is whatever the device is set to.
+function modeFor(choice) {
+    if (choice === 'system') {
+        return systemQuery?.matches ? 'dark' : 'light';
+    }
+
+    return choice;
 }
 
-const savedTheme = readSavedTheme();
+let currentChoice = choices.includes(readSavedChoice()) ? readSavedChoice() : 'dark';
+
+function applyChoice(choice) {
+    currentChoice = choice;
+    $html.attr('data-bs-theme', modeFor(choice));
+}
+
+/**
+ * The chosen theme: 'light', 'dark', or 'system' (dark until another is chosen).
+ */
+export function getThemeChoice() {
+    return currentChoice;
+}
+
+/**
+ * Applies and remembers a theme choice, and tells the page (so Account Settings stays in step with the header toggle).
+ */
+export function setThemeChoice(choice) {
+    if (!choices.includes(choice)) {
+        return;
+    }
+
+    applyChoice(choice);
+    saveChoice(choice);
+    document.dispatchEvent(new CustomEvent('ems:theme-change'));
+}
 
 // Applied immediately (not on DOM ready) so every page, including Login, starts in the saved mode.
-if (themes.includes(savedTheme)) {
-    applyTheme(savedTheme);
-}
+applyChoice(currentChoice);
+
+// With System chosen, follow the device when it switches between light and dark.
+systemQuery?.addEventListener?.('change', () => {
+    if (currentChoice === 'system') {
+        applyChoice('system');
+    }
+});
 
 $(function () {
+    // The header's toggle flips the mode you are looking at, which makes it an explicit Light or Dark choice.
     $('[data-app-shell]').on('click', '[data-theme-toggle]', function () {
-        const nextTheme = $html.attr('data-bs-theme') === 'dark' ? 'light' : 'dark';
-
-        applyTheme(nextTheme);
-        saveTheme(nextTheme);
+        setThemeChoice($html.attr('data-bs-theme') === 'dark' ? 'light' : 'dark');
     });
 });

@@ -324,7 +324,7 @@ function initFormModal($modal, $root) {
 
         if (editingId) {
             updateDepartment(editingId, name);
-            showToast('Department saved.');
+            showToast('Department updated.');
         } else {
             const department = addDepartment(name);
 

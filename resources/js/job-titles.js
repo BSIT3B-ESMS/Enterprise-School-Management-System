@@ -441,7 +441,7 @@ function initFormModal($modal, $root) {
 
         if (editingId) {
             updateJobTitle(editingId, details);
-            showToast('Job title saved.');
+            showToast('Job title updated.');
         } else {
             const jobTitle = addJobTitle(details);
 

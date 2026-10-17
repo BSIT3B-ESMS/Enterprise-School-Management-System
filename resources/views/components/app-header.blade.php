@@ -73,11 +73,12 @@
                     My Profile
                 </a>
 
-                {{-- Not built yet, so it is shown but cannot be used. --}}
-                <button type="button" class="dropdown-item d-flex align-items-center gap-2 py-2" disabled>
+                @php($isSettingsPage = request()->routeIs('account.settings'))
+                <a class="dropdown-item d-flex align-items-center gap-2 py-2{{ $isSettingsPage ? ' active' : '' }}"
+                    aria-current="{{ $isSettingsPage ? 'page' : 'false' }}" href="{{ route('account.settings') }}">
                     <x-icon name="settings" />
                     Account Settings
-                </button>
+                </a>
                 <a class="dropdown-item d-flex align-items-center gap-2 py-2" href="{{ route('profile.show') }}#security">
                     <x-icon name="lock" />
                     Security

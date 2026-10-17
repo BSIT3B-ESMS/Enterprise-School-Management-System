@@ -164,7 +164,7 @@ function initEdit($root) {
         }
 
         stopEditing();
-        showToast('Changes saved.');
+        showToast('Changes applied.');
     });
 }
 

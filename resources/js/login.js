@@ -29,7 +29,8 @@ function initLoginPage(root) {
     const password = form.elements.password;
     const passwordToggle = root.querySelector('[data-password-toggle]');
     const passwordToggleLabel = passwordToggle.querySelector('[data-password-toggle-label]');
-    const forgotPasswordToast = Toast.getOrCreateInstance(root.querySelector('[data-login-toast]'));
+    // The notice sits beside the page's main block, not inside it, so it is looked up on the whole document.
+    const forgotPasswordToast = Toast.getOrCreateInstance(document.querySelector('[data-login-toast]'));
 
     passwordToggle.addEventListener('click', () => {
         const isHidden = password.type === 'password';
