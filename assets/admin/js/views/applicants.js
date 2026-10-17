@@ -205,12 +205,15 @@
     if (st === null) {
       return '<section class="card-soft">' + ui.empty("shield", "Not yet", "Medical requirements open once the applicant passes and the result is released.") + "</section>";
     }
-    var done = ADM.MED_TYPES.filter(function (m) { var f = ADM.fileOf(a, m.key); return f && f.status === "verified"; }).length;
-    var pending = ADM.MED_TYPES.filter(function (m) { var f = ADM.fileOf(a, m.key); return f && f.status === "pending"; }).length;
+    var ap = a.medical && a.medical.approval;
+    var note = st === "cleared" ? "Approved by " + ap.by + " · " + ui.dt(ap.at) + ". This applicant's admission is complete."
+      : st === "none" ? "The applicant hasn't uploaded their medical requirements yet."
+        : st === "resubmit" ? "The clinic nurse sent a file back. Waiting for the applicant to replace it."
+          : "With the clinic nurse. Their approval shows up here once they send it.";
     return '<section class="table-card">' +
-      '<div class="table-toolbar"><div><strong>' + done + " of " + ADM.MED_TYPES.length + ' verified</strong> <span class="tag ' + ADM.MED_STATUS[st].tag + '">' + (st === "cleared" ? icon("check") : "") + esc(ADM.MED_STATUS[st].label) + "</span>" +
-      '<small class="d-block text-muted">' + (st === "cleared" ? "Every medical file is verified. This applicant's admission is complete." : st === "none" ? "The applicant hasn't uploaded their medical requirements yet." : "Verify each file, or send it back with a clear remark.") + "</small></div>" +
-      (pending ? '<button class="btn btn-ghost ms-auto" type="button" id="verify-all-med">' + icon("check") + "Verify all " + pending + "</button>" : "") + "</div>" +
+      '<div class="table-toolbar"><div><strong>Clinic decision</strong> <span class="tag ' + ADM.MED_STATUS[st].tag + '">' + (st === "cleared" ? icon("check") : "") + esc(ADM.MED_STATUS[st].label) + "</span>" +
+      '<small class="d-block text-muted">' + esc(note) + "</small></div>" +
+      '<span class="text-muted small ms-auto">' + icon("lock") + " Read-only · checked by the university clinic</span></div>" +
       '<ul class="review-list">' + ADM.MED_TYPES.map(function (m) {
         var f = ADM.fileOf(a, m.key) || { status: "missing" };
         var has = f.status !== "missing";
@@ -221,8 +224,6 @@
           (f.reviewedBy ? '<p class="review-by">' + (f.status === "verified" ? "Verified" : "Reviewed") + " by " + esc(f.reviewedBy) + " · " + esc(ui.dt(f.reviewedAt)) + "</p>" : "") + "</div>" +
           '<div class="review-actions">' +
           (has ? '<button class="btn btn-ghost btn-sm" type="button" data-med-view="' + m.key + '">' + icon("eye") + "View</button>" : "") +
-          (has && f.status !== "verified" ? '<button class="btn btn-ok btn-sm" type="button" data-med-verify="' + m.key + '">' + icon("check") + "Verify</button>" : "") +
-          (has && f.status !== "resubmit" && f.status !== "verified" ? '<button class="btn btn-warn btn-sm" type="button" data-med-resubmit="' + m.key + '">' + icon("flag") + "Resubmit</button>" : "") +
           "</div></li>";
       }).join("") + "</ul></section>";
   }
@@ -247,7 +248,7 @@
     var s = ADM.docSummary(a);
     var med = ADM.medStatus(a);
     var tabs = [["profile", "Profile"], ["documents", "Documents <span>" + s.verified + "/" + s.total + "</span>"], ["exam", "Exam &amp; result"]];
-    if (med !== null) tabs.push(["medical", "Medical <span>" + esc(med === "cleared" ? "Cleared" : med === "none" ? "0/" + ADM.MED_TYPES.length : ADM.MED_STATUS[med].label) + "</span>"]);
+    if (med !== null) tabs.push(["medical", "Medical <span>" + esc(med === "none" ? "0/" + ADM.MED_TYPES.length : med === "pending" ? "With nurse" : ADM.MED_STATUS[med].label) + "</span>"]);
     tabs.push(["history", "History <span>" + a.history.length + "</span>"]);
     if (tab === "medical" && med === null) tab = "profile";
     var bodies = { profile: profileTab, documents: docsTab, exam: examTab, medical: medicalTab, history: historyTab };
@@ -258,7 +259,6 @@
     else if (st === "submitted" && s.pending) primary = '<button class="btn btn-brand" type="button" data-tab="documents">' + icon("folder") + "Review " + s.pending + " document" + (s.pending === 1 ? "" : "s") + "</button>";
     else if (a.exam && a.exam.attendance === "present" && !a.result) primary = '<button class="btn btn-brand" type="button" data-record>' + icon("award") + "Record result</button>";
     else if (a.result && !a.result.released) primary = '<button class="btn btn-brand" type="button" data-release>' + icon("send") + "Release result</button>";
-    else if (med === "pending") primary = '<button class="btn btn-brand" type="button" data-tab="medical">' + icon("shield") + "Check medical files</button>";
 
     $el.html(
       '<a class="back-link" href="#/applicants" data-reveal>' + icon("arrowL") + "All applicants</a>" +
@@ -348,21 +348,8 @@
     search: function (q) { f.q = q; f.status = "all"; f.page = 1; },
     filterStatus: function (st) { f.status = st; f.page = 1; }
   };
-  /* Medical tab actions (shared logic lives in views/medical.js) */
-  $(document).on("click", "[data-med-verify]", function () { ADM.views.medical.verify(currentApplicant(), $(this).data("med-verify")); });
-  $(document).on("click", "[data-med-resubmit]", function () { ADM.views.medical.resubmit(currentApplicant(), $(this).data("med-resubmit")); });
-  $(document).on("click", "#verify-all-med", function () {
-    var a = currentApplicant();
-    var n = ADM.actions.verifyAllMedical(a);
-    ADM.refresh();
-    AO.showToast(ADM.medStatus(a) === "cleared" ? ADM.fullName(a) + " is medically cleared. Admission complete." : n + " medical file" + (n === 1 ? "" : "s") + " verified.");
-  });
-  $(document).on("click", "[data-med-view]", function () {
-    var a = currentApplicant(), key = $(this).data("med-view");
-    var f = ADM.fileOf(a, key);
-    ADM.ui.previewDoc(a, key, '<button type="button" class="btn btn-ghost" data-bs-dismiss="modal">Close</button>' +
-      (f.status === "pending" ? '<button type="button" class="btn btn-warn" data-med-resubmit="' + key + '" data-bs-dismiss="modal">' + icon("flag") + 'Resubmit</button><button type="button" class="btn btn-ok" data-med-verify="' + key + '" data-bs-dismiss="modal">' + icon("check") + "Verify</button>" : ""));
-  });
+  /* Medical tab: view only. The clinic nurse checks and approves (nurse/index.html). */
+  $(document).on("click", "[data-med-view]", function () { ADM.ui.previewDoc(currentApplicant(), $(this).data("med-view")); });
 
   ADM.views.applicant = {
     title: function (id) { var a = ADM.applicant(id); return a ? ADM.fullName(a) : "Applicant"; },

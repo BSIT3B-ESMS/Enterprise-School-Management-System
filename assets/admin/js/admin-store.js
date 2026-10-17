@@ -12,7 +12,16 @@
   /* ==========================================================================
      CONFIG (edit to match the official admission period)
      ========================================================================== */
-  var STAFF = { name: "Maria Santos", initials: "MS", role: "Admission Personnel", email: "admissions@plpasig.edu.ph" };
+  // Who is signed in depends on the page: <body data-role="nurse"> is the
+  // clinic portal (nurse/index.html); everything else is the admission office.
+  // BACKEND: comes from the JWT role claim instead.
+  var STAFF_BY_ROLE = {
+    admin: { name: "Maria Santos", initials: "MS", role: "Admission Personnel", email: "admissions@plpasig.edu.ph" },
+    nurse: { name: "L. Bautista, RN", initials: "LB", role: "University Clinic Nurse", email: "clinic@plpasig.edu.ph" }
+  };
+  var ROLE = document.body.getAttribute("data-role") === "nurse" ? "nurse" : "admin";
+  var STAFF = STAFF_BY_ROLE[ROLE];
+  var OFFICE = STAFF_BY_ROLE.admin, NURSE = STAFF_BY_ROLE.nurse;   // used by the demo data
   var REVIEW_SLA_DAYS = 3;        // working days to review a new application
   var PASSING_SCORE = 60;         // internal; scores are never shown to applicants
   var PAGE_SIZE = 12;
@@ -57,7 +66,7 @@
     none: { label: "Not submitted", tag: "tag-missing" },
     pending: { label: "For checking", tag: "tag-review" },
     resubmit: { label: "Resubmit", tag: "tag-resubmit" },
-    cleared: { label: "Medically cleared", tag: "tag-verified" }
+    cleared: { label: "Approved", tag: "tag-verified" }   // the clinic nurse sent an approval
   };
   var MED_REMARKS = [
     "File is blurry or unreadable. Upload a clearer copy.",
@@ -147,7 +156,7 @@
     ];
     var NON_RES = ["Cainta, Rizal", "Taytay, Rizal", "Marikina City", "Taguig City", "Quezon City", "Mandaluyong City"];
     var STREETS = ["Mabini St.", "Rizal Ave.", "C. Raymundo Ave.", "Dr. Sixto Antonio Ave.", "Ortigas Ave. Ext.", "M.H. del Pilar St.", "A. Luna St.", "Shaw Blvd.", "Elisco Rd.", "San Guillermo St."];
-    var OTHER_STAFF = ["R. Dizon", "A. Cruz", STAFF.name];
+    var OTHER_STAFF = ["R. Dizon", "A. Cruz", OFFICE.name];
 
     var t = AO.today();
     var programs = PROGRAMS_SEED.map(function (p) { return $.extend({}, p); });
@@ -269,7 +278,7 @@
           if (releasedSession) {
             var releasedAt = addDays(resultDay, 1);
             a.result.releasedAt = isoAt(releasedAt, 9, 0);
-            a.history.push({ at: a.result.releasedAt, by: STAFF.name, text: "Released the exam result to the applicant" });
+            a.history.push({ at: a.result.releasedAt, by: OFFICE.name, text: "Released the exam result to the applicant" });
             if (a.result.decision === "passed") seedMedical(a, releasedAt);
           }
         }
@@ -287,17 +296,18 @@
       var upAt = isoAt(upDay, int(8, 21), int(0, 59));
       MED_TYPES.forEach(function (m) { a.medical.files[m.key] = { status: "pending", file: m.key + "_" + a.lastName.toLowerCase().replace(/[^a-z]/g, "") + ".pdf", size: int(200, 1800) * 1024, uploadedAt: upAt }; });
       a.history.push({ at: upAt, by: "Applicant", text: "Submitted " + MED_TYPES.length + " medical requirements" });
-      if (roll < .68) return;                                    // waiting for the clinic
+      if (roll < .68) return;                                    // waiting for the nurse
       var checkAt = isoAt(addDays(upDay, 1) > t ? t : addDays(upDay, 1), int(8, 16), int(0, 59));
-      MED_TYPES.forEach(function (m) { var f = a.medical.files[m.key]; f.status = "verified"; f.reviewedBy = "Clinic · Dr. L. Bautista"; f.reviewedAt = checkAt; });
       if (roll < .8) {
         var bad = pick(MED_TYPES);
-        a.medical.files[bad.key].status = "resubmit";
-        a.medical.files[bad.key].remark = pick(MED_REMARKS);
-        a.history.push({ at: checkAt, by: "Clinic · Dr. L. Bautista", text: "Asked to resubmit \"" + bad.title + "\"" });
+        var fb = a.medical.files[bad.key];
+        fb.status = "resubmit"; fb.remark = pick(MED_REMARKS); fb.reviewedBy = NURSE.name; fb.reviewedAt = checkAt;
+        a.history.push({ at: checkAt, by: NURSE.name, text: "Asked to resubmit medical requirement \"" + bad.title + "\"" });
         return;
       }
-      a.history.push({ at: checkAt, by: "Clinic · Dr. L. Bautista", text: "Medically cleared · admission complete" });
+      MED_TYPES.forEach(function (m) { var f = a.medical.files[m.key]; f.status = "verified"; f.reviewedBy = NURSE.name; f.reviewedAt = checkAt; });
+      a.medical.approval = { by: NURSE.name, at: checkAt };
+      a.history.push({ at: checkAt, by: NURSE.name, text: "Approved the medical requirements and sent the approval to the admission office" });
     }
 
     function countIn(list, sid) { return list.filter(function (x) { return x.exam && x.exam.sessionId === sid; }).length; }
@@ -322,9 +332,30 @@
      ========================================================================== */
   var state = AO.readJSON("local", STORAGE_KEY);
   if (!state || state.version !== 2) { state = seed(); save(); }
+  else migrate();
+
+  // Records saved before the nurse approval existed: all-verified files count as approved
+  function migrate() {
+    state.applicants.forEach(function (a) {
+      var files = a.medical && a.medical.files;
+      if (!files || a.medical.approval) return;
+      var all = MED_TYPES.map(function (m) { return files[m.key]; });
+      if (all.every(function (f) { return f && f.status === "verified"; })) a.medical.approval = { by: all[0].reviewedBy || NURSE.name, at: all[0].reviewedAt || all[0].uploadedAt };
+    });
+  }
 
   function save() { AO.writeJSON("local", STORAGE_KEY, state); }
   function reset() { state = seed(); ADM.state = state; save(); }
+
+  /* The office panel and the clinic portal share this record. When the other
+     one saves (e.g. the nurse sends an approval), reload it and redraw the
+     open view. BACKEND: replace with polling or a push channel. */
+  window.addEventListener("storage", function (e) {
+    if (e.key !== STORAGE_KEY || !e.newValue) return;
+    try { state = JSON.parse(e.newValue); } catch (err) { return; }
+    window.ADM.state = state;
+    if (window.ADM.refresh && !$("#app").prop("hidden")) window.ADM.refresh();
+  });
 
   function nowISO() { var d = new Date(); return AO.toISO(d) + "T" + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); }
 
@@ -368,15 +399,21 @@
     while (d < t) { d.setDate(d.getDate() + 1); var w = d.getDay(); if (w !== 0 && w !== 6) n++; }
     return n;
   }
-  /* Medical clearance: null when it doesn't apply yet (not a released pass) */
+  /* Medical clearance: null when it doesn't apply yet (not a released pass).
+     "pending" = with the clinic nurse; "cleared" = the nurse sent an approval. */
   function medStatus(a) {
     if (!a.result || a.result.decision !== "passed" || !a.result.released) return null;
+    if (a.medical && a.medical.approval) return "cleared";
     var files = (a.medical && a.medical.files) || {};
     var st = MED_TYPES.map(function (m) { return files[m.key] ? files[m.key].status : "missing"; });
     if (st.every(function (x) { return x === "missing"; })) return "none";
     if (st.indexOf("resubmit") !== -1) return "resubmit";
-    if (st.every(function (x) { return x === "verified"; })) return "cleared";
     return "pending";
+  }
+  /* The nurse can approve once every file is in and none is waiting on a resubmission */
+  function canApproveMedical(a) {
+    var files = (a.medical && a.medical.files) || {};
+    return medStatus(a) === "pending" && MED_TYPES.every(function (m) { return files[m.key] && files[m.key].status !== "resubmit"; });
   }
 
   /* Find a requirement (document or medical) and the applicant's file for it */
@@ -430,10 +467,10 @@
   }
 
   window.ADM = {
-    STORAGE_KEY: STORAGE_KEY, STAFF: STAFF, REVIEW_SLA_DAYS: REVIEW_SLA_DAYS, PASSING_SCORE: PASSING_SCORE, PAGE_SIZE: PAGE_SIZE,
+    STORAGE_KEY: STORAGE_KEY, ROLE: ROLE, STAFF: STAFF, REVIEW_SLA_DAYS: REVIEW_SLA_DAYS, PASSING_SCORE: PASSING_SCORE, PAGE_SIZE: PAGE_SIZE,
     STATUSES: STATUSES, STATUS_ORDER: STATUS_ORDER, DOC_STATUS: DOC_STATUS, DOC_TYPES: DOC_TYPES,
     PHYSICAL_ITEMS: PHYSICAL_ITEMS, EXAM_KIT: EXAM_KIT, REMARK_PRESETS: REMARK_PRESETS,
-    MED_TYPES: MED_TYPES, MED_STATUS: MED_STATUS, MED_REMARKS: MED_REMARKS, medStatus: medStatus,
+    MED_TYPES: MED_TYPES, MED_STATUS: MED_STATUS, MED_REMARKS: MED_REMARKS, medStatus: medStatus, canApproveMedical: canApproveMedical,
     findType: findType, isMedical: isMedical, fileOf: fileOf,
     STRAND_SUGGEST: STRAND_SUGGEST, STRANDS: STRANDS, BARANGAYS: BARANGAYS, BATCHES: BATCHES,
     state: state, save: save, reset: reset, nowISO: nowISO, logApplicant: logApplicant, logOffice: logOffice,

@@ -13,9 +13,11 @@
     "Schedule entrance exams and keep rosters",
     "Record and release results through the system",
     "Update programs, slots and requirements",
-    "Generate reports"
+    "Generate reports",
+    "See medical approvals sent by the clinic nurse"
   ];
   var CANNOT = [
+    "Check or approve medical files (clinic nurse only)",
     "Create, delete, or change user accounts and roles",
     "Run backups or change security settings",
     "Edit or delete audit log entries"

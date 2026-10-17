@@ -113,44 +113,8 @@
       return n;
     },
 
-    // BACKEND: PATCH /api/applicants/:id/medical/:key { status: "verified" }
-    verifyMedical: function (a, key) {
-      var f = ADM.fileOf(a, key);
-      if (!f) return false;
-      f.status = "verified";
-      delete f.remark;
-      stamp(f);
-      ADM.logApplicant(a, "Verified medical requirement \"" + docTitle(key) + "\"");
-      if (ADM.medStatus(a) === "cleared") ADM.logApplicant(a, "Medically cleared · admission complete");
-      ADM.save();
-      return true;
-    },
-
-    // BACKEND: PATCH /api/applicants/:id/medical/:key { status: "resubmit", remark }
-    resubmitMedical: function (a, key, remark) {
-      var f = ADM.fileOf(a, key);
-      if (!f) return false;
-      f.status = "resubmit";
-      f.remark = remark;
-      stamp(f);
-      ADM.logApplicant(a, "Asked to resubmit medical requirement \"" + docTitle(key) + "\": " + remark);
-      ADM.save();
-      return true;
-    },
-
-    verifyAllMedical: function (a) {
-      var n = 0;
-      ADM.MED_TYPES.forEach(function (m) {
-        var f = ADM.fileOf(a, m.key);
-        if (f && f.status === "pending") { f.status = "verified"; stamp(f); n++; }
-      });
-      if (n) {
-        ADM.logApplicant(a, "Verified " + n + " medical requirement" + (n === 1 ? "" : "s"));
-        if (ADM.medStatus(a) === "cleared") ADM.logApplicant(a, "Medically cleared · admission complete");
-        ADM.save();
-      }
-      return n;
-    },
+    // Medical files are checked and approved by the clinic nurse only
+    // (assets/nurse/js/nurse.js). The office sees the approval, read-only.
 
     // BACKEND: POST /api/exam-sessions
     createSession: function (date, batch, venue, capacity) {

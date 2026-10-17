@@ -286,7 +286,7 @@
       if (a.submittedAt && !a.exam && ADM.docSummary(a).pending) pendingDocs++;   // applicants with documents waiting
       if (a.exam && a.exam.attendance === "present" && !a.result) toRecord++;
       if (a.result && !a.result.released) unreleased++;
-      if (ADM.medStatus(a) === "pending") medical++;
+      if (ADM.medStatus(a) === "cleared") medical++;   // approvals sent by the clinic nurse
     });
     $("#nav-count-medical").text(medical).toggleClass("full", medical === 0);
     $("#nav-count-applicants").text(apps.length);
