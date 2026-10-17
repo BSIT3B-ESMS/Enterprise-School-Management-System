@@ -10,6 +10,9 @@ class SysadminToolsTest extends TestCase
 {
     public function test_backup_needs_a_real_database_file(): void
     {
+        if (\DB::getDriverName() !== 'sqlite') {
+            $this->markTestSkipped('In-memory SQLite case only.');
+        }
         // The test database lives in memory: nothing to back up, and it says so
         $this->artisan('app:backup')->expectsOutputToContain('There is no SQLite database file')->assertFailed();
     }
@@ -36,8 +39,16 @@ class SysadminToolsTest extends TestCase
         $zip->close();
     }
 
-    public function test_privileges_command_is_for_mysql(): void
+    public function test_privileges_command(): void
     {
+        if (\DB::getDriverName() === 'mysql') {
+            // Append-only tables get SELECT + INSERT only (NFR-03)
+            $this->artisan('app:db-privileges')
+                ->expectsOutputToContain('GRANT SELECT, INSERT ON `'.\DB::getDatabaseName().'`.`audit_logs`')
+                ->assertSuccessful();
+
+            return;
+        }
         $this->artisan('app:db-privileges')->expectsOutputToContain('This command is for MySQL')->assertFailed();
     }
 }
