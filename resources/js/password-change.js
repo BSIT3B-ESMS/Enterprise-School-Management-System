@@ -1,5 +1,5 @@
 import $ from './jquery.js';
-import { recordPasswordChange } from './mock-data.js';
+import { recordPasswordChange, recordPortalPasswordChange } from './mock-data.js';
 
 const minimumLength = 8;
 
@@ -57,7 +57,10 @@ function setRevealed($toggle, isRevealed) {
 }
 
 // Mock only: the three passwords are checked here and cleared; none is stored, logged, or sent anywhere.
+// The form's data-password-account says whose password it is: "employee" (the Employee interface), or the
+// HR user's by default.
 function initPasswordForm($form) {
+    const recordChange = $form.attr('data-password-account') === 'employee' ? recordPortalPasswordChange : recordPasswordChange;
     const $success = $form.find('[data-password-success]');
     const field = (name) => $form.find(`[name="${name}"]`);
     const values = () => Object.fromEntries(Object.keys(rules).map((name) => [name, String(field(name).val() ?? '')]));
@@ -107,7 +110,7 @@ function initPasswordForm($form) {
         $form.find('[data-password-toggle]').each(function () {
             setRevealed($(this), false);
         });
-        recordPasswordChange();
+        recordChange();
         $success.removeClass('d-none');
     });
 }

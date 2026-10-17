@@ -38,6 +38,17 @@ export function initialsOf(name) {
 }
 
 /**
+ * 9 → "Good morning", 14 → "Good afternoon", 20 → "Good evening".
+ */
+export function greetingForHour(hour) {
+    if (hour < 12) {
+        return 'Good morning';
+    }
+
+    return hour < 18 ? 'Good afternoon' : 'Good evening';
+}
+
+/**
  * 2048 → "2 KB", 1572864 → "1.5 MB".
  */
 export function formatFileSize(bytes) {

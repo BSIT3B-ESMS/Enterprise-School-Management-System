@@ -1,6 +1,32 @@
 import $ from './jquery.js';
 import { formatDate, formatFileSize } from './format.js';
 
+const typeLabels = {
+    pdf: 'PDF document',
+    doc: 'Word document',
+    docx: 'Word document',
+    xls: 'Excel spreadsheet',
+    xlsx: 'Excel spreadsheet',
+    csv: 'CSV file',
+    ppt: 'PowerPoint presentation',
+    pptx: 'PowerPoint presentation',
+    txt: 'Text file',
+    jpg: 'Image',
+    jpeg: 'Image',
+    png: 'Image',
+    gif: 'Image',
+    webp: 'Image',
+};
+
+/**
+ * "Transcript of Records.pdf" → "PDF document"; an unknown extension gives "XYZ file", none gives "File".
+ */
+export function documentTypeOf(fileName) {
+    const extension = fileName.includes('.') ? fileName.split('.').pop().toLowerCase() : '';
+
+    return typeLabels[extension] ?? (extension ? `${extension.toUpperCase()} file` : 'File');
+}
+
 /**
  * One 201 file document row, as listed on the employee form and the profile. Documents are mock
  * records: only the file's name, size, and the date it was added are kept; nothing is uploaded.

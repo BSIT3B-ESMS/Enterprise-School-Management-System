@@ -1,0 +1,51 @@
+// Employee interface: the dashboard's quick links.
+
+.quick-link {
+    display: grid;
+    gap: 0.25rem;
+    justify-items: start;
+    width: 100%;
+    height: 100%;
+    padding: 0.875rem 1rem;
+    color: var(--bs-body-color);
+    text-align: left;
+    text-decoration: none;
+    background: transparent;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 0.5rem;
+
+    &:hover {
+        color: var(--bs-body-color);
+        background: var(--ems-subtle-bg);
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--bs-primary);
+        outline-offset: 2px;
+    }
+
+    .icon {
+        width: 1.25rem;
+        height: 1.25rem;
+        color: var(--bs-link-color);
+    }
+
+    small {
+        font-size: 0.8125rem;
+        color: var(--bs-secondary-color);
+    }
+}
+
+// Employee interface: Directory cards.
+
+.directory-card {
+    display: flex;
+    gap: 0.875rem;
+    align-items: center;
+    height: 100%;
+    padding: 1rem;
+}
+
+.quick-link-label {
+    font-weight: 600;
+}
