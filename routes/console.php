@@ -7,10 +7,11 @@ use Illuminate\Support\Facades\Schedule;
 | schedule:work` (or a cron calling schedule:run every minute) next to
 | `php artisan queue:work`, which sends the queued emails.
 |
-| Enrollment hand-off and slot-deadline jobs go here once those rules are
-| defined (PROGRESS.md, open items).
+| The slot-deadline job goes here once that rule is defined (PROGRESS.md,
+| open questions).
 */
 
 Schedule::command('app:backup')->dailyAt('02:00')->withoutOverlapping();
+Schedule::command('enrollment:retry')->hourly()->withoutOverlapping(); // no-op while switched off
 Schedule::command('queue:prune-failed --hours=168')->daily();
 Schedule::command('queue:prune-batches --hours=168')->daily();

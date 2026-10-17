@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\ApplicationStatus;
+use App\Events\ApplicantAdmitted;
 use App\Events\DocumentReviewed;
 use App\Exceptions\BusinessRuleException;
 use App\Models\Application;
@@ -222,6 +223,7 @@ class DocumentService
     {
         if ($this->medicallyCleared($application)) {
             $this->audit->record('medical.cleared', 'Medically cleared · admission complete', $application, $application);
+            ApplicantAdmitted::dispatch($application);
         }
     }
 

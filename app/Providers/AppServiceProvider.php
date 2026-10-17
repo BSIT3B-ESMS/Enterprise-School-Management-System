@@ -2,7 +2,9 @@
 
 namespace App\Providers;
 
+use App\Events\ApplicantAdmitted;
 use App\Listeners\SendAdmissionNotices;
+use App\Services\EnrollmentService;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -20,6 +22,8 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Event::subscribe(SendAdmissionNotices::class);
+        // Admitted applicants go to the Enrollment system (no-op while it is switched off)
+        Event::listen(ApplicantAdmitted::class, fn (ApplicantAdmitted $e) => app(EnrollmentService::class)->queue($e->application));
 
         RateLimiter::for('login', fn (Request $request) => [
             Limit::perMinute(5)->by(strtolower((string) $request->input('email')).'|'.$request->ip()),

@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\Applicant\ApplicationController;
 use App\Http\Controllers\Api\Applicant\DocumentController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\Integration\EnrollmentController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\Office;
 use Illuminate\Support\Facades\Route;
@@ -24,6 +25,11 @@ Route::prefix('auth')->group(function () {
         Route::post('refresh', [AuthController::class, 'refresh']);
         Route::post('logout', [AuthController::class, 'logout']);
     });
+});
+
+// Other ERP systems (architecture diagram: REST + X-API-Key, IP allowlist at Nginx)
+Route::prefix('integrations')->middleware('throttle:api')->group(function () {
+    Route::post('enrollment/student-number', [EnrollmentController::class, 'studentNumber'])->middleware('integration:enrollment');
 });
 
 // In-app notifications for any signed-in user

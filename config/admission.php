@@ -26,6 +26,18 @@ return [
     ],
 
     /*
+    | Enrollment system (architecture diagram). Off until it exists (T9).
+    | api_key: what we send; inbound_key: what Enrollment must send us.
+    */
+    'enrollment' => [
+        'enabled' => (bool) env('ENROLLMENT_ENABLED', false),
+        'base_url' => env('ENROLLMENT_BASE_URL'),
+        'api_key' => env('ENROLLMENT_API_KEY'),
+        'inbound_key' => env('ENROLLMENT_INBOUND_KEY'),
+        'timeout' => (int) env('ENROLLMENT_TIMEOUT', 20),
+    ],
+
+    /*
     | Backups (php artisan app:backup, nightly in the scheduler)
     */
     'backups' => [
