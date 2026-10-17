@@ -7,21 +7,15 @@ Responsive frontend for the PLP online admission system. It has two separate sid
 
 ## Run locally
 
-This is a Laravel app (PHP 8.3+, Composer).
+This is a Laravel app (PHP 8.3+, Composer, MySQL or SQLite). Full step-by-step guide, demo logins and troubleshooting: **[PROGRESS.md → How to run the system](PROGRESS.md)**.
 
 ```
-composer install
-cp .env.example .env
-php artisan key:generate
-php artisan serve
+copy .env.example .env      # then set the database in .env
+composer setup              # first time only: packages, keys, tables, demo data
+php artisan app:start       # every time: web server + queue worker + scheduler
 ```
 
-Then open:
-
-- `http://127.0.0.1:8000/` for the applicant portal
-- `http://127.0.0.1:8000/admin` for the admission office
-
-With Laravel Herd, the folder is also served at `http://admission_system.test`. Bootstrap, jQuery, and the fonts load from CDNs, so the browser needs an internet connection for those assets.
+Then open `http://127.0.0.1:8000/` for the applicant portal and `http://127.0.0.1:8000/admin` for the admission office. Bootstrap, jQuery, and the fonts load from CDNs, so the browser needs an internet connection for those assets.
 
 ## Project structure
 
@@ -50,8 +44,8 @@ public/assets/
 
 Load order matters: the layout loads `core.js` first, then each page pushes its own scripts onto the `scripts` stack. In the admission office, views register on `ADM.views` and `admin.js` boots last.
 
-## Prototype scope
+## Backend
 
-This is a frontend prototype. Both sides keep their data in the browser (`localStorage`), and the two sides don't share data yet. Sign-in, uploads, verification, exam scheduling, and result release are simulated. Search the code for `BACKEND:` comments that mark where the Laravel API calls (JWT auth, RBAC, MySQL) go.
+Both sides now run on a Laravel JSON API (`routes/api.php`) with JWT sign-in, roles (applicant, admission, clinic, sysadmin), MySQL, an append-only audit log, in-app and email notifications, and private document storage. Still browser-only, on hold until the team settles the mapping: the applicant portal's document cards and its "Submit" button.
 
-In the admission office, use **Programs & requirements → Reset demo data** to restore the sample applicants.
+Progress, decisions, open questions and performance numbers: [PROGRESS.md](PROGRESS.md). Screen-by-screen wiring: [docs/UI_BACKEND_MATRIX.md](docs/UI_BACKEND_MATRIX.md).

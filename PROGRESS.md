@@ -2,89 +2,105 @@
 
 ## ▶ How to run the system (step by step)
 
-These steps are for Windows with [Laravel Herd](https://herd.laravel.com), which installs PHP and Composer. Run the commands in PowerShell or the VS Code terminal, from the project folder.
+Windows with [Laravel Herd](https://herd.laravel.com) (it installs PHP and Composer). Run every command in PowerShell or the VS Code terminal, inside the project folder.
 
-**1. Get the code on the `backend` branch**
+### First time only
+
+**1. Get the code**
 ```powershell
 cd D:\Admission_System
 git checkout backend
 git pull
 ```
 
-**2. Install the PHP packages**
-```powershell
-composer install
-```
-
-**3. Create your settings file and keys**
+**2. Choose a database.** Copy the settings file first:
 ```powershell
 copy .env.example .env
-php artisan key:generate
-php artisan jwt:secret
 ```
-
-**4. Edit `.env` for local use.** Open `.env` and change these lines:
-```
-APP_ENV=local
-MAIL_MAILER=log
-QUEUE_CONNECTION=sync
-```
-- `MAIL_MAILER=log` writes emails to `storage/logs/laravel.log` instead of sending them.
-- `QUEUE_CONNECTION=sync` sends them right away, so no background worker is needed.
-
-**5. Choose a database.**
-- **Option A, SQLite (easiest):** set `DB_CONNECTION=sqlite`, delete the other `DB_` lines (`DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`), then create the empty database file:
-  ```powershell
-  New-Item database\database.sqlite -ItemType File
+Then open `.env` and pick one:
+- **MySQL (what this project uses):** keep `DB_CONNECTION=mysql` and fill in `DB_HOST=127.0.0.1`, `DB_PORT=3306`, `DB_DATABASE=admission_system`, `DB_USERNAME`, `DB_PASSWORD`. The database must already exist. MySQL also needs this run **once** as the root user (it allows the audit-log protection triggers):
+  ```sql
+  SET PERSIST log_bin_trust_function_creators = 1;
   ```
-- **Option B, MySQL:** create an empty database called `admission_system`, then fill in `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME` and `DB_PASSWORD` in `.env`.
+- **SQLite (no database server needed):** set `DB_CONNECTION=sqlite` and delete the other `DB_` lines. The database file is created for you.
 
-**6. Create the tables and sample data**
+For local use, also set these in `.env`: `APP_ENV=local` (adds demo staff and 60 sample applicants) and `MAIL_MAILER=log` (emails are written to `storage/logs/laravel.log` instead of being sent).
+
+**3. Run the setup**
 ```powershell
-php artisan migrate --seed
+composer setup
 ```
-This creates the programs, requirements, admission period and the sysadmin account. Because `APP_ENV=local`, it also creates demo staff and 60 sample applicants, which takes about a minute. **Copy the sysadmin password it prints.**
+This installs the packages, creates the keys, builds the tables and loads the starting data (about a minute with demo data). **Copy the sysadmin password it prints.** It is safe to run again: it never overwrites keys or reloads data that is already there. If the database can't be reached, it says exactly which setting to check.
 
-**7. Start the server**
+### Every time you want to use the system
+
 ```powershell
-php artisan serve
+cd D:\Admission_System
+php artisan app:start
 ```
-Leave this window open. Press `Ctrl+C` to stop the server.
-
-**8. Open the system in your browser**
+This starts the web server, the queue worker (emails, notifications) and the scheduler (nightly backup, retries) together in one window. Leave it open; press `Ctrl+C` to stop everything. Then open:
 
 | Screen | Address | Sign in with |
 |---|---|---|
-| Applicant portal | http://127.0.0.1:8000/ | Click **Create account**, or use a sample applicant (any email from the Applicants list in the admin panel) with password `password123` |
+| Applicant portal | http://127.0.0.1:8000/ | **Create account**, or a sample applicant (any email in the admin panel's Applicants list) / `password123` |
 | Admission office | http://127.0.0.1:8000/admin | `admissions@plpasig.edu.ph` / `password123` |
 | Clinic (medical) | http://127.0.0.1:8000/admin | `clinic@plpasig.edu.ph` / `password123` |
+| Monitoring (Pulse) | http://127.0.0.1:8000/pulse | local only |
 
-**9. (Optional) Sysadmin tasks.** These are command-line only; staff can't do them:
+### After pulling new code
+
+| If… | Run |
+|---|---|
+| `composer.json` changed (new packages) | `composer install` |
+| new files in `database/migrations` | `php artisan migrate` |
+| you want fresh demo data (deletes everything) | `php artisan migrate:fresh --seed` |
+
+### Sysadmin tools (command line only; staff can't do these)
+
 ```powershell
 php artisan user:create name@plpasig.edu.ph "Full Name" admission   # admission | clinic | sysadmin
 php artisan user:active name@plpasig.edu.ph off                     # off = disable, on = enable
 php artisan user:2fa name@plpasig.edu.ph totp                       # totp | email | off
+php artisan app:backup                                              # database + documents → storage/app/backups (also runs nightly)
+php artisan app:db-privileges                                       # prints MySQL least-privilege GRANTs (production)
+php artisan enrollment:retry                                        # resend admitted applicants to Enrollment (when switched on)
+php artisan test                                                    # run the automated tests
 ```
+For backups on MySQL, set `BACKUP_MYSQLDUMP_PATH` in `.env` if `mysqldump` isn't on the PATH, e.g. `"C:/Program Files/MySQL/MySQL Server 8.0/bin/mysqldump.exe"` (forward slashes).
 
-**10. (Optional) Run the tests, or start over with fresh data**
-```powershell
-php artisan test
-php artisan migrate:fresh --seed
-```
-
-**Troubleshooting**
+### Troubleshooting
 - *"php" or "composer" is not recognized:* install Herd, then open a new terminal.
-- *"Database file … does not exist":* you skipped the `New-Item` command in step 5.
-- *Sign-in fails right after setup:* check that you ran `php artisan jwt:secret` in step 3.
-- *Port 8000 is busy:* use `php artisan serve --port=8080` and open `http://127.0.0.1:8080` instead.
+- *"Can't connect to the database":* check the `DB_` lines in `.env`; for MySQL, create the database first.
+- *"MySQL won't let this user create the audit-log triggers":* run the `SET PERSIST` line from step 2 as root, then `composer setup` again.
+- *Port 8000 is busy:* `php artisan app:start --port=8080`, then use `http://127.0.0.1:8080`.
+- *Emails/notifications not appearing:* they're sent by the queue worker, which `app:start` runs; with `MAIL_MAILER=log` they're in `storage/logs/laravel.log`.
 
-**Production setup** (architecture diagram): Nginx in front ([docs/deploy/nginx.conf](docs/deploy/nginx.conf)), PHP-FPM and RDS MySQL. Set `MAIL_MAILER=failover` with the Gmail and Brevo credentials and `QUEUE_CONNECTION=database`. Run two background processes: `php artisan queue:work` (emails) and `php artisan schedule:work`, or a cron job that runs `schedule:run` every minute. Never commit `.env` to Git.
+### Production (architecture diagram)
+Nginx in front ([docs/deploy/nginx.conf](docs/deploy/nginx.conf): TLS, gzip, rate limits, 5 MB uploads), PHP-FPM with OPcache, Amazon RDS for MySQL (parameter group: `log_bin_trust_function_creators = 1`), least-privilege DB users from `php artisan app:db-privileges`, `MAIL_MAILER=failover` with the Gmail and Brevo credentials, `QUEUE_CONNECTION=database`, and two background services: `php artisan queue:work` and `php artisan schedule:work` (or cron running `schedule:run` every minute). Run `php artisan optimize` after each deploy. Never commit `.env`.
 
-## ❓ Waiting on answers
+## ❓ Open questions (everything waiting on a decision)
 
-1. **How should the 8 applicant document cards map to the official requirements (H1)?** Nothing can be submitted from the portal until this is settled. Details under "On hold" below.
-2. **What should happen when a passer doesn't accept or pay by the reservation deadline?** The diagram's "slot deadlines" job can't be automated until this is defined.
-3. ✅ **MySQL**: done. `.env` uses MySQL (`admission_system` / `admission_app`), and the migrations, demo data and all 51 tests run on it. The first run found three problems SQLite hid; all fixed (see work log). Production needs `log_bin_trust_function_creators = 1` in the RDS parameter group for the audit-log triggers.
+**Blocking features**
+1. **H1 · Applicant document cards.** How do the portal's 8 cards map to the official 7 requirements? (Details under "On hold" below.) Until this is settled, applicants can't upload documents or submit through the portal.
+2. **Reservation deadline.** What happens when a passer doesn't accept the offer or pay by the reservation deadline (the diagram's "slot deadlines" job)? Free the slot, notify, change status? Nothing is automated until this is defined.
+3. **When is an applicant "Admitted" for Enrollment?** Built as: after medical clearance (admission complete). Confirm, or name another point (e.g. offer accepted, fee paid).
+
+**Needed from other teams**
+4. **Enrollment API contract.** The integration is built and switched off (`ENROLLMENT_ENABLED=false`); the endpoint (`POST /admitted`), payload and callback (`POST /api/integrations/enrollment/student-number`) are assumed. Needs the real contract and API keys.
+5. **Document Management API contract.** The DMS driver is built (`DOCUMENT_STORE=dms`) on an assumed API. Needs the real contract and API key.
+6. **The clinic's real medical requirement list.** The seeded one (medical certificate, chest X-ray, CBC/urinalysis) is a placeholder.
+
+**UI team (the backend is ready; the screens can't show it yet)**
+7. 2FA code screen · "new password" screen for the reset link · notification list · "Did not pass" result screen (failed applicants currently stay on the exam step) · district/barangay fields in the applicant form · the unreachable profile view.
+8. Hide admin screens by role: the clinic account sees every screen (the server refuses what isn't theirs) and the sidebar always says "Admission personnel".
+9. Remove the hard-coded "Passed · 89th percentile" from the result screen (the backend never sends a score or percentile, NFR-02).
+10. "Saved on this device" autosave label: the form is now saved on the server.
+
+**Ownership and policy**
+11. Who owns the sysadmin duties (accounts, backups, security settings) (D7)?
+12. Who may open the Pulse monitoring dashboard in production (sysadmin over VPN via the Nginx allowlist is the suggestion)?
+13. What should "Reset demo data" in the panel do on a real server? It currently just reloads.
+14. Still on defaults from the plan: D6 file types (PDF/JPG/PNG), D8 status set, D9 freshmen only, D10 retention (soft deletes).
 
 Tracks the backend build on the `backend` branch. Guide: [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md). Architecture: the system architecture diagram (Nginx communication layer → Laravel on EC2 → RDS MySQL; DMS and Enrollment as external systems). UI audit: [docs/UI_BACKEND_MATRIX.md](docs/UI_BACKEND_MATRIX.md).
 
@@ -104,7 +120,7 @@ These override DEVELOPMENT_PLAN.md where the two disagree.
 | T6 | Official document list | The admin panel's 7 conditional requirements | — |
 | T7 | Applicant form gaps | Store the form as it is; derive residency from city; district/barangay empty until the UI has fields | — |
 | T8 | Upload limit | 5 MB (diagram), PDF/JPG/PNG | UI text says 10 MB |
-| T9 | Enrollment integration | Later. Keep the design ready for it | — |
+| T9 | Enrollment integration | Built and switched off (`ENROLLMENT_ENABLED=false`) until the Enrollment system exists (updated 2026-10-17) | — |
 | T10 | Roles | `applicant`, `admission`, `clinic`, `sysadmin` (diagram's four user groups) | Plan's `applicant/staff/admin` |
 | T11 | Auth | JWT (`php-open-source-saver/jwt-auth`), sent as a bearer token by the AJAX calls | — |
 
@@ -114,11 +130,10 @@ These override DEVELOPMENT_PLAN.md where the two disagree.
 |---|---|---|---|
 | H1 | Applicant document cards vs official list | The portal shows 8 cards; the official list (T6) has 7 conditional requirements. 5 cards map cleanly (Valid ID→`applicantId`, Parent/Guardian ID→`parentId`, CTC Grade 11→`form138`, PSA→`psa`, Photo→`photo`). 3 cards have no official requirement (Grade 12 Form 138, Good Moral, GCash/Dragonpay payment). 2 requirements have no card (Guardianship affidavit, Form 137). The portal only enables "Submit" when all 8 cards are filled. **Nothing is built for this mapping until it's discussed.** | Wiring the applicant's document cards and the submit button. The backend upload/review API is keyed by official requirement and is built. |
 
-Still open (defaults in use): D6 file types, D8 status set (using FR-05 set: draft, submitted, resubmit, for_exam, passed, failed), D9 freshmen only, D10 soft deletes.
 
 ## Environment
 
-- Laravel 13, PHP 8.4 (Herd). MySQL 8 is installed locally but needs credentials; development currently uses SQLite (`database/database.sqlite`) and tests use in-memory SQLite. Migrations are written for MySQL too (including the append-only triggers) but **have not been run on MySQL yet**.
+- Laravel 13, PHP 8.4 (Herd), MySQL 8.0.46 locally (`admission_system`, user `admission_app`). Tests run on in-memory SQLite by default; CI runs them on SQLite and MySQL.
 - Packages: `php-open-source-saver/jwt-auth`, `spatie/laravel-permission`, `pragmarx/google2fa`, `laravel/pulse`, `laravel/boost` (dev).
 
 ## Phases
@@ -137,8 +152,8 @@ Legend: ✅ done · 🔄 in progress · ⬜ to do · ⏸ deferred
 | 7 | Results & acceptance: record, release, accept offer (no score to applicants) | ✅ Wired |
 | 7b | Medical requirements (Clinic) | ✅ Wired |
 | 8 | Records, reports, notifications (in-app + email), audit log | ✅ (reports computed in the panel from `/api/admin/state`) |
-| 9 | Enrollment integration, automated document checks | ⏸ |
-| 10 | Hardening, performance (server-side paging), docs, UAT | 🔄 Security headers, Nginx sample, CI done; rest below |
+| 9 | Enrollment integration · automated document checks | ✅ Enrollment built, switched off · ⏸ automated checks (D3) |
+| 10 | Hardening, performance, setup, docs, UAT | ✅ except UAT and production deployment (see Remaining work) |
 
 ## Work log
 
@@ -170,26 +185,54 @@ Legend: ✅ done · 🔄 in progress · ⬜ to do · ⏸ deferred
 
 - **MySQL (2026-10-17):** migrations, demo seed and all 51 tests pass on MySQL 8.0.46. It caught three problems SQLite ignores: an index name over 64 characters, the temporary application number being longer than its column (this would have broken registration in production), and a test helper with a hard-coded ID. The triggers are confirmed to block UPDATE/DELETE on MySQL. CI now runs the tests on both SQLite and MySQL.
 
+- **Sysadmin tools, Enrollment, setup, performance (2026-10-17):**
+  - `app:db-privileges` prints least-privilege MySQL GRANTs: the runtime user gets only SELECT/INSERT on the audit and history tables; a separate migration user does schema changes.
+  - `app:backup` zips a database dump (mysqldump, or SQLite `VACUUM INTO`) with the private documents into `storage/app/backups`, keeps the newest 14, and runs nightly at 02:00. Verified on MySQL (the dump includes the 6 audit triggers).
+  - Enrollment integration (switched off): an applicant is handed off when medically cleared, as a queued job with `X-API-Key` and the same `Idempotency-Key` on every retry (5 tries with backoff). The job runs only after the database commit, so Enrollment being down never undoes staff work. The student-number callback is authenticated by its own inbound key. `enrollment:retry` runs hourly.
+  - Setup: `composer setup` → `php artisan app:install` (keys, database check with clear messages, MySQL trigger-setting check, migrations, seeding only when empty). `php artisan app:start` runs the web server, queue worker and scheduler together. Verified from a fresh clone (SQLite and MySQL error paths).
+  - Tests: 58 passing.
+
+## Performance (measured 2026-10-17, local Windows machine, demo data)
+
+You said this is a demo system, so the goal is that it runs smoothly at demo size, not a capacity test.
+
+| What | Time |
+|---|---|
+| Applicant page / office page (HTML) | 55–65 ms |
+| CSS/JS files | 2–4 ms |
+| Sign-in (password check is deliberately slow) | ~0.5 s |
+| Applicant portal data | ~160 ms (14 queries, was 24) |
+| Autosave of the form | ~170 ms |
+| Admission office: full data on sign-in | ~160 ms (114 KB) |
+| Sign-in → dashboard shown | 1.6 s |
+| Opening any admin screen | 20–150 ms |
+| An action (e.g. verify a document) | ~10 ms on screen; saved in the background |
+
+**Improvements made:**
+- The office data is built from plain database rows, not full model objects: 7× faster with identical output, checked by comparing old and new JSON.
+- It's streamed in batches of 1,000, so memory stays flat (27 MB instead of 400 MB) however many applicants there are.
+- Admin screens use a cached lookup index instead of scanning every applicant: the Entrance exams screen is 3× faster.
+- Slot counts take one query instead of one per program.
+- gzip in the Nginx sample.
+
+**Headroom (one-off check, then the demo data was restored):**
+- **2,000 applicants:** the full office data takes ~0.6 s.
+- **~20,000 applicants** (the paper's figure): the office sign-in takes ~5–7 s and the Reports screen ~4 s. Every other screen and action stays under ~0.5 s.
+
+If the system ever goes past demo size, the fix is paging the office screens (R3). `php artisan db:seed --class=LoadTestSeeder` (local only) recreates the large dataset for measuring.
+
 ## Remaining work
 
-| # | Item | Notes |
+| # | Item | Status |
 |---|---|---|
-| R1 | Wire the applicant document cards and "Submit" | Waiting on H1 |
-| R2 | ~~Run migrations and tests against MySQL~~ | ✅ Done locally (MySQL 8.0.46). Still to do on RDS |
-| R3 | Server-side paging for the admission office panel | The panel loads every applicant at once (fine for the demo; not for ~20,000). Needs view changes, so the UI team should be involved |
-| R4 | DMS driver against the real API | The request shape is assumed; adjust `DmsDocumentStore` when the DMS publishes its API |
-| R5 | Enrollment integration | Deferred (T9): queued push of the admitted list with `X-API-Key` + `Idempotency-Key`, callback for student numbers |
-| R6 | DB least privilege | App DB user gets INSERT/SELECT only on `audit_logs` and the history tables (triggers already block edits) |
-| R7 | Backups | `artisan` backup command or RDS automated backups (sysadmin, not staff) |
-| R8 | Pulse dashboard access in production | Pulse is installed and recording; its dashboard is allowed only locally by default. Decide who sees it (sysadmin over VPN via the Nginx allowlist) |
-| R9 | Load test before the application deadline | Get a real peak figure from the admission office |
-| R10 | UAT with the admission office on the existing screens | |
-
-## Open questions for the team
-
-1. **H1**: how the portal's 8 document cards map to the official requirements (see above).
-2. **UI gaps** (backend is ready, the UI can't show it yet): 2FA code screen, "new password" screen for the reset link, notification list, a "Did not pass" result screen (failed applicants currently stay on the exam step), hiding admin screens by role (the clinic sees every screen; the server refuses what isn't theirs), district/barangay fields in the applicant form, the unreachable profile view. Full list: [docs/UI_BACKEND_MATRIX.md](docs/UI_BACKEND_MATRIX.md).
-3. The applicant result screen has the hard-coded text "Passed · 89th percentile". The backend never sends a score or percentile (NFR-02), but the text itself should be removed by the UI team.
-4. "Slot deadlines" in the scheduler (architecture diagram): what should happen when a passer doesn't accept or pay by the reservation deadline? Nothing is automated until this is defined.
-5. Who owns sysadmin duties (D7), and the clinic's real medical requirement list (the seeded one is a placeholder)?
-6. What should "Reset demo data" in the panel do on a real server? It currently just reloads.
+| R1 | Wire the applicant document cards and "Submit" | Waiting on open question 1 (H1) |
+| R2 | Run on MySQL | ✅ Locally (MySQL 8.0.46, CI too). Still to do on RDS |
+| R3 | Server-side paging for the office screens | Not needed at demo size (see Performance). Needs view changes if the system grows |
+| R4 | DMS driver against the real API | Waiting on open question 5 |
+| R5 | Enrollment integration | ✅ Built, switched off. Waiting on open questions 3–4 to switch on |
+| R6 | DB least privilege | ✅ `php artisan app:db-privileges` (apply in production) |
+| R7 | Backups | ✅ `php artisan app:backup`, nightly. Also keep RDS automated backups on |
+| R8 | Pulse dashboard access in production | Waiting on open question 12 |
+| R9 | Load test | ✅ Done once (see Performance); not needed further for a demo |
+| R10 | UAT with the admission office on the existing screens | To do |
+| R11 | Production deployment (EC2, RDS, Nginx, TLS, mail credentials) | To do |
