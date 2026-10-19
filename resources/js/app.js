@@ -34,5 +34,7 @@ import './departments.js';
 import './job-titles.js';
 import './job-positions.js';
 import './recruitment.js';
+import './recruitment-report.js';
 import './audit-logs.js';
+import './audit-report.js';
 import './calendar.js';

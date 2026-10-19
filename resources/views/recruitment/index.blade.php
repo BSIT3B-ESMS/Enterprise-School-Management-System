@@ -25,11 +25,18 @@
                 <p class="text-body-secondary mt-1 mb-0">Track applicants from first application to hire.</p>
             </div>
 
-            <button type="button" class="btn btn-primary d-inline-flex align-items-center gap-2" data-bs-toggle="modal"
-                data-bs-target="#application-form-modal" data-application-add>
-                <x-icon name="plus" />
-                Add Application
-            </button>
+            <div class="d-flex gap-2 flex-wrap">
+                <a class="btn btn-outline-secondary d-inline-flex align-items-center gap-2" href="{{ route('recruitment.report') }}"
+                    data-report-link data-report-url="{{ route('recruitment.report') }}">
+                    <x-icon name="report" />
+                    Generate Report
+                </a>
+                <button type="button" class="btn btn-primary d-inline-flex align-items-center gap-2" data-bs-toggle="modal"
+                    data-bs-target="#application-form-modal" data-application-add>
+                    <x-icon name="plus" />
+                    Add Application
+                </button>
+            </div>
         </div>
 
         <section class="card dashboard-panel" aria-labelledby="recruitment-pipeline-title">

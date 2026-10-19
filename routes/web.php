@@ -30,6 +30,10 @@ Route::view('/job-titles', 'job-titles.index')->name('job-titles.index');
 
 Route::view('/recruitment', 'recruitment.index')->name('recruitment.index');
 
+// Starts from the Recruitment page's status, department, and application date filters, carried in the query string
+// (see resources/js/recruitment-report.js).
+Route::view('/recruitment/report', 'recruitment.report')->name('recruitment.report');
+
 // HR manages the job postings here (add, view, edit, open, close, remove); the open ones are the positions on the public
 // Careers website, because both read the same job title records (resources/js/job-positions.js).
 Route::view('/job-positions', 'job-positions.index')->name('job-positions.index');
@@ -37,6 +41,10 @@ Route::view('/job-positions', 'job-positions.index')->name('job-positions.index'
 Route::view('/calendar', 'calendar.index')->name('calendar.index');
 
 Route::view('/audit-logs', 'audit.index')->name('audit.index');
+
+// Starts from the Audit Logs page's action, record type, and date filters, carried in the query string
+// (see resources/js/audit-report.js).
+Route::view('/audit-logs/report', 'audit.report')->name('audit.report');
 
 // The signed-in HR user's own profile, filled in by resources/js/hr-profile.js.
 Route::view('/profile', 'profile.show')->name('profile.show');

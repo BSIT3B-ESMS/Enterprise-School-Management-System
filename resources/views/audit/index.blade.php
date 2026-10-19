@@ -17,9 +17,17 @@
 --}}
 @section('content')
     <div class="d-grid gap-4" data-page="audit">
-        <div>
-            <h1 class="page-title">Audit Logs</h1>
-            <p class="text-body-secondary mt-1 mb-0">Every sign-in and data change, newest first.</p>
+        <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+            <div>
+                <h1 class="page-title">Audit Logs</h1>
+                <p class="text-body-secondary mt-1 mb-0">Every sign-in and data change, newest first.</p>
+            </div>
+
+            <a class="btn btn-outline-secondary d-inline-flex align-items-center gap-2" href="{{ route('audit.report') }}"
+                data-report-link data-report-url="{{ route('audit.report') }}">
+                <x-icon name="report" />
+                Generate Report
+            </a>
         </div>
 
         <div class="card employees-filters">
