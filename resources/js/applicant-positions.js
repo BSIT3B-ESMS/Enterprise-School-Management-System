@@ -1,5 +1,5 @@
 import $ from './jquery.js';
-import { formatPeso } from './format.js';
+import { formatSalaryRange } from './format.js';
 import {
     applicationBlockFor,
     findPosition,
@@ -33,14 +33,14 @@ function accountFor($root) {
     return publicAccountId();
 }
 
-// "₱58,000 per month" for a position's base salary (the job title's salary in HR); a part-time position's figure is the
-// full-time equivalent. "Not specified" when HR has set none.
+// "₱50,000.00–₱72,000.00 per month" for a position's base salary range (the job title's range in HR); a part-time
+// position's figures are full-time equivalents. "Not specified" when HR has set none.
 function salaryText(position) {
-    if (!position.baseSalary) {
+    if (!position.salaryMin && !position.salaryMax) {
         return notSpecified;
     }
 
-    return `${formatPeso(position.baseSalary)} per month${position.employmentType === 'Part-time' ? ' (full-time equivalent)' : ''}`;
+    return `${formatSalaryRange(position.salaryMin, position.salaryMax)} per month${position.employmentType === 'Part-time' ? ' (full-time equivalent)' : ''}`;
 }
 
 // "Open · 4 openings" for an open position, "Closed" for one with no openings.
@@ -93,7 +93,7 @@ function positionCard($root, position, appliedIds, accountId, isSelected) {
             $('<div>', { class: 'text-body-secondary', text: position.department }),
             $('<div>', { class: 'small text-body-secondary mb-2', text: facts.join(' · ') }),
             $('<div>', { class: 'fw-semibold mb-2' }).append(
-                $('<span>', { class: 'visually-hidden', text: 'Base salary: ' }),
+                $('<span>', { class: 'visually-hidden', text: 'Base salary range: ' }),
                 $('<span>', { class: 'tabular-nums', text: salaryText(position) }),
             ),
             position.summary

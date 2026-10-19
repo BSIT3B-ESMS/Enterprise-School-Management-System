@@ -50,10 +50,12 @@ it('edits the employee on the page with the shared form, save changes, and cance
         ->assertDontSee('id="employee-details-modal"', escape: false);
 });
 
-it('keeps delete on the profile with its confirmation', function () {
+it('offers Archive with its confirmation on the profile instead of Delete', function () {
     $this->get(route('employees.show', 'EMP-1001'))
-        ->assertSee('data-bs-target="#employee-delete-modal" data-employee-delete="EMP-1001"', escape: false)
-        ->assertSee('id="employee-delete-modal"', escape: false);
+        ->assertSee('data-bs-target="#employee-archive-modal" data-employee-archive="EMP-1001"', escape: false)
+        ->assertSee('id="employee-archive-modal"', escape: false)
+        ->assertDontSee('data-employee-delete', escape: false)
+        ->assertDontSee('id="employee-delete-modal"', escape: false);
 });
 
 it('keeps the employees sidebar link current and has a labelled back to employees link', function () {
@@ -71,4 +73,12 @@ it('does not treat the new employee page as a profile', function () {
 
 it('returns 404 for a profile address that is not an employee ID', function () {
     $this->get('/employees/not-an-id')->assertNotFound();
+});
+
+it('shows the base salary under Employment Information as well as Compensation and Benefits', function () {
+    $html = $this->get(route('employees.show', 'EMP-1001'))->getContent();
+    $employment = substr($html, strpos($html, 'id="profile-employment"'), strpos($html, 'id="profile-contact"') - strpos($html, 'id="profile-employment"'));
+
+    expect($employment)->toContain('Base Salary', 'data-profile-field="salary"')
+        ->and($html)->toContain('Base Salary (monthly)');
 });

@@ -67,7 +67,7 @@
             <div class="row g-4">
                 <div class="col-lg-7">
                     <section class="card dashboard-panel" aria-labelledby="applicant-schedule-title">
-                        <h2 id="applicant-schedule-title">Screening and interview</h2>
+                        <h2 id="applicant-schedule-title">Demo Interview and interview</h2>
                         <p class="dashboard-panel-subtitle">Your schedule, as set by HR</p>
 
                         <ul class="list-group list-group-flush dashboard-list" data-applicant-activities></ul>

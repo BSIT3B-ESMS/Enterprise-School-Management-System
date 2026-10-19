@@ -42,7 +42,7 @@
             <p class="alert mb-0 mt-3 d-none" role="status" data-position-notice></p>
 
             <dl class="row row-cols-1 row-cols-sm-2 row-cols-lg-4 g-3 mt-1 mb-0 employee-details">
-                <div class="col"><dt>Base Salary</dt><dd class="mb-0 tabular-nums" data-position-field="salary"></dd></div>
+                <div class="col"><dt>Base Salary Range</dt><dd class="mb-0 tabular-nums" data-position-field="salary"></dd></div>
                 <div class="col"><dt>Employment Type</dt><dd class="mb-0" data-position-field="employmentType"></dd></div>
                 <div class="col"><dt>Location</dt><dd class="mb-0" data-position-field="location"></dd></div>
                 <div class="col"><dt>Openings</dt><dd class="mb-0 tabular-nums" data-position-field="openings"></dd></div>

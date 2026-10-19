@@ -22,7 +22,7 @@ function renderHeader($shell, { currentUser, pendingCandidates, notifications })
 
     $shell.find('[data-pending-count]').text(pendingCandidates);
     $shell.find('[data-pending-label]').text(
-        `${pendingCandidates === 1 ? 'candidate' : 'candidates'} waiting for screening`,
+        `${pendingCandidates === 1 ? 'candidate' : 'candidates'} waiting for a demo interview`,
     );
 
     // With every kind turned off in Account Settings (or nothing logged yet), the menu says so.

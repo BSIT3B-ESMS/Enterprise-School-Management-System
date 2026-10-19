@@ -1,11 +1,13 @@
 // Calendar page: month grid, event chips, legend swatches, and status pills.
+// On the HR Calendar (data-calendar-interactive) every date opens its events, so the whole cell reads as clickable.
 // Each event type has a color; solid means Approved or Completed, dashed means not final yet
 // (Filed, Pending, Scheduled). On small screens the chips become dots.
 
 $calendar-type-colors: (
     'leave': #8a5cc2,
-    'screening': #2a62b0,
+    'demo-interview': #2a62b0,
     'interview': #c8871f,
+    'other': #1a9aa8,
 );
 
 @each $type, $color in $calendar-type-colors {
@@ -188,4 +190,17 @@ $calendar-type-colors: (
 
 .calendar-status-scheduled {
     --bs-progress-bar-bg: #2a62b0;
+}
+
+[data-calendar-interactive] .calendar-day {
+    cursor: pointer;
+
+    &:hover {
+        background: var(--ems-subtle-bg);
+    }
+}
+
+// Notes keep the line breaks HR typed.
+.calendar-notes {
+    white-space: pre-wrap;
 }

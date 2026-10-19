@@ -1,4 +1,5 @@
 import $ from './jquery.js';
+import { formatSalaryRange } from './format.js';
 import { bindDocumentFields, readDocuments, setDocuments, todayIsoDate } from './employee-documents.js';
 import { addEmployee, findEmployee, getEmployeeFormOptions, updateEmployee } from './mock-data.js';
 import { queueToast, showToast } from './toast.js';
@@ -96,6 +97,7 @@ function applyJobTitleDefaults($form, jobTitleId) {
 
     fieldFor($form, 'salary').val(jobTitle.salary);
     setFieldError(fieldFor($form, 'salary'), '');
+    $form.find('#employee-salary-hint').text(`Defaults to the bottom of the job title’s range (${formatSalaryRange(jobTitle.salaryMin, jobTitle.salaryMax)}). You may edit it.`);
     $form.find('[name="benefits"]').each(function () {
         $(this).prop('checked', jobTitle.benefits.includes($(this).val()));
     });

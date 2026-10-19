@@ -58,8 +58,8 @@
                         </div>
                     </div>
                     <div class="d-flex gap-2" data-profile-actions>
-                        <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal"
-                            data-bs-target="#employee-delete-modal" data-employee-delete="{{ $employee }}">Delete</button>
+                        <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal"
+                            data-bs-target="#employee-archive-modal" data-employee-archive="{{ $employee }}">Archive</button>
                         <button type="button" class="btn btn-primary" data-profile-edit-start>Edit</button>
                     </div>
                 </div>
@@ -93,6 +93,7 @@
                         <dl class="row row-cols-1 row-cols-md-2 g-3 mb-0 employee-details">
                             <div class="col"><dt>Department</dt><dd class="mb-0" data-profile-field="department"></dd></div>
                             <div class="col"><dt>Job Title</dt><dd class="mb-0" data-profile-field="jobTitle"></dd></div>
+                            <div class="col"><dt>Base Salary</dt><dd class="mb-0 tabular-nums" data-profile-field="salary"></dd></div>
                             <div class="col"><dt>Date Hired</dt><dd class="mb-0" data-profile-field="hiredOn"></dd></div>
                             <div class="col"><dt>Employment Status</dt><dd class="mb-0" data-profile-field="status"></dd></div>
                         </dl>
@@ -196,5 +197,5 @@
         </div>
     </div>
 
-    <x-employee-delete-modal />
+    <x-employee-archive-modal />
 @endsection

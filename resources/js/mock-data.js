@@ -3,10 +3,10 @@
 // module with backend calls that return the same shapes.
 
 import { formatDate, formatTime, initialsOf } from './format.js';
-import { progressForStatus, statusAfterCompleting, workflowFor } from './recruitment-workflow.js';
+import { milestoneKeyFor, progressForStatus, statusAfterCompleting, workflowFor } from './recruitment-workflow.js';
 
 const storageKey = 'ems-mock-data';
-const storageVersion = 16;
+const storageVersion = 21;
 
 const benefitNames = [
     'SSS',
@@ -98,7 +98,7 @@ const positionDetails = {
         requirements: [...standardRequirements, 'Professional license, if applicable'],
     },
     t8: {
-        employmentType: 'Contractual',
+        employmentType: 'Part-time',
         location: mainCampus,
         description: 'Teaches for a limited term and brings outside expertise into the program.',
         responsibilities: ['Teach assigned courses for the contract term', 'Give public lectures and seminars', 'Collaborate with faculty on research or industry projects'],
@@ -114,7 +114,7 @@ const positionDetails = {
         requirements: [...standardRequirements],
     },
     t10: {
-        employmentType: 'Contractual',
+        employmentType: 'Full-time',
         location: mainCampus,
         description: 'Supports research projects by collecting and analyzing data and writing up findings.',
         responsibilities: ['Collect and clean research data', 'Run statistical analyses and summarize results', 'Draft reports and manuscripts with the research team', 'Keep project records organized'],
@@ -124,9 +124,9 @@ const positionDetails = {
     t12: {
         employmentType: 'Full-time',
         location: mainCampus,
-        summary: 'Runs the hiring process from job posting and screening to interview scheduling and offers.',
-        description: 'Owns the recruitment cycle for faculty and staff positions. You will work with hiring departments to define what each role needs, source and screen candidates, schedule screenings and interviews, and keep applicants informed at every stage.',
-        responsibilities: ['Draft and publish job postings with hiring managers', 'Screen applications and conduct initial screenings', 'Schedule interviews and coordinate with department panels', 'Prepare offer documents and background checks', 'Keep the recruitment pipeline updated and report on hiring progress'],
+        summary: 'Runs the hiring process from job posting and demo interviews to interview scheduling and offers.',
+        description: 'Owns the recruitment cycle for faculty and staff positions. You will work with hiring departments to define what each role needs, source and screen candidates, schedule demo interviews and interviews, and keep applicants informed at every stage.',
+        responsibilities: ['Draft and publish job postings with hiring managers', 'Screen applications and conduct initial demo interviews', 'Schedule interviews and coordinate with department panels', 'Prepare offer documents and background checks', 'Keep the recruitment pipeline updated and report on hiring progress'],
         qualifications: ['Bachelor’s degree in Psychology, Human Resource Management, or a related field', 'At least 2 years of recruitment or talent acquisition experience', 'Strong interviewing and communication skills', 'Familiarity with applicant tracking and labor regulations'],
         requirements: [...standardRequirements, 'Certificate of employment showing recruitment experience'],
     },
@@ -185,6 +185,42 @@ const positionDetails = {
         requirements: [...standardRequirements, 'Barangay clearance'],
     },
 };
+
+// The employment types a job posting can have.
+export const employmentTypes = ['Full-time', 'Part-time'];
+
+/**
+ * A job title kept with an employment type that is no longer offered (Contractual or Internship) takes its sample
+ * position's type, or Full-time when it has none.
+ */
+function withOfferedEmploymentType(jobTitle) {
+    if (employmentTypes.includes(jobTitle.employmentType)) {
+        return jobTitle;
+    }
+
+    const seedType = positionDetails[jobTitle.id]?.employmentType;
+
+    return { ...jobTitle, employmentType: employmentTypes.includes(seedType) ? seedType : jobTitle.employmentType ? 'Full-time' : '' };
+}
+
+/**
+ * The posting content of a job title: what the Open Job Positions page edits and the public Careers website shows. It is
+ * kept on the job title itself, so HR and the applicant-facing pages always read the same record. The sample titles start
+ * from the details above; a title HR adds starts blank.
+ */
+function postingContentFor(id) {
+    const seed = positionDetails[id] ?? {};
+
+    return {
+        employmentType: seed.employmentType ?? '',
+        location: seed.location ?? '',
+        summary: seed.summary ?? '',
+        description: seed.description ?? '',
+        responsibilities: [...(seed.responsibilities ?? [])],
+        qualifications: [...(seed.qualifications ?? [])],
+        requirements: [...(seed.requirements ?? [])],
+    };
+}
 
 // Which updates the HR header's notifications menu shows (Account Settings). Everything is on until turned off.
 const defaultHrSettings = { notifications: { leave: true, recruitment: true, employees: true } };
@@ -245,22 +281,47 @@ const seedJobTitles = [
     { id: 't23', name: 'Customer Service Representative', departmentId: 'd14', salary: 24000, benefits: benefitNames.slice(0, 6), openings: 3 },
 ];
 
+// The top of each sample job title's base salary range. The bottom is the salary the title had before ranges existed, so
+// no current value changes; a title HR added before ranges gets a maximum a quarter above its salary.
+const seedSalaryMaximums = {
+    t1: 140000, t2: 115000, t3: 110000, t4: 90000, t5: 72000, t6: 60000, t7: 46000, t8: 80000, t9: 52000, t10: 58000,
+    t12: 50000, t13: 34000, t15: 40000, t16: 55000, t19: 60000, t21: 42000, t23: 32000,
+};
+
+function salaryRangeFor(id, salary) {
+    return {
+        salaryMin: Number(salary),
+        salaryMax: seedSalaryMaximums[id] ?? Math.round((Number(salary) * 1.25) / 500) * 500,
+    };
+}
+
+// A job title saved before salary ranges (20 and earlier) has one salary: it becomes the minimum.
+function withSalaryRange(jobTitle) {
+    if (jobTitle.salaryMin !== undefined) {
+        return jobTitle;
+    }
+
+    const { salary, ...rest } = jobTitle;
+
+    return { ...rest, ...salaryRangeFor(jobTitle.id, salary ?? 0) };
+}
+
 // Every action an activity (audit log) entry can record.
 export const activityActions = ['Login', 'Logout', 'Created', 'Updated', 'Deleted', 'Hired'];
 
 // Recruitment pipeline order; every application is in exactly one of these.
-export const applicationStatuses = ['Applied', 'Screening', 'Interview', 'Offered', 'Hired', 'Rejected'];
+export const applicationStatuses = ['Applied', 'Demo Interview', 'Interview', 'Offered', 'Hired', 'Rejected'];
 
 // The reference's ten applicants: name, job title, status, and days before today they applied.
 const seedApplications = [
     ['Juan Dela Cruz', 't5', 'Applied', 2],
-    ['Patricia Lumbao', 't4', 'Screening', 5],
+    ['Patricia Lumbao', 't4', 'Demo Interview', 5],
     ['Rafael Ignacio', 't10', 'Interview', 9],
     ['Isabel Hernandez', 't2', 'Offered', 14],
     ['Daniel Perez', 't7', 'Applied', 1],
     ['Liza Maglaya', 't9', 'Rejected', 21],
     ['Gabriel Ocampo', 't3', 'Interview', 11],
-    ['Teresa Villar', 't8', 'Screening', 6],
+    ['Teresa Villar', 't8', 'Demo Interview', 6],
     ['Eduardo Panganiban', 't6', 'Hired', 30],
     ['Bianca Aguilar', 't5', 'Applied', 0],
 ];
@@ -401,7 +462,12 @@ function generateRoster() {
 
 function seedJobTitleState() {
     return {
-        jobTitles: seedJobTitles.map((jobTitle) => ({ ...jobTitle, benefits: [...jobTitle.benefits] })),
+        jobTitles: seedJobTitles.map(({ salary, ...jobTitle }) => ({
+            ...jobTitle,
+            ...salaryRangeFor(jobTitle.id, salary),
+            benefits: [...jobTitle.benefits],
+            ...postingContentFor(jobTitle.id),
+        })),
         nextJobTitleNumber: seedJobTitles.length + 1,
     };
 }
@@ -434,7 +500,7 @@ function seedApplicationState() {
     });
 
     // Upcoming activities (scheduled, not completed, so the statuses above stay as they are).
-    [['c1', 'Screening', 2, '10:00'], ['c10', 'Screening', 1, '09:00'], ['c2', 'Interview', 3, '14:00'], ['c8', 'Interview', 6, '10:30']]
+    [['c1', 'Demo Interview', 2, '10:00'], ['c10', 'Demo Interview', 1, '09:00'], ['c2', 'Interview', 3, '14:00'], ['c8', 'Interview', 6, '10:30']]
         .forEach(([id, type, days, time]) => {
             const application = findById(applications, id);
 
@@ -639,6 +705,11 @@ function createInitialState() {
         // Job applications an applicant has saved but not submitted (see saveApplicationDraft).
         applicationDrafts: [],
         nextDraftNumber: 1,
+        // Employees HR has archived (see archiveEmployee), kept apart from the active list until restored or deleted.
+        archivedEmployees: [],
+        // Events HR adds on the Calendar (see addCalendarEvent).
+        calendarEvents: [],
+        nextCalendarEventNumber: 1,
         ...seedLeaveState(employees, today),
         // Newest first; `at` is a timestamp in milliseconds.
         ...withActivityIds({ activity: [
@@ -695,6 +766,39 @@ function withSeededOpenings({ departments, jobTitles, nextDepartmentNumber, next
     };
 }
 
+// Earlier versions called the first interview stage "Screening". Saved applications, schedules, milestones, audit
+// log text, and job descriptions are renamed on load.
+const screeningWords = [[/Screenings/g, 'Demo Interviews'], [/Screening/g, 'Demo Interview'], [/screenings/g, 'demo interviews'], [/screening/g, 'demo interview']];
+
+function renameScreening(text) {
+    return typeof text === 'string' ? screeningWords.reduce((value, [pattern, replacement]) => value.replace(pattern, replacement), text) : text;
+}
+
+function withDemoInterview(application) {
+    const renamed = { ...application, status: application.status === 'Screening' ? 'Demo Interview' : application.status };
+
+    if (Array.isArray(application.milestones)) {
+        renamed.milestones = application.milestones.map((milestone) => (milestone.key === 'screening' ? { ...milestone, key: 'demoInterview' } : milestone));
+    }
+
+    if (Array.isArray(application.activities)) {
+        renamed.activities = application.activities.map((activity) => (activity.type === 'Screening' ? { ...activity, type: 'Demo Interview' } : activity));
+    }
+
+    return renamed;
+}
+
+function withDemoInterviewWording(jobTitle) {
+    return {
+        ...jobTitle,
+        summary: renameScreening(jobTitle.summary),
+        description: renameScreening(jobTitle.description),
+        responsibilities: (jobTitle.responsibilities ?? []).map(renameScreening),
+        qualifications: (jobTitle.qualifications ?? []).map(renameScreening),
+        requirements: (jobTitle.requirements ?? []).map(renameScreening),
+    };
+}
+
 /**
  * Takes the retired openings (version 14 and earlier) out of the saved job titles. One that an application or an employee
  * uses stays, with no openings, so those records keep their position.
@@ -737,6 +841,10 @@ function loadState() {
             ...(Array.isArray(saved.applications) ? {} : seedApplicationState()),
             // Application drafts (15 and earlier) start empty.
             ...(Array.isArray(saved.applicationDrafts) ? {} : { applicationDrafts: [], nextDraftNumber: 1 }),
+            // Archived employees (16 and earlier) start empty.
+            ...(Array.isArray(saved.archivedEmployees) ? {} : { archivedEmployees: [] }),
+            // Calendar events (19 and earlier) start empty.
+            ...(Array.isArray(saved.calendarEvents) ? {} : { calendarEvents: [], nextCalendarEventNumber: 1 }),
             ...withActivityIds(saved),
             // The HR profile (8 and earlier) starts from the sample account.
             hrProfile: saved.hrProfile?.name ? saved.hrProfile : { ...seedHrProfile },
@@ -767,20 +875,23 @@ function loadState() {
         const portalLeave = addsPortalLeave ? portalLeaveRequests(nextLeaveNumber, today) : [];
 
         // Applications saved before the workflow (6 and earlier) get milestones that match their status.
-        const applications = migrated.applications.map((application) => (
+        const applications = migrated.applications.map(withDemoInterview).map((application) => (
             Array.isArray(application.milestones) ? application : progressForStatus(application, today)
         ));
 
         return {
             ...migrated,
             ...seeded,
+            // The audit log's text uses the new stage name too.
+            activity: migrated.activity.map((entry) => ({ ...entry, detail: renameScreening(entry.detail) })),
             employees,
             // Leave requests (7 and earlier) start from the sample, covering whoever was on leave.
             ...(savedLeave ? {} : seedLeaveState(employees, today)),
             ...(addsPortalLeave ? { leaveRequests: [...savedLeave, ...portalLeave], nextLeaveNumber: nextLeaveNumber + portalLeave.length } : {}),
+            // Job titles saved before postings had their own content (16 and earlier) take the sample details.
             jobTitles: (saved.version < 15
                 ? withoutRetiredOpenings(seeded.jobTitles ?? migrated.jobTitles, applications, employees)
-                : seeded.jobTitles ?? migrated.jobTitles).map((jobTitle) => (jobTitle.openings === undefined
+                : seeded.jobTitles ?? migrated.jobTitles).map((jobTitle) => ('employmentType' in jobTitle ? jobTitle : { ...postingContentFor(jobTitle.id), ...jobTitle })).map(withOfferedEmploymentType).map(withDemoInterviewWording).map(withSalaryRange).map((jobTitle) => (jobTitle.openings === undefined
                 ? { ...jobTitle, openings: findById(seedJobTitles, jobTitle.id)?.openings ?? 0 }
                 : jobTitle)),
             applications,
@@ -821,6 +932,10 @@ if (typeof window !== 'undefined') {
 }
 
 // Activity entries show salaries with centavos, e.g. "₱92,000.00".
+function salaryRangeText(jobTitle) {
+    return `${formatSalary(jobTitle.salaryMin)} to ${formatSalary(jobTitle.salaryMax)}`;
+}
+
 function formatSalary(amount) {
     return `₱${Number(amount).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
@@ -1247,7 +1362,8 @@ export function getEmployeeFormOptions() {
             .map(({ id, name }) => ({ id, name })),
         jobTitles: [...state.jobTitles]
             .sort((first, second) => first.name.localeCompare(second.name))
-            .map(({ id, name, salary, benefits }) => ({ id, name, salary, benefits })),
+            // `salary` is what a new employee in the job title starts with: the bottom of its range.
+            .map(({ id, name, salaryMin, salaryMax, benefits }) => ({ id, name, salary: salaryMin, salaryMin, salaryMax, benefits })),
         benefits: benefitNames,
         nextEmployeeId: `EMP-${state.nextEmployeeNumber}`,
     };
@@ -1303,19 +1419,96 @@ export function updateEmployee(id, details) {
     return employee;
 }
 
-export function deleteEmployee(id) {
+/**
+ * An archived employee as the Archived Employees page shows them: the whole record, with the department and job title
+ * names and when they were archived (not the leave requests kept with them).
+ */
+function archivedView(record) {
+    const employee = { ...record };
+
+    delete employee.archivedLeave;
+
+    return {
+        ...employee,
+        jobTitle: findById(state.jobTitles, employee.jobTitleId)?.name ?? '—',
+        department: findById(state.departments, employee.departmentId)?.name ?? '—',
+    };
+}
+
+/**
+ * Moves an employee out of the active list into the archive. Nothing is lost: the record and the leave requests go
+ * with them, so Restore brings back exactly what was archived. While archived they are in no list, count, report, or
+ * calendar.
+ */
+export function archiveEmployee(id) {
     const employee = findById(state.employees, id);
 
     if (!employee) {
         return undefined;
     }
 
+    state.archivedEmployees.push({
+        ...employee,
+        archivedAt: Date.now(),
+        archivedLeave: state.leaveRequests.filter((leave) => leave.employeeId === id),
+    });
     state.employees = state.employees.filter((candidate) => candidate.id !== id);
     state.leaveRequests = state.leaveRequests.filter((leave) => leave.employeeId !== id);
-    logActivity('Deleted', `Employee · ${employee.name} (${id})`, 'Employee record deleted');
+    logActivity('Updated', `Employee · ${employee.name} (${id})`, 'Employee archived');
     commitChange();
 
     return employee;
+}
+
+/**
+ * Archived employees, most recently archived first.
+ */
+export function listArchivedEmployees() {
+    return [...state.archivedEmployees]
+        .sort((first, second) => second.archivedAt - first.archivedAt)
+        .map(archivedView);
+}
+
+/**
+ * Brings an archived employee back to the active list, with the record and leave requests they were archived with.
+ */
+export function restoreEmployee(id) {
+    const record = findById(state.archivedEmployees, id);
+
+    if (!record) {
+        return undefined;
+    }
+
+    const employee = { ...record };
+    const leave = employee.archivedLeave ?? [];
+
+    delete employee.archivedAt;
+    delete employee.archivedLeave;
+
+    state.archivedEmployees = state.archivedEmployees.filter((candidate) => candidate.id !== id);
+    state.employees.push(employee);
+    state.leaveRequests.push(...leave);
+    logActivity('Updated', `Employee · ${employee.name} (${id})`, 'Employee restored from the archive');
+    commitChange();
+
+    return employee;
+}
+
+/**
+ * Permanently removes an archived employee. An employee who is still active cannot be deleted: archive them first.
+ */
+export function deleteArchivedEmployee(id) {
+    const record = findById(state.archivedEmployees, id);
+
+    if (!record) {
+        return undefined;
+    }
+
+    state.archivedEmployees = state.archivedEmployees.filter((candidate) => candidate.id !== id);
+    logActivity('Deleted', `Employee · ${record.name} (${id})`, 'Archived employee record deleted');
+    commitChange();
+
+    return record;
 }
 
 function departmentUsage(id) {
@@ -1348,7 +1541,7 @@ export function findDepartment(id, facultyLimit = 5) {
         ...departmentUsage(id),
         jobTitles: state.jobTitles
             .filter((jobTitle) => jobTitle.departmentId === id)
-            .map(({ id: jobTitleId, name, salary }) => ({ id: jobTitleId, name, salary })),
+            .map(({ id: jobTitleId, name, salaryMin, salaryMax }) => ({ id: jobTitleId, name, salaryMin, salaryMax })),
         recentFaculty: state.employees
             .filter((employee) => employee.departmentId === id)
             .sort((first, second) => second.hiredOn.localeCompare(first.hiredOn))
@@ -1430,6 +1623,7 @@ function withDepartmentName(jobTitle) {
         department: findById(state.departments, jobTitle.departmentId)?.name ?? '—',
         headcount: state.employees.filter((employee) => employee.jobTitleId === jobTitle.id).length,
         applicationCount: state.applications.filter((application) => application.jobTitleId === jobTitle.id).length,
+        isOpen: Number(jobTitle.openings || 0) > 0,
     };
 }
 
@@ -1490,21 +1684,21 @@ export function isJobTitleNameTaken(name, departmentId, exceptId = null) {
 }
 
 /**
- * @param {{ name: string, departmentId: string, salary: number, benefits: string[] }} details
+ * @param {{ name: string, departmentId: string, salaryMin: number, salaryMax: number, benefits: string[] }} details
  */
 export function addJobTitle(details) {
     const jobTitle = { id: `t${state.nextJobTitleNumber}`, ...details, name: details.name.trim() };
 
     state.nextJobTitleNumber += 1;
     state.jobTitles.push(jobTitle);
-    logActivity('Created', `Job Title · ${jobTitle.name}`, `Job title created, base salary ${formatSalary(jobTitle.salary)}`);
+    logActivity('Created', `Job Title · ${jobTitle.name}`, `Job title created, base salary ${salaryRangeText(jobTitle)}`);
     commitChange();
 
     return jobTitle;
 }
 
 /**
- * @param {{ name: string, departmentId: string, salary: number, benefits: string[] }} details
+ * @param {{ name: string, departmentId: string, salaryMin: number, salaryMax: number, benefits: string[] }} details
  */
 export function updateJobTitle(id, details) {
     const index = state.jobTitles.findIndex((jobTitle) => jobTitle.id === id);
@@ -1516,10 +1710,48 @@ export function updateJobTitle(id, details) {
     const jobTitle = { ...state.jobTitles[index], ...details, name: details.name.trim(), id };
 
     state.jobTitles[index] = jobTitle;
-    logActivity('Updated', `Job Title · ${jobTitle.name}`, `Job title updated, base salary ${formatSalary(jobTitle.salary)}`);
+    logActivity('Updated', `Job Title · ${jobTitle.name}`, `Job title updated, base salary ${salaryRangeText(jobTitle)}`);
     commitChange();
 
     return jobTitle;
+}
+
+/**
+ * Opens or closes a job posting. A posting is open while its job title has openings, so closing sets them to none (and
+ * remembers the number) and opening restores that number, or one opening when there was none. Applications already
+ * received are not touched.
+ *
+ * @param {'Open'|'Closed'} status
+ * @returns {{ ok: true, jobTitle: object } | { ok: false, error: string }}
+ */
+export function setJobPostingStatus(id, status) {
+    const jobTitle = findById(state.jobTitles, id);
+
+    if (!jobTitle) {
+        return { ok: false, error: 'That position no longer exists.' };
+    }
+
+    const isOpen = Number(jobTitle.openings || 0) > 0;
+
+    if (status === 'Open' && isOpen) {
+        return { ok: false, error: `${jobTitle.name} is already open.` };
+    }
+
+    if (status === 'Closed' && !isOpen) {
+        return { ok: false, error: `${jobTitle.name} is already closed.` };
+    }
+
+    if (status === 'Closed') {
+        jobTitle.lastOpenings = Number(jobTitle.openings);
+        jobTitle.openings = 0;
+    } else {
+        jobTitle.openings = Math.max(1, Number(jobTitle.lastOpenings || 1));
+    }
+
+    logActivity('Updated', `Job Title · ${jobTitle.name}`, status === 'Open' ? `Job posting opened with ${jobTitle.openings} opening${jobTitle.openings === 1 ? '' : 's'}` : 'Job posting closed');
+    commitChange();
+
+    return { ok: true, jobTitle: withDepartmentName(jobTitle) };
 }
 
 /**
@@ -1612,7 +1844,7 @@ function success(application, extra = {}) {
 }
 
 /**
- * Field errors for a screening or interview slot (empty when valid): a date from today on, and a time.
+ * Field errors for a demo interview or interview slot (empty when valid): a date from today on, and a time.
  *
  * @returns {{ date?: string, time?: string }}
  */
@@ -1632,8 +1864,470 @@ export function validateActivitySlot({ date, time }) {
     return errors;
 }
 
-function slotText({ date, time }) {
-    return `${formatDate(date)} at ${formatTime(time)}`;
+function slotText({ date, time, endTime }) {
+    return `${formatDate(date)} at ${formatTime(time)}${endTime ? ` to ${formatTime(endTime)}` : ''}`;
+}
+
+// ---- HR Calendar scheduling
+
+// The interview types the HR Calendar offers: Interview is the final interview; Other is any other on-site meeting and is
+// not a recruitment step.
+export const interviewTypes = [
+    { value: 'Demo Interview', label: 'Demo Interview' },
+    { value: 'Interview', label: 'Final Interview' },
+    { value: 'Other', label: 'Other' },
+];
+
+export function interviewTypeLabel(type) {
+    return interviewTypes.find((candidate) => candidate.value === type)?.label ?? type;
+}
+
+export const rescheduleReasons = [
+    'Applicant Requested a Change',
+    'Interviewer Unavailable',
+    'Schedule Conflict',
+    'Emergency/Unforeseen Circumstances',
+    'Other',
+];
+
+// A schedule set before end times existed is taken to last an hour.
+const defaultActivityMinutes = 60;
+
+function minutesOf(time) {
+    const [hours, minutes] = String(time).split(':').map(Number);
+
+    return hours * 60 + minutes;
+}
+
+function timeOf(minutes) {
+    const clamped = Math.min(Math.max(minutes, 0), 23 * 60 + 59);
+
+    return `${String(Math.floor(clamped / 60)).padStart(2, '0')}:${String(clamped % 60).padStart(2, '0')}`;
+}
+
+export function activityEndTime(activity) {
+    return activity.endTime || timeOf(minutesOf(activity.time) + defaultActivityMinutes);
+}
+
+function currentTime() {
+    const now = new Date();
+
+    return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+}
+
+/**
+ * Why a time range clashes with another scheduled event on the same day, or '' when it does not: the same venue (when
+ * `checkVenue`), or the same applicant (by email address), at overlapping times. Applicant schedules and the calendar
+ * events HR adds are both looked at; leave events and finished events are not. The event being changed is left out.
+ */
+function scheduleConflict({ applicationId = null, activityId = null, eventId = null, date, time, endTime, venue, checkVenue = true }) {
+    const start = minutesOf(time);
+    const end = minutesOf(endTime);
+    const place = checkVenue ? String(venue ?? '').trim().toLowerCase() : '';
+    const email = findById(state.applications, applicationId ?? '')?.email.toLowerCase() ?? '';
+
+    for (const application of state.applications) {
+        for (const activity of application.activities) {
+            const isSame = application.id === applicationId && activity.id === activityId;
+
+            if (isSame || activity.status !== 'Scheduled' || activity.date !== date) {
+                continue;
+            }
+
+            const otherEnd = activityEndTime(activity);
+
+            if (start >= minutesOf(otherEnd) || end <= minutesOf(activity.time)) {
+                continue;
+            }
+
+            const samePlace = Boolean(place) && String(activity.venue ?? '').trim().toLowerCase() === place;
+            const samePerson = Boolean(email) && application.email.toLowerCase() === email;
+
+            if (samePlace || samePerson) {
+                const where = samePlace ? ` at ${activity.venue}` : '';
+                const range = `${formatTime(activity.time)} to ${formatTime(otherEnd)}`;
+
+                return `This overlaps ${application.name}'s ${interviewTypeLabel(activity.type).toLowerCase()}${where} (${range}). Choose another time${samePlace ? ' or venue' : ''}.`;
+            }
+        }
+    }
+
+    for (const event of state.calendarEvents) {
+        if (event.id === eventId || event.type === 'leave' || event.status !== 'Scheduled' || event.date !== date) {
+            continue;
+        }
+
+        const samePlace = Boolean(place) && String(event.venue).trim().toLowerCase() === place;
+
+        if (samePlace && start < minutesOf(event.endTime) && end > minutesOf(event.time)) {
+            return `This overlaps "${event.title}" at ${event.venue} (${formatTime(event.time)} to ${formatTime(event.endTime)}). Choose another time or venue.`;
+        }
+    }
+
+    return '';
+}
+
+// A date and start time must not be in the past; the end time must come after the start time.
+function slotErrors({ date, time, endTime }) {
+    const errors = {};
+
+    if (!date) {
+        errors.date = 'Choose a date.';
+    } else if (date < todayIso()) {
+        errors.date = 'Choose today or a later date.';
+    }
+
+    if (!time) {
+        errors.time = 'Choose a start time.';
+    } else if (date === todayIso() && time <= currentTime()) {
+        errors.time = 'Choose a start time later than now.';
+    }
+
+    if (!endTime) {
+        errors.endTime = 'Choose an end time.';
+    } else if (time && endTime <= time) {
+        errors.endTime = 'End Time must be later than Start Time.';
+    }
+
+    return errors;
+}
+
+/**
+ * Field errors for a new HR Calendar schedule (empty when it can be saved): an applicant whose next step allows the
+ * interview type, a date and start time from now on, an end time after the start time, an on-site venue that is not
+ * blank, and no conflict with another schedule at that venue or for that applicant.
+ *
+ * @returns {{ applicationId?: string, type?: string, date?: string, time?: string, endTime?: string, venue?: string }}
+ */
+export function validateCalendarSchedule({ applicationId, type, date, time, endTime, venue }) {
+    const errors = {};
+    const application = findById(state.applications, applicationId ?? '');
+
+    if (!application) {
+        errors.applicationId = 'Select an applicant.';
+    }
+
+    if (!type) {
+        errors.type = 'Select the interview type.';
+    } else if (application) {
+        const workflow = workflowFor(application);
+
+        if (workflow.isFinal) {
+            errors.type = `${application.name}'s application is ${application.status} and cannot be scheduled.`;
+        } else if (type !== 'Other' && workflow.pendingActivity) {
+            errors.type = `${application.name} already has a ${interviewTypeLabel(workflow.pendingActivity.type).toLowerCase()} scheduled.`;
+        } else if (type !== 'Other' && workflow.scheduleType !== type) {
+            errors.type = workflow.scheduleType
+                ? `${application.name}'s next step is a ${interviewTypeLabel(workflow.scheduleType).toLowerCase()}.`
+                : `${application.name} is not waiting for an interview.`;
+        }
+    }
+
+    Object.assign(errors, slotErrors({ date, time, endTime }));
+
+    if (!String(venue ?? '').trim()) {
+        errors.venue = 'Enter the venue.';
+    }
+
+    if (application && !errors.date && !errors.time && !errors.endTime) {
+        const conflict = scheduleConflict({ applicationId, date, time, endTime, venue });
+
+        if (conflict) {
+            errors.time = conflict;
+        }
+    }
+
+    return errors;
+}
+
+/**
+ * Field errors for rescheduling an HR Calendar event (empty when it can be saved): a new date and start time from now
+ * on, an end time after the start time, a schedule different from the current one, a reason (with details for Other),
+ * and no conflict at the event's venue or for its applicant.
+ *
+ * @returns {{ date?: string, time?: string, endTime?: string, reason?: string, reasonDetail?: string }}
+ */
+export function validateRescheduleSlot(applicationId, activityId, { date, time, endTime, reason, reasonDetail }) {
+    const application = findById(state.applications, applicationId ?? '');
+    const activity = application?.activities.find((candidate) => candidate.id === activityId);
+
+    if (!activity) {
+        return { date: 'That schedule no longer exists.' };
+    }
+
+    const errors = rescheduleFieldErrors({ date: activity.date, time: activity.time, endTime: activityEndTime(activity) }, { date, time, endTime, reason, reasonDetail });
+
+    if (!errors.date && !errors.time && !errors.endTime) {
+        const conflict = scheduleConflict({ applicationId, activityId, date, time, endTime, venue: activity.venue });
+
+        if (conflict) {
+            errors.time = conflict;
+        }
+    }
+
+    return errors;
+}
+
+// The checks rescheduling shares: a valid future slot that differs from the current one, and a reason.
+function rescheduleFieldErrors(current, { date, time, endTime, reason, reasonDetail }) {
+    const errors = slotErrors({ date, time, endTime });
+
+    if (!errors.date && !errors.time && !errors.endTime && date === current.date && time === current.time && endTime === current.endTime) {
+        errors.date = 'Choose a different date or time than the current schedule.';
+    }
+
+    if (!rescheduleReasons.includes(reason)) {
+        errors.reason = 'Select a reason for rescheduling.';
+    } else if (reason === 'Other' && !String(reasonDetail ?? '').trim()) {
+        errors.reasonDetail = 'Describe the reason.';
+    }
+
+    return errors;
+}
+
+// ---- Calendar events HR adds
+
+// The kinds of event the HR Calendar can hold, with the statuses each uses (the same ones the calendar already filters by):
+// leave is Filed, Pending, or Approved; everything else is Scheduled or Completed.
+export const calendarEventTypes = [
+    { value: 'leave', label: 'Employee Leave', statuses: ['Filed', 'Pending', 'Approved'] },
+    { value: 'demo-interview', label: 'Applicant Demo Interview', statuses: ['Scheduled', 'Completed'] },
+    { value: 'interview', label: 'Applicant Final Interview', statuses: ['Scheduled', 'Completed'] },
+    { value: 'other', label: 'Other Applicant Event', statuses: ['Scheduled', 'Completed'] },
+];
+
+const timePattern = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+function isRealDate(value) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value))) {
+        return false;
+    }
+
+    const [year, month, day] = String(value).split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+
+    return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
+}
+
+/**
+ * Field errors for a calendar event HR adds or edits (empty when it can be saved): a title, a type, a real date, start and
+ * end times with the end later than the start, a venue that is not blank, a status that fits the type, and (for events
+ * that are Scheduled and not leave) no clash with another event at the same venue. Past dates are fine, to record
+ * events that already happened.
+ *
+ * @returns {{ title?: string, type?: string, date?: string, time?: string, endTime?: string, venue?: string, status?: string }}
+ */
+export function validateCalendarEvent({ title, type, date, time, endTime, venue, status }, exceptId = null) {
+    const errors = {};
+    const kind = calendarEventTypes.find((candidate) => candidate.value === type);
+
+    if (!String(title ?? '').trim()) {
+        errors.title = 'Enter an event title.';
+    } else if (String(title).trim().length > 120) {
+        errors.title = 'Keep the title to 120 characters or fewer.';
+    }
+
+    if (!kind) {
+        errors.type = 'Select an event type.';
+    }
+
+    if (!date) {
+        errors.date = 'Choose a date.';
+    } else if (!isRealDate(date)) {
+        errors.date = 'Enter a valid date.';
+    }
+
+    if (!time) {
+        errors.time = 'Choose a start time.';
+    } else if (!timePattern.test(time)) {
+        errors.time = 'Enter a valid start time.';
+    }
+
+    if (!endTime) {
+        errors.endTime = 'Choose an end time.';
+    } else if (!timePattern.test(endTime)) {
+        errors.endTime = 'Enter a valid end time.';
+    } else if (!errors.time && endTime <= time) {
+        errors.endTime = 'End Time must be later than Start Time.';
+    }
+
+    if (!String(venue ?? '').trim()) {
+        errors.venue = 'Enter the venue.';
+    }
+
+    if (kind && !kind.statuses.includes(status)) {
+        errors.status = 'Select a status.';
+    }
+
+    if (kind && kind.value !== 'leave' && status === 'Scheduled' && !errors.date && !errors.time && !errors.endTime && !errors.venue) {
+        const conflict = scheduleConflict({ eventId: exceptId, date, time, endTime, venue });
+
+        if (conflict) {
+            errors.time = conflict;
+        }
+    }
+
+    return errors;
+}
+
+function eventView(event) {
+    return { ...event, history: (event.history ?? []).map((entry) => ({ ...entry })) };
+}
+
+/**
+ * The calendar events HR added, in the order they were added.
+ */
+export function listCalendarEvents() {
+    return state.calendarEvents.map(eventView);
+}
+
+/**
+ * Adds an event to the HR Calendar. It is free-standing (not tied to an applicant or a leave request), so it changes no
+ * recruitment status.
+ *
+ * @returns {{ ok: true, event: object } | { ok: false, error: string, errors: object }}
+ */
+export function addCalendarEvent(details) {
+    const errors = validateCalendarEvent(details);
+
+    if (Object.keys(errors).length) {
+        return failure(Object.values(errors)[0], errors);
+    }
+
+    const event = {
+        id: `ev${state.nextCalendarEventNumber}`,
+        title: String(details.title).trim(),
+        type: details.type,
+        date: details.date,
+        time: details.time,
+        endTime: details.endTime,
+        venue: String(details.venue).trim(),
+        status: details.status,
+        notes: String(details.notes ?? '').trim(),
+        history: [],
+    };
+
+    state.nextCalendarEventNumber += 1;
+    state.calendarEvents.push(event);
+    logActivity('Created', `Calendar Event · ${event.title}`, `Event added for ${slotText(event)} at ${event.venue}`);
+    commitChange();
+
+    return { ok: true, event: eventView(event) };
+}
+
+/**
+ * Edits an event's details. The rescheduling history is kept as it is; use rescheduleCalendarEvent to move an event and
+ * record why.
+ */
+export function updateCalendarEvent(id, details) {
+    const event = findById(state.calendarEvents, id);
+
+    if (!event) {
+        return failure('That event no longer exists.');
+    }
+
+    const errors = validateCalendarEvent(details, id);
+
+    if (Object.keys(errors).length) {
+        return failure(Object.values(errors)[0], errors);
+    }
+
+    Object.assign(event, {
+        title: String(details.title).trim(),
+        type: details.type,
+        date: details.date,
+        time: details.time,
+        endTime: details.endTime,
+        venue: String(details.venue).trim(),
+        status: details.status,
+        notes: String(details.notes ?? '').trim(),
+    });
+    logActivity('Updated', `Calendar Event · ${event.title}`, `Event updated: ${slotText(event)} at ${event.venue}`);
+    commitChange();
+
+    return { ok: true, event: eventView(event) };
+}
+
+/**
+ * Field errors for rescheduling one of HR's calendar events (empty when it can be saved): the same checks as rescheduling
+ * an interview.
+ */
+export function validateEventReschedule(id, values) {
+    const event = findById(state.calendarEvents, id);
+
+    if (!event) {
+        return { date: 'That event no longer exists.' };
+    }
+
+    const errors = rescheduleFieldErrors({ date: event.date, time: event.time, endTime: event.endTime }, values);
+
+    if (!errors.date && !errors.time && !errors.endTime && event.type !== 'leave' && event.status === 'Scheduled') {
+        const conflict = scheduleConflict({ eventId: id, date: values.date, time: values.time, endTime: values.endTime, venue: event.venue });
+
+        if (conflict) {
+            errors.time = conflict;
+        }
+    }
+
+    return errors;
+}
+
+/**
+ * Moves one of HR's calendar events, keeping the previous schedule and the reason in its history.
+ */
+export function rescheduleCalendarEvent(id, values) {
+    const event = findById(state.calendarEvents, id);
+
+    if (!event) {
+        return failure('That event no longer exists.');
+    }
+
+    if (event.status === 'Completed' || event.status === 'Approved') {
+        return failure(`This event is already ${event.status.toLowerCase()} and cannot be rescheduled.`);
+    }
+
+    const errors = validateEventReschedule(id, values);
+
+    if (Object.keys(errors).length) {
+        return failure(Object.values(errors)[0], errors);
+    }
+
+    event.history = [...(event.history ?? []), {
+        fromDate: event.date,
+        fromTime: event.time,
+        fromEndTime: event.endTime,
+        toDate: values.date,
+        toTime: values.time,
+        toEndTime: values.endTime,
+        reason: values.reason,
+        reasonDetail: String(values.reasonDetail ?? '').trim(),
+        changedAt: Date.now(),
+    }];
+    Object.assign(event, { date: values.date, time: values.time, endTime: values.endTime });
+    logActivity('Updated', `Calendar Event · ${event.title}`, `Event rescheduled to ${slotText(event)} (${values.reason === 'Other' ? String(values.reasonDetail).trim() : values.reason})`);
+    commitChange();
+
+    return { ok: true, event: eventView(event) };
+}
+
+/**
+ * Applicants still waiting for their next interview (Applied, or done with the demo interview) with nothing scheduled
+ * for it yet, oldest application first. Scheduling one takes them off this list; cancelling their schedule puts them back.
+ */
+export function listUnscheduledApplicants() {
+    return state.applications
+        .filter((application) => ['Applied', 'Demo Interview'].includes(application.status) && workflowFor(application).scheduleType)
+        .map(withApplicationNames)
+        .map((application) => ({
+            id: application.id,
+            name: application.name,
+            jobTitle: application.jobTitle,
+            department: application.department,
+            status: application.status,
+            appliedOn: application.appliedOn,
+            nextType: workflowFor(application).scheduleType,
+        }))
+        .sort((first, second) => first.appliedOn.localeCompare(second.appliedOn) || first.name.localeCompare(second.name));
 }
 
 function nextActivityId(application) {
@@ -1675,8 +2369,8 @@ export function listOpenPositions() {
 
 /**
  * Every position for the Applicant interface and the public Careers website, open (at least one opening, as HR's Job
- * Titles set) and closed (none), by department then name, with what each involves and asks for. `baseSalary` is the
- * job title's monthly base salary, the same figure HR manages; benefits are listed separately.
+ * Titles set) and closed (none), by department then name, with what each involves and asks for. `salaryMin` and
+ * `salaryMax` are the job title's monthly base salary range, the same figures HR manages; benefits are listed separately.
  */
 export function listPositions() {
     return state.jobTitles
@@ -1687,14 +2381,15 @@ export function listPositions() {
             department: findById(state.departments, jobTitle.departmentId)?.name ?? '—',
             openings: Number(jobTitle.openings || 0),
             isOpen: Number(jobTitle.openings || 0) > 0,
-            employmentType: positionDetails[jobTitle.id]?.employmentType ?? '',
-            location: positionDetails[jobTitle.id]?.location ?? '',
-            baseSalary: Number(jobTitle.salary || 0),
-            summary: positionDetails[jobTitle.id]?.summary ?? positionDetails[jobTitle.id]?.description ?? '',
-            description: positionDetails[jobTitle.id]?.description ?? '',
-            responsibilities: [...(positionDetails[jobTitle.id]?.responsibilities ?? [])],
-            qualifications: [...(positionDetails[jobTitle.id]?.qualifications ?? [])],
-            requirements: [...(positionDetails[jobTitle.id]?.requirements ?? [])],
+            employmentType: jobTitle.employmentType ?? '',
+            location: jobTitle.location ?? '',
+            salaryMin: Number(jobTitle.salaryMin || 0),
+            salaryMax: Number(jobTitle.salaryMax || 0),
+            summary: jobTitle.summary || jobTitle.description || '',
+            description: jobTitle.description ?? '',
+            responsibilities: [...(jobTitle.responsibilities ?? [])],
+            qualifications: [...(jobTitle.qualifications ?? [])],
+            requirements: [...(jobTitle.requirements ?? [])],
             benefits: [...jobTitle.benefits],
         }))
         .sort((first, second) => first.department.localeCompare(second.department) || first.name.localeCompare(second.name));
@@ -1887,12 +2582,12 @@ function scheduledActivitiesOf(application) {
 
 /**
  * One application as the Applicant interface shows it: what was submitted, the position, where it stands, and the
- * screening and interview schedule HR set. Recruitment's internal fields (such as the offer response or a linked
+ * demo interview and interview schedule HR set. Recruitment's internal fields (such as the offer response or a linked
  * employee record) are not passed on.
  */
 function applicantView(application) {
     const named = withApplicationNames(application);
-    const position = positionDetails[application.jobTitleId] ?? {};
+    const position = findById(state.jobTitles, application.jobTitleId) ?? {};
     const next = scheduledActivitiesOf(application)[0];
 
     return {
@@ -1909,7 +2604,9 @@ function applicantView(application) {
         status: named.status,
         ...submittedDetails(named),
         milestones: named.milestones.map(({ key, at }) => ({ key, at })),
-        activities: named.activities.map(({ id: activityId, type, date, time, status, completedOn }) => ({ id: activityId, type, date, time, status, completedOn })),
+        activities: named.activities.map(({ id: activityId, type, date, time, endTime, venue, status, completedOn }) => ({
+            id: activityId, type, date, time, endTime: endTime ?? '', venue: venue ?? '', status, completedOn,
+        })),
         next: next ? { type: next.type, date: next.date, time: next.time } : null,
     };
 }
@@ -2172,12 +2869,13 @@ export function updateApplication(id, details) {
 }
 
 /**
- * Puts a screening or interview on the calendar. This does not change the status: that happens when
- * the activity is completed.
+ * Puts a demo interview, final interview, or other schedule on the calendar. This does not change the status: that
+ * happens when a demo interview or interview is completed. The HR Calendar also sends an end time, an on-site venue,
+ * and notes, and those are checked (including for conflicts); Recruitment sends only the date and start time.
  *
- * @param {{ type: string, date: string, time: string }} slot
+ * @param {{ type: string, date: string, time: string, endTime?: string, venue?: string, notes?: string }} slot
  */
-export function scheduleActivity(id, { type, date, time }) {
+export function scheduleActivity(id, { type, date, time, endTime, venue, notes }) {
     const application = findById(state.applications, id);
 
     if (!application) {
@@ -2185,32 +2883,48 @@ export function scheduleActivity(id, { type, date, time }) {
     }
 
     const workflow = workflowFor(application);
+    const isCalendarSchedule = endTime !== undefined;
 
-    if (workflow.scheduleType !== type) {
-        return failure(workflow.pendingActivity
+    if (type === 'Other' ? workflow.isFinal : workflow.scheduleType !== type) {
+        const message = workflow.pendingActivity
             ? `Complete or cancel the scheduled ${workflow.pendingActivity.type.toLowerCase()} first.`
-            : `A ${type.toLowerCase()} cannot be scheduled while the application is ${application.status}.`);
+            : `A ${interviewTypeLabel(type).toLowerCase()} cannot be scheduled while the application is ${application.status}.`;
+
+        return failure(message, { type: message });
     }
 
-    const errors = validateActivitySlot({ date, time });
+    const errors = isCalendarSchedule
+        ? validateCalendarSchedule({ applicationId: id, type, date, time, endTime, venue })
+        : validateActivitySlot({ date, time });
 
     if (Object.keys(errors).length) {
         return failure(Object.values(errors)[0], errors);
     }
 
-    const activity = { id: nextActivityId(application), type, date, time, status: 'Scheduled' };
+    const activity = {
+        id: nextActivityId(application),
+        type,
+        date,
+        time,
+        status: 'Scheduled',
+        ...(isCalendarSchedule ? { endTime, venue: String(venue).trim(), notes: String(notes ?? '').trim(), history: [] } : {}),
+    };
 
     application.activities.push(activity);
-    logActivity('Updated', applicationEntity(application), `${type} scheduled for ${slotText(activity)}`);
+    logActivity('Updated', applicationEntity(application), `${interviewTypeLabel(type)} scheduled for ${slotText(activity)}${activity.venue ? ` at ${activity.venue}` : ''}`);
     commitChange();
 
     return success(application, { activity });
 }
 
 /**
- * Changes the date and time of a scheduled (not yet completed) activity.
+ * Changes the date and time of a scheduled (not yet completed) activity. The previous schedule, and the reason when one
+ * is given, are kept in the activity's history. The HR Calendar sends an end time and a reason (both checked, with
+ * conflicts); Recruitment sends only the date and start time, and an end time then keeps its length.
+ *
+ * @param {{ date: string, time: string, endTime?: string, reason?: string, reasonDetail?: string }} slot
  */
-export function rescheduleActivity(id, activityId, { date, time }) {
+export function rescheduleActivity(id, activityId, { date, time, endTime, reason, reasonDetail }) {
     const application = findById(state.applications, id);
     const activity = application?.activities.find((candidate) => candidate.id === activityId);
 
@@ -2222,14 +2936,31 @@ export function rescheduleActivity(id, activityId, { date, time }) {
         return failure(`This ${activity.type.toLowerCase()} is already completed and cannot be rescheduled.`);
     }
 
-    const errors = validateActivitySlot({ date, time });
+    const isCalendarChange = reason !== undefined;
+    const errors = isCalendarChange
+        ? validateRescheduleSlot(id, activityId, { date, time, endTime, reason, reasonDetail })
+        : validateActivitySlot({ date, time });
 
     if (Object.keys(errors).length) {
         return failure(Object.values(errors)[0], errors);
     }
 
-    Object.assign(activity, { date, time });
-    logActivity('Updated', applicationEntity(application), `${activity.type} rescheduled to ${slotText(activity)}`);
+    const keptLength = activity.endTime ? minutesOf(activity.endTime) - minutesOf(activity.time) : null;
+    const newEndTime = endTime || (keptLength === null ? '' : timeOf(minutesOf(time) + keptLength));
+
+    activity.history = [...(activity.history ?? []), {
+        fromDate: activity.date,
+        fromTime: activity.time,
+        fromEndTime: activity.endTime ?? '',
+        toDate: date,
+        toTime: time,
+        toEndTime: newEndTime,
+        reason: reason ?? '',
+        reasonDetail: String(reasonDetail ?? '').trim(),
+        changedAt: Date.now(),
+    }];
+    Object.assign(activity, { date, time }, newEndTime ? { endTime: newEndTime } : {});
+    logActivity('Updated', applicationEntity(application), `${interviewTypeLabel(activity.type)} rescheduled to ${slotText(activity)}${reason ? ` (${reason === 'Other' ? String(reasonDetail).trim() : reason})` : ''}`);
     commitChange();
 
     return success(application, { activity });
@@ -2259,7 +2990,7 @@ export function cancelActivity(id, activityId) {
 
 /**
  * Marks a scheduled activity as having happened. This is the milestone that advances the status:
- * a completed screening moves Applied to Screening, a completed interview moves Screening to Interview.
+ * a completed demo interview moves Applied to Demo Interview, a completed interview moves Demo Interview to Interview.
  * It cannot be completed before its scheduled date.
  */
 export function completeActivity(id, activityId) {
@@ -2287,10 +3018,11 @@ export function completeActivity(id, activityId) {
 
     const nextStatus = statusAfterCompleting[activity.type];
 
-    if (application.status === nextStatus) {
+    // An "Other" schedule is not a recruitment step, so completing it moves nothing.
+    if (!nextStatus || application.status === nextStatus) {
         logActivity('Updated', applicationEntity(application), `${activity.type} completed`);
     } else {
-        addMilestone(application, activity.type.toLowerCase());
+        addMilestone(application, milestoneKeyFor[activity.type]);
         moveTo(application, nextStatus, 'Updated', `${activity.type} completed`);
     }
 
@@ -2404,7 +3136,7 @@ export function completeHiring(id) {
             departmentId: application.departmentId,
             jobTitleId: application.jobTitleId,
             hiredOn: todayIso(),
-            salary: jobTitle.salary,
+            salary: jobTitle.salaryMin,
             benefits: [...jobTitle.benefits],
         });
     }

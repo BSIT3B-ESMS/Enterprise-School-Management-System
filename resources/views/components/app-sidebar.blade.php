@@ -5,6 +5,7 @@
         ['route' => 'departments.index', 'pattern' => 'departments.*', 'icon' => 'departments', 'label' => 'Departments'],
         ['route' => 'job-titles.index', 'pattern' => 'job-titles.*', 'icon' => 'job-titles', 'label' => 'Job Titles'],
         ['route' => 'recruitment.index', 'pattern' => 'recruitment.*', 'icon' => 'recruitment', 'label' => 'Recruitment'],
+        ['route' => 'job-positions.index', 'pattern' => 'job-positions.*', 'icon' => 'positions', 'label' => 'Open Job Positions'],
         ['route' => 'calendar.index', 'pattern' => 'calendar.*', 'icon' => 'calendar', 'label' => 'Calendar'],
         ['route' => 'audit.index', 'pattern' => 'audit.*', 'icon' => 'audit', 'label' => 'Audit Logs'],
     ];

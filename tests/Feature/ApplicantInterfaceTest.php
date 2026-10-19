@@ -66,7 +66,7 @@ it('shows the progress, schedule, position, and submitted details, with a not fo
             'data-applicant-missing', 'No application found', 'not one of yours',
             'data-applicant-status-message',
             'Progress', 'data-applicant-steps',
-            'Screening and interview', 'data-applicant-activities', 'Nothing has been scheduled yet.',
+            'Demo Interview and interview', 'data-applicant-activities', 'Nothing has been scheduled yet.',
             'Position', 'data-applicant-field="employmentType"', 'data-applicant-field="location"',
             'Your application', 'data-applicant-field="email"', 'data-applicant-documents="education"',
         ], escape: false);

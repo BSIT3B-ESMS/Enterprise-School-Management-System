@@ -53,3 +53,15 @@ it('keeps the employees sidebar link current on the report page', function () {
     $this->get(route('employees.report'))
         ->assertSee('aria-current="page" href="'.route('employees.index').'"', escape: false);
 });
+
+it('lets HR choose a department and job title for the report, separate from the Employees filters', function () {
+    $this->get(route('employees.report'))
+        ->assertSeeInOrder([
+            'Export Format',
+            'Employees to Include',
+            '<label for="report-department" class="form-label">Department</label>', 'data-report-filter="departmentId"',
+            '<label for="report-job-title" class="form-label">Job Title</label>', 'data-report-filter="jobTitleId"',
+            'Leave both on “All” to include every department and job title',
+            'Report Preview',
+        ], escape: false);
+});

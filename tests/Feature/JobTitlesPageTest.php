@@ -27,7 +27,7 @@ it('renders the job title form with name, department, salary, and benefits', fun
     $this->get(route('job-titles.index'))
         ->assertSeeInOrder([
             'id="job-title-form-modal"',
-            'name="name"', 'name="departmentId"', 'name="salary"',
+            'name="name"', 'name="departmentId"', 'name="salaryMin"', 'name="salaryMax"',
             'data-job-title-benefit-options', 'Cancel', 'Save',
         ], escape: false);
 });
@@ -59,4 +59,14 @@ it('links job titles from the sidebar instead of marking it coming soon', functi
     $this->get(route('dashboard'))
         ->assertSee('href="'.route('job-titles.index').'"', escape: false)
         ->assertDontSee('data-coming-soon="Job Titles"', escape: false);
+});
+
+it('lists a Base Salary Range and edits it with a minimum and a maximum', function () {
+    $html = $this->get(route('job-titles.index'))->getContent();
+    $form = substr($html, strpos($html, 'data-job-title-form-modal'));
+
+    expect($html)->toContain('Base Salary Range')
+        ->and($form)->toContain('Minimum Base Salary', 'name="salaryMin"', 'job-title-salary-min-error')
+        ->and($form)->toContain('Maximum Base Salary', 'name="salaryMax"', 'job-title-salary-max-error')
+        ->and($form)->not->toContain('name="salary"');
 });

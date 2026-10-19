@@ -8,12 +8,15 @@
         'name' => 'Name',
         'department' => 'Department',
         'jobTitle' => 'Job Title',
+        'salary' => 'Base Salary',
         'hiredOn' => 'Date Hired',
     ];
 @endphp
 
 {{--
     Rows, filter options, sorting, and pagination are rendered by resources/js/employees.js from resources/js/mock-data.js.
+    Date Hired filters by hiring date only: a month, optionally narrowed to a From Date and To Date inside it, applied with
+    Apply Filter. Archived Employees (lower right) lists employees HR has archived; deleting is only possible there.
     Clicking a row (or its name) opens the employee's full-screen profile, carrying the table's current
     search, filters, sort, and page so Back to Employees restores them.
 --}}
@@ -38,7 +41,7 @@
 
         <div class="card employees-filters">
             <div class="row g-3">
-                <div class="col-md-6 col-xl-3">
+                <div class="col-md-6 col-xl-4">
                     <label for="employee-search" class="visually-hidden">Search employees</label>
                     <div class="search-field">
                         <x-icon name="search" />
@@ -46,26 +49,53 @@
                             autocomplete="off" data-employee-search>
                     </div>
                 </div>
-                <div class="col-md-6 col-xl-3">
+                <div class="col-md-6 col-xl-4">
                     <label for="employee-job-title-filter" class="visually-hidden">Job title</label>
                     <select class="form-select" id="employee-job-title-filter" data-employee-filter="jobTitleId"></select>
                 </div>
-                <div class="col-md-6 col-xl-3">
+                <div class="col-md-6 col-xl-4">
                     <label for="employee-department-filter" class="visually-hidden">Department</label>
                     <select class="form-select" id="employee-department-filter" data-employee-filter="departmentId"></select>
                 </div>
-                {{-- One date: shows employees hired on exactly that day. Empty means no date restriction. --}}
-                <div class="col-md-6 col-xl-3">
-                    <div class="input-group">
-                        <label class="input-group-text" for="employee-hired-on-filter">Date Hired</label>
-                        <input type="date" class="form-control" id="employee-hired-on-filter"
-                            title="Show employees hired on this date" data-employee-filter="hiredOn">
-                    </div>
-                </div>
             </div>
 
-            <div class="d-flex justify-content-end mt-3">
-                <button type="button" class="btn btn-sm btn-outline-secondary" data-employee-clear>Clear Filters</button>
+            {{-- Date Hired: the month sets the period under review; From Date and To Date pick the exact range inside it. --}}
+            <fieldset class="mt-3 pt-3 border-top" data-hired-filter>
+                <legend class="form-label small fw-semibold mb-2">Date Hired</legend>
+
+                <div class="row g-3 align-items-start">
+                    <div class="col-md-6 col-xl-3">
+                        <label for="employee-hired-month" class="form-label">Month</label>
+                        <input type="month" class="form-control" id="employee-hired-month" placeholder="YYYY-MM"
+                            aria-describedby="employee-hired-month-error" data-hired-month>
+                        <div class="invalid-feedback" id="employee-hired-month-error" data-hired-error="month"></div>
+                    </div>
+                    <div class="col-md-6 col-xl-3">
+                        <label for="employee-hired-from" class="form-label">From Date</label>
+                        <input type="date" class="form-control" id="employee-hired-from"
+                            aria-describedby="employee-hired-from-error" data-hired-from>
+                        <div class="invalid-feedback" id="employee-hired-from-error" data-hired-error="from"></div>
+                    </div>
+                    <div class="col-md-6 col-xl-3">
+                        <label for="employee-hired-to" class="form-label">To Date</label>
+                        <input type="date" class="form-control" id="employee-hired-to"
+                            aria-describedby="employee-hired-to-error" data-hired-to>
+                        <div class="invalid-feedback" id="employee-hired-to-error" data-hired-error="to"></div>
+                    </div>
+                    <div class="col-md-6 col-xl-3 d-flex gap-2 align-self-xl-end">
+                        <button type="button" class="btn btn-primary" data-hired-apply>Apply Filter</button>
+                        <button type="button" class="btn btn-outline-secondary" data-hired-clear>Clear Filter</button>
+                    </div>
+                </div>
+
+                <p class="form-text mb-0 mt-2">
+                    Choose a month, then optionally a From Date and To Date inside it. With only a month, the whole month is shown.
+                </p>
+            </fieldset>
+
+            <div class="d-flex justify-content-between align-items-center gap-3 flex-wrap mt-3">
+                <span class="ems-chip d-none" data-hired-summary></span>
+                <button type="button" class="btn btn-sm btn-outline-secondary ms-auto" data-employee-clear>Clear Filters</button>
             </div>
         </div>
 
@@ -100,6 +130,15 @@
                     <ul class="pagination pagination-sm mb-0" data-employee-pagination></ul>
                 </nav>
             </div>
+        </div>
+
+        <div class="d-flex justify-content-end">
+            <a class="btn btn-outline-secondary d-inline-flex align-items-center gap-2" href="{{ route('employees.archived') }}"
+                data-archived-link>
+                <x-icon name="folder" />
+                Archived Employees
+                <span class="ems-chip tabular-nums" data-archived-count>0</span>
+            </a>
         </div>
     </div>
 @endsection

@@ -93,3 +93,8 @@ it('shows the base salary on the position details page', function (string $route
     $this->get(route($route, 't5'))
         ->assertSeeInOrder(['Base Salary', 'data-position-field="salary"', 'Employment Type', 'Location'], escape: false);
 })->with(['careers.show', 'applicant.positions.show']);
+
+it('labels the public salary as a range on the position details', function (string $route) {
+    $this->get(route($route, 't5'))
+        ->assertSee('Base Salary Range', escape: false);
+})->with(['careers.show', 'applicant.positions.show']);

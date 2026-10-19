@@ -1,6 +1,6 @@
 import { Modal } from 'bootstrap';
 import $ from './jquery.js';
-import { formatDate, formatPeso, initialsOf } from './format.js';
+import { formatDate, formatSalaryRange, initialsOf } from './format.js';
 import {
     addDepartment,
     deleteDepartment,
@@ -219,8 +219,8 @@ function initDetailsModal($modal, employeesUrl) {
             ...(department.jobTitles.length
                 ? department.jobTitles.map((jobTitle) => listItem(
                     $('<div>', { text: jobTitle.name }),
-                    $('<small>', { class: 'text-body-secondary', text: 'Base salary' }),
-                    formatPeso(jobTitle.salary),
+                    $('<small>', { class: 'text-body-secondary', text: 'Base salary range' }),
+                    formatSalaryRange(jobTitle.salaryMin, jobTitle.salaryMax),
                 ))
                 : [emptyItem('No job titles under this department yet.')]),
         );

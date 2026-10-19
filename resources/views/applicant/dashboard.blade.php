@@ -5,7 +5,7 @@
 @php
     $quickLinks = [
         ['icon' => 'user', 'label' => 'Profile', 'about' => 'Your details and contact information', 'route' => 'applicant.profile'],
-        ['icon' => 'calendar', 'label' => 'Calendar', 'about' => 'Your screening and interview dates', 'route' => 'applicant.calendar'],
+        ['icon' => 'calendar', 'label' => 'Calendar', 'about' => 'Your demo interview and interview dates', 'route' => 'applicant.calendar'],
         ['icon' => 'job-titles', 'label' => 'Open Positions', 'about' => 'Find a position to apply for', 'route' => 'applicant.positions'],
         ['icon' => 'recruitment', 'label' => 'Applications', 'about' => 'Follow your applications', 'route' => 'applicant.applications'],
     ];
@@ -57,12 +57,12 @@
 
             <div class="col-lg-5">
                 <section class="card dashboard-panel" aria-labelledby="applicant-upcoming-title">
-                    <h2 id="applicant-upcoming-title">Upcoming screenings and interviews</h2>
+                    <h2 id="applicant-upcoming-title">Upcoming demo interviews and interviews</h2>
                     <p class="dashboard-panel-subtitle">Set by HR</p>
 
                     <ul class="list-group list-group-flush dashboard-list" data-applicant-upcoming></ul>
                     <p class="text-body-secondary mb-0 d-none" data-applicant-upcoming-empty>
-                        No screening or interview is scheduled yet.
+                        No demo interview or interview is scheduled yet.
                     </p>
                 </section>
             </div>

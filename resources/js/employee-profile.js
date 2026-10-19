@@ -1,6 +1,6 @@
 import $ from './jquery.js';
 import { documentItem } from './employee-documents.js';
-import { formatDate, formatDateTime, formatPeso, initialsOf } from './format.js';
+import { formatDate, formatDateTime, formatPesoAmount, initialsOf } from './format.js';
 import { findEmployee, getEmployeeHistory, getEmployeeLeave, onMockDataChange } from './mock-data.js';
 
 const historyLimit = 10;
@@ -31,7 +31,7 @@ function displayValues(employee) {
         pagibigNumber: employee.pagibigNumber,
         tin: employee.tin,
         birNumber: employee.birNumber,
-        salary: employee.salary === '' || employee.salary === undefined ? '' : formatPeso(Number(employee.salary)),
+        salary: employee.salary === '' || employee.salary === undefined ? '' : formatPesoAmount(Number(employee.salary)),
         separationNote: `${employee.name} is currently ${employee.status === 'On Leave' ? 'on leave' : 'active'}; no separation is recorded.`,
     };
 }

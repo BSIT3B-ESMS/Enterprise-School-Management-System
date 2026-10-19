@@ -15,7 +15,7 @@
     The pipeline, rows, filter options, sorting, and pagination are rendered by resources/js/recruitment.js
     from resources/js/mock-data.js. Clicking a row (or pressing Enter/Space on it) opens the application
     details modal, which shows the recruitment workflow and offers Edit and Delete. The status follows the
-    workflow (scheduled and completed screenings and interviews, offer, hiring), so it is only displayed here.
+    workflow (scheduled and completed demo interviews and interviews, offer, hiring), so it is only displayed here.
 --}}
 @section('content')
     <div class="d-grid gap-4" data-page="recruitment">

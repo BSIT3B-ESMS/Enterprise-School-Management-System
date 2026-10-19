@@ -6,7 +6,7 @@
     $columns = [
         'name' => 'Job Title',
         'department' => 'Department',
-        'salary' => 'Base Salary',
+        'salary' => 'Base Salary Range',
         'benefits' => 'Benefits',
     ];
 @endphp

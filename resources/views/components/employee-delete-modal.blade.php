@@ -1,6 +1,6 @@
 {{--
-    Delete confirmation. Opened from a trigger carrying data-employee-delete="EMP-…";
-    handled by resources/js/employee-delete.js.
+    Permanent delete confirmation, used only on the Archived Employees page. Opened from a trigger carrying
+    data-employee-delete="EMP-…"; handled by resources/js/employee-delete.js.
 --}}
 <div class="modal fade" id="employee-delete-modal" tabindex="-1" role="alertdialog"
     aria-labelledby="employee-delete-modal-title" aria-describedby="employee-delete-modal-body" aria-hidden="true"
@@ -8,7 +8,7 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h2 class="modal-title fs-5" id="employee-delete-modal-title">Delete employee</h2>
+                <h2 class="modal-title fs-5" id="employee-delete-modal-title">Delete archived employee</h2>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body" id="employee-delete-modal-body" data-employee-delete-message></div>

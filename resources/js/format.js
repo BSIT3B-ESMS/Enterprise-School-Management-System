@@ -10,6 +10,22 @@ export function formatPeso(amount) {
 }
 
 /**
+ * ₱25,000.00 — always two decimals, for salaries.
+ */
+export function formatPesoAmount(amount) {
+    return `₱${Number(amount).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+/**
+ * ₱20,000.00–₱30,000.00 for a salary range (a single amount when both ends are the same).
+ */
+export function formatSalaryRange(minimum, maximum) {
+    return Number(minimum) === Number(maximum)
+        ? formatPesoAmount(minimum)
+        : `${formatPesoAmount(minimum)}–${formatPesoAmount(maximum)}`;
+}
+
+/**
  * "2024-10-24" → "Oct 24, 2024" (parsed by parts so the time zone cannot shift the day).
  */
 export function formatDate(isoDate) {

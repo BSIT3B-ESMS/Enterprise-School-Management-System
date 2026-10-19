@@ -28,7 +28,7 @@ function whenText(activity) {
     return days === 0 ? 'Today' : `In ${plural(days, 'day')}`;
 }
 
-// Every scheduled screening and interview across the applicant's applications, soonest first.
+// Every scheduled demo interview and interview across the applicant's applications, soonest first.
 function upcomingActivities(applications) {
     return applications
         .flatMap((application) => application.activities
