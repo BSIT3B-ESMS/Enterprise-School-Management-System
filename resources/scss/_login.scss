@@ -102,3 +102,13 @@
     --bs-toast-color: #{$white};
     --bs-toast-border-width: 0;
 }
+
+// The light/dark toggle on Login and Create Account (layouts/guest.blade.php).
+.guest-theme-toggle {
+    position: fixed;
+    top: 0.75rem;
+    right: 0.75rem;
+    z-index: $zindex-fixed;
+    background: var(--bs-body-bg);
+    border-radius: 0.5rem;
+}

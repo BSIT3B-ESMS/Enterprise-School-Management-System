@@ -11,7 +11,6 @@ import {
 } from './mock-data.js';
 import { currentAccountId } from './applicant-session.js';
 import { isSignedIn, plural } from './applicant-portal.js';
-import { setThemeChoice } from './theme.js';
 
 const notSpecified = 'Not specified';
 
@@ -75,13 +74,15 @@ function setTermsGate($link, needsTerms, declineUrl = '') {
     }
 }
 
-function positionCard($root, position, appliedIds, accountId, isSelected) {
+// One job card. The cards in the full list carry an id (position-t…) so a link can bring one into view; the featured
+// copies above them do not, so no id appears twice.
+function positionCard($root, position, appliedIds, accountId, isSelected, { withId = true } = {}) {
     const detailsUrl = `${$root.attr('data-details-url')}/${encodeURIComponent(position.id)}`;
     const facts = [position.employmentType || notSpecified, position.location || notSpecified];
 
     return $('<div>', { class: 'col' }).append(
         $('<article>', {
-            id: `position-${position.id}`,
+            ...(withId ? { id: `position-${position.id}` } : {}),
             class: `card dashboard-panel h-100 d-flex flex-column${isSelected ? ' border-primary' : ''}`,
         }).append(
             $('<div>', { class: 'd-flex justify-content-between align-items-start gap-3 mb-1' }).append(
@@ -111,7 +112,7 @@ function positionCard($root, position, appliedIds, accountId, isSelected) {
                     : $('<a>', {
                         class: 'btn btn-sm btn-primary',
                         href: applyHref($root, position.id, accountId),
-                        text: 'Apply',
+                        text: 'Apply Now',
                         'aria-label': `Apply for ${position.name}`,
                         ...(accountId ? {} : { 'data-terms-continue': '' }),
                     }),
@@ -124,6 +125,7 @@ function initPositionList($root) {
     // Declining the Terms returns here with ?position= so the chosen position and its Apply button stay in view.
     const selectedId = new URLSearchParams(window.location.search).get('position') ?? '';
     const $search = $root.find('[data-positions-search]');
+    const $type = $root.find('[data-positions-type]');
     const $department = $root.find('[data-positions-department]');
 
     function render() {
@@ -141,8 +143,10 @@ function initPositionList($root) {
         );
         $department.val(departments.includes(selectedDepartment) ? selectedDepartment : '');
 
+        const type = String($type.val() ?? '');
         const shown = open.filter((position) => (
             (!$department.val() || position.department === $department.val())
+            && (!type || position.employmentType === type)
             && (!query || `${position.name} ${position.department} ${position.employmentType} ${position.location} ${position.summary} ${position.description}`.toLowerCase().includes(query))
         ));
 
@@ -150,9 +154,12 @@ function initPositionList($root) {
         $root.find('[data-positions-open]').empty().append(...shown.map((position) => positionCard($root, position, appliedIds, accountId, position.id === selectedId)));
         $root.find('[data-positions-none]').toggleClass('d-none', open.length > 0);
         $root.find('[data-positions-no-match]').toggleClass('d-none', open.length === 0 || shown.length > 0);
+        renderFeatured($root, open, appliedIds, accountId);
+        renderHiringStats($root, open);
     }
 
     $search.on('input', render);
+    $type.on('change', render);
     $department.on('change', render);
     render();
     renderBenefits($root);
@@ -161,6 +168,31 @@ function initPositionList($root) {
         render();
         renderBenefits($root);
     });
+}
+
+// PLP Careers' Featured Job Openings: the open positions with the most openings (then A to Z), up to three.
+const featuredCount = 3;
+
+function renderFeatured($root, open, appliedIds, accountId) {
+    const $featured = $root.find('[data-positions-featured]');
+
+    if (!$featured.length) {
+        return;
+    }
+
+    const featured = [...open]
+        .sort((first, second) => second.openings - first.openings || first.name.localeCompare(second.name))
+        .slice(0, featuredCount);
+
+    $featured.empty().append(...featured.map((position) => positionCard($root, position, appliedIds, accountId, false, { withId: false })));
+    $root.find('[data-positions-featured-empty]').toggleClass('d-none', featured.length > 0);
+}
+
+// The hero's figures: how many positions are open, in how many departments, and how many openings in all.
+function renderHiringStats($root, open) {
+    $root.find('[data-careers-stat="positions"]').text(open.length);
+    $root.find('[data-careers-stat="departments"]').text(new Set(open.map((position) => position.department)).size);
+    $root.find('[data-careers-stat="openings"]').text(open.reduce((total, position) => total + position.openings, 0));
 }
 
 // The Careers website's benefits: what the open positions offer, from the same job titles HR manages.
@@ -261,17 +293,14 @@ function initPositionDetails($root) {
     onMockDataChange(render);
 }
 
-// The public header: Login and Create Account, or My Dashboard for an applicant already signed in this session, and
-// the same light/dark toggle as the app shell's header.
+// The public header: Login and Create Account, or My Dashboard for an applicant already signed in this session. (Its
+// light/dark toggle is wired in resources/js/theme.js.)
 function initPublicHeader() {
     const isSignedInHere = Boolean(publicAccountId());
     const $header = $('.public-header');
 
     $header.find('[data-public-signed-out]').toggleClass('d-none', isSignedInHere);
     $header.find('[data-public-signed-in]').toggleClass('d-none', !isSignedInHere);
-    $header.on('click', '[data-theme-toggle]', () => {
-        setThemeChoice(document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark');
-    });
 }
 
 $(function () {

@@ -1,20 +1,49 @@
 <?php
 
-it('serves the public Careers website without the app shell', function () {
+it('lays out PLP Careers in order: navigation, hero, featured openings, open positions, about, and footer', function () {
     $this->get(route('careers.index'))
         ->assertOk()
         ->assertSee('PLP Careers')
         ->assertSeeInOrder([
-            'Careers at PLP',
-            'href="#positions-open-title">View Open Positions',
-            'href="'.route('applicant.register').'" data-terms-continue>Create Account',
-            'data-positions-open>',
-            'Benefits of working at PLP', 'data-careers-benefits',
-            'How applying works',
-            'Contact us',
+            // Navigation bar
+            'class="public-header"', 'PLP Careers', 'Pamantasan ng Lungsod ng Pasig',
+            '>Home</a>', '#open-positions" data-public-nav="positions">Open Positions</a>', '#about" data-public-nav="about">About</a>',
+            'href="'.route('login').'">Login</a>',
+            // Hero
+            'Build Your Career with PLP', 'href="#open-positions" data-careers-explore>Explore Open Positions',
+            // Featured Job Openings
+            'id="featured"', 'Featured Job Openings', 'data-positions-featured',
+            // Open Positions
+            'id="open-positions"', 'Open Positions', 'data-positions-search', 'data-positions-type', 'data-positions-open>',
+            // About PLP Careers
+            'id="about"', 'About PLP Careers', 'How applying works', 'Benefits of working at PLP', 'data-careers-benefits',
+            // Footer
+            'class="public-footer"', 'Contact', 'Explore',
         ], escape: false)
         ->assertDontSee('data-app-shell', escape: false);
 });
+
+it('marks Home as the current page and folds the links into a menu on narrow screens', function () {
+    $this->get(route('careers.index'))
+        ->assertSeeInOrder(['class="nav-link active" aria-current="page"', 'href="'.route('careers.index').'" data-public-nav="home">Home</a>'], escape: false)
+        ->assertSee('data-bs-toggle="collapse" data-bs-target="#public-nav"', escape: false)
+        ->assertSee('id="public-nav"', escape: false);
+});
+
+it('offers only Full-Time and Part-Time in the Employment Type filter', function (string $route) {
+    $html = $this->get(route($route))->getContent();
+    $filter = substr($html, strpos($html, 'data-positions-type'), strpos($html, '</select>', strpos($html, 'data-positions-type')) - strpos($html, 'data-positions-type'));
+
+    expect($filter)->toContain('All Employment Types', '<option value="Full-time">Full-Time</option>', '<option value="Part-time">Part-Time</option>')
+        ->and(substr_count($filter, '<option'))->toBe(3);
+})->with(['careers.index', 'applicant.positions']);
+
+it('shows the same navigation and footer on the other public pages', function (string $route) {
+    $this->get(route($route, ['position' => 't5']))
+        ->assertSee('class="public-header"', escape: false)
+        ->assertSee('class="public-footer"', escape: false)
+        ->assertSee('href="'.route('careers.index').'#open-positions"', escape: false);
+})->with(['careers.show', 'applicant.portal']);
 
 it('shows PLP\'s published contact details on the Careers website', function () {
     $this->get(route('careers.index'))

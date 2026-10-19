@@ -1,8 +1,157 @@
-// Applicant interface: the header of the pages anyone can open without an account (layouts/public.blade.php).
-// It reuses .app-header, which takes its height from the app shell's grid everywhere else.
+// PLP Careers, the public pages anyone can open without an account (layouts/public.blade.php): a sticky navigation bar,
+// the landing page's hero and sections (careers/index.blade.php), and the footer. The bar, hero, and footer use the
+// brand's dark green in both themes, with light text; the sections in between follow the theme.
+
+.public-page {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+
+    > main {
+        flex: 1 0 auto;
+    }
+}
 
 .public-header {
-    min-height: 4rem;
+    position: sticky;
+    top: 0;
+    z-index: $zindex-sticky;
+    color: var(--ems-chrome-fg);
+    background: var(--ems-chrome);
+    box-shadow: 0 1px 0 rgba($white, 0.08);
+
+    .navbar {
+        --bs-navbar-padding-y: 0.625rem;
+        --bs-navbar-color: rgba(255, 255, 255, 0.82);
+        --bs-navbar-hover-color: #{$white};
+        --bs-navbar-active-color: #{$white};
+    }
+
+    .navbar-brand {
+        color: inherit;
+    }
+
+    .nav-link.active {
+        font-weight: 600;
+    }
+
+    .navbar-toggler {
+        padding: 0.25rem 0.5rem;
+        border-color: rgba($white, 0.25);
+    }
+}
+
+.public-brand-name {
+    font-weight: 700;
+}
+
+.public-brand-tagline {
+    font-size: 0.75rem;
+    font-weight: 400;
+    color: var(--ems-chrome-muted);
+}
+
+.careers-hero {
+    display: grid;
+    gap: 1rem;
+    justify-items: start;
+    padding: 2.5rem 1.5rem;
+    color: $white;
+    background: linear-gradient(120deg, $ems-brand-gradient-start 0%, $ems-chrome 62%);
+    border-radius: 1rem;
+
+    @include media-breakpoint-up(md) {
+        padding: 3.5rem 3rem;
+    }
+}
+
+.careers-hero-eyebrow {
+    margin: 0;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: rgba($white, 0.78);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.careers-hero-title {
+    margin: 0;
+    font-size: clamp(2rem, 1.4rem + 2.6vw, 3rem);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+}
+
+.careers-hero-lead {
+    max-width: 42rem;
+    margin: 0;
+    font-size: 1.0625rem;
+    color: rgba($white, 0.86);
+}
+
+.careers-hero-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem 2.5rem;
+    padding-top: 1rem;
+    margin: 0.5rem 0 0;
+    border-top: 1px solid rgba($white, 0.2);
+
+    dt {
+        font-size: 0.8125rem;
+        font-weight: 500;
+        color: rgba($white, 0.75);
+    }
+
+    dd {
+        margin: 0;
+        font-size: 1.5rem;
+        font-weight: 700;
+    }
+}
+
+// Sections land below the sticky navigation bar when reached from its links.
+.careers-section {
+    scroll-margin-top: 5.5rem;
+}
+
+.careers-section-header {
+    margin-bottom: 1rem;
+}
+
+.careers-section-title {
+    margin: 0 0 0.25rem;
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+
+.public-footer {
+    margin-top: 3rem;
+    color: var(--ems-chrome-fg);
+    background: var(--ems-chrome);
+
+    a {
+        color: var(--ems-chrome-fg);
+        text-decoration-color: rgba($white, 0.35);
+
+        &:hover {
+            color: $white;
+        }
+    }
+}
+
+.public-footer-heading {
+    margin-bottom: 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: $white;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.public-footer-muted {
+    color: var(--ems-chrome-muted);
 }
 
 // A required field's label ends with a red asterisk (add .is-required to the label); optional fields stay unmarked.

@@ -1,15 +1,21 @@
 import $ from './jquery.js';
 
-// Dark is the default (set on <html> by the layouts); a saved choice overrides it. The choice is Light, Dark,
-// or System (follow the device's light or dark setting); the header toggle and Account Settings both use it.
-const storageKey = 'ems-theme';
+// Each area has its own default (set on <html> by the layouts) and its own saved choice, so changing one never changes
+// the other: the PLP Careers landing and job details pages (data-theme-scope="public") open in Light, and Login,
+// account creation, and everything after it open in Dark. Parts of the system shown on a Careers page (the Terms and
+// Conditions, marked data-theme-follow="system") keep the system's theme. A saved choice overrides the default. The choice is Light, Dark, or System (follow the device's light
+// or dark setting); the header toggle and Account Settings both use it.
+const isPublicScope = document.documentElement.dataset.themeScope === 'public';
+const storageKey = isPublicScope ? 'ems-theme-public' : 'ems-theme';
+const defaultChoice = isPublicScope ? 'light' : 'dark';
+const systemStorageKey = 'ems-theme';
 const choices = ['light', 'dark', 'system'];
 const $html = $(document.documentElement);
 const systemQuery = typeof window.matchMedia === 'function' ? window.matchMedia('(prefers-color-scheme: dark)') : null;
 
-function readSavedChoice() {
+function readSavedChoice(key = storageKey) {
     try {
-        return localStorage.getItem(storageKey);
+        return localStorage.getItem(key);
     } catch {
         return null;
     }
@@ -32,7 +38,7 @@ function modeFor(choice) {
     return choice;
 }
 
-let currentChoice = choices.includes(readSavedChoice()) ? readSavedChoice() : 'dark';
+let currentChoice = choices.includes(readSavedChoice()) ? readSavedChoice() : defaultChoice;
 
 function applyChoice(choice) {
     currentChoice = choice;
@@ -40,7 +46,7 @@ function applyChoice(choice) {
 }
 
 /**
- * The chosen theme: 'light', 'dark', or 'system' (dark until another is chosen).
+ * The chosen theme: 'light', 'dark', or 'system' (the area's default until another is chosen).
  */
 export function getThemeChoice() {
     return currentChoice;
@@ -70,8 +76,14 @@ systemQuery?.addEventListener?.('change', () => {
 });
 
 $(function () {
-    // The header's toggle flips the mode you are looking at, which makes it an explicit Light or Dark choice.
-    $('[data-app-shell]').on('click', '[data-theme-toggle]', function () {
+    if (isPublicScope) {
+        const systemChoice = readSavedChoice(systemStorageKey);
+        $('[data-theme-follow="system"]').attr('data-bs-theme', modeFor(choices.includes(systemChoice) ? systemChoice : 'dark'));
+    }
+
+    // A toggle (in the app header, the PLP Careers header, or on Login and Create Account) flips the mode you are
+    // looking at, which makes it an explicit Light or Dark choice for this area.
+    $('[data-app-shell], .public-header, [data-guest-theme]').on('click', '[data-theme-toggle]', function () {
         setThemeChoice($html.attr('data-bs-theme') === 'dark' ? 'light' : 'dark');
     });
 });
