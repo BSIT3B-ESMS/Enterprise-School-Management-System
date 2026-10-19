@@ -212,6 +212,23 @@ function renderTable($root) {
     );
     renderSortHeaders($root);
     renderPagination($root.find('[data-application-pagination]'), view.page, pageCount);
+    syncReportLink($root);
+}
+
+/**
+ * Generate Report starts from the status, department, and application date filtered here.
+ */
+function syncReportLink($root) {
+    const $link = $root.find('[data-report-link]');
+    const params = new URLSearchParams();
+
+    [['status', view.status], ['department', view.departmentId], ['appliedOn', view.appliedOn]].forEach(([key, value]) => {
+        if (value) {
+            params.set(key, value);
+        }
+    });
+
+    $link.attr('href', `${$link.attr('data-report-url')}${params.toString() ? `?${params}` : ''}`);
 }
 
 function renderPage($root) {

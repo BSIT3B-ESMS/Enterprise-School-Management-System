@@ -22,7 +22,7 @@ const view = { query: '', action: '', recordType: '', date: '', sortKey: 'at', s
  * "Employee · Maria Clara Santos (EMP-1001)" → type "Employee", record "Maria Clara Santos (EMP-1001)".
  * Session entries ("Session") have no separate record name.
  */
-function splitEntity(entity) {
+export function splitEntity(entity) {
     const [recordType, ...rest] = entity.split(' · ');
 
     return { recordType, record: rest.join(' · ') || recordType };
@@ -125,6 +125,23 @@ function renderTable($root) {
     );
     renderSortHeaders($root);
     renderPagination($root.find('[data-audit-pagination]'), view.page, pageCount);
+    syncReportLink($root);
+}
+
+/**
+ * Generate Report starts from the action, record type, and date filtered here.
+ */
+function syncReportLink($root) {
+    const $link = $root.find('[data-report-link]');
+    const params = new URLSearchParams();
+
+    [['action', view.action], ['record', view.recordType], ['date', view.date]].forEach(([key, value]) => {
+        if (value) {
+            params.set(key, value);
+        }
+    });
+
+    $link.attr('href', `${$link.attr('data-report-url')}${params.toString() ? `?${params}` : ''}`);
 }
 
 /**
