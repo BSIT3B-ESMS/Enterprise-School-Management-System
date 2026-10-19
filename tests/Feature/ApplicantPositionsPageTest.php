@@ -17,18 +17,19 @@ it('lets anyone browse the open positions before creating an account', function 
             'data-public-signed-out',
             'href="'.route('login').'">Login</a>',
             'href="'.route('applicant.register').'" data-terms-continue>Create Account',
-            'href="'.route('applicant.dashboard').'" data-public-signed-in>My Dashboard',
+            'data-public-signed-in', 'href="'.route('applicant.dashboard').'">My Dashboard',
         ], escape: false)
         ->assertDontSee('data-app-shell', escape: false)
         ->assertDontSee('href="'.route('recruitment.index').'"', escape: false);
 });
 
-it('lists only open positions, with search, a department filter, and empty states', function (string $route) {
+it('lists only open positions, with search, employment type and department filters, and empty states', function (string $route) {
     $this->get(route($route))
         ->assertSeeInOrder([
             'Open Positions',
-            'data-positions-search', 'data-positions-department',
-            'Open positions', 'data-positions-open-count', 'data-positions-open>',
+            'id="positions-open-title"', 'data-positions-open-count',
+            'data-positions-search', 'data-positions-type', 'data-positions-department',
+            'data-positions-open>',
             'data-positions-none', 'No open positions',
             'data-positions-no-match', 'No positions match your search',
         ], escape: false)

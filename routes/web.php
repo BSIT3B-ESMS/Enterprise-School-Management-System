@@ -2,8 +2,8 @@
 
 use Illuminate\Support\Facades\Route;
 
-// The EMS opens on the sign-in page: the root address goes to the existing Login route.
-Route::get('/', fn () => redirect()->route('login'))->name('home');
+// The EMS opens on PLP Careers, the public careers website; HR and employees sign in at /login as before.
+Route::get('/', fn () => redirect()->route('careers.index'))->name('home');
 
 Route::view('/login', 'auth.login')->name('login');
 

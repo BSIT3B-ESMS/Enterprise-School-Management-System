@@ -1,11 +1,12 @@
 {{--
     Terms and Conditions with the Privacy Notice, shown before an applicant creates an account
     (resources/js/applicant-terms.js). Accept and Continue stays disabled until the box is checked; Decline closes
-    the modal without continuing. Acceptance is kept for this browser tab's session only.
+    the modal without continuing. Acceptance is kept for this browser tab's session only. It belongs to account
+    creation, so it keeps the system's theme (Dark by default) even when opened from the Light PLP Careers pages.
 --}}
 <div class="modal fade" id="applicant-terms-modal" tabindex="-1" aria-labelledby="applicant-terms-modal-title"
     aria-describedby="applicant-terms-modal-intro" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false"
-    data-terms-modal>
+    data-terms-modal data-theme-follow="system">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
