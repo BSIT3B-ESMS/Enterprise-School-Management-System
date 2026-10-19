@@ -5,26 +5,33 @@
 @php
     $eventTypes = [
         'leave' => 'Employee Leave',
-        'screening' => 'Applicant Screening',
-        'interview' => 'Applicant Interview',
+        'demo-interview' => 'Applicant Demo Interview',
+        'interview' => 'Applicant Final Interview',
+        'other' => 'Other Applicant Event',
     ];
     $eventStatuses = ['Filed', 'Pending', 'Approved', 'Scheduled', 'Completed'];
     $weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 @endphp
 
 {{--
-    Calendar of employee leave and applicant screenings and interviews. Everything is rendered by
+    Calendar of employee leave and applicant demo interviews and interviews. Everything is rendered by
     resources/js/calendar.js from the same mock data as Employees and Recruitment
     (resources/js/calendar-events.js builds the events), so changes there appear here.
     Filters: event types and statuses are multi-select; an event shows when its type AND its status
     are selected.
+    Clicking a date opens its events and notes; clicking an event opens its details (venue, notes, rescheduling history,
+    with Reschedule and Cancel Schedule). Unscheduled Applicants (top right) lists applicants waiting for their next
+    interview with nothing scheduled; choosing one, or Schedule on This Date, opens the scheduling form. Every change is
+    confirmed first. Add Event (beside the month navigation) and clicking a date with no events open the event form
+    (the date prefilled); events HR adds are part of the shared mock data and open in the same details modal. Handled by
+    resources/js/calendar-scheduling.js.
 --}}
 @section('content')
-    <div class="d-grid gap-4" data-page="calendar" data-employees-url="{{ url('/employees') }}"
+    <div class="d-grid gap-4" data-page="calendar" data-calendar-interactive data-employees-url="{{ url('/employees') }}"
         data-recruitment-url="{{ route('recruitment.index') }}">
         <div>
             <h1 class="page-title">Calendar</h1>
-            <p class="text-body-secondary mt-1 mb-0">Employee leave and applicant screenings and interviews.</p>
+            <p class="text-body-secondary mt-1 mb-0">Employee leave and applicant demo interviews and interviews.</p>
         </div>
 
         <div class="card employees-filters">
@@ -69,7 +76,11 @@
                 <section class="card employee-form-card" aria-labelledby="calendar-month-title">
                     <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-3">
                         <h2 class="fs-5 mb-0" id="calendar-month-title" aria-live="polite" data-calendar-month-title></h2>
-                        <div class="d-flex gap-2">
+                        <div class="d-flex flex-wrap gap-2">
+                            <button type="button" class="btn btn-sm btn-primary d-inline-flex align-items-center gap-1" data-calendar-add-event>
+                                <x-icon name="plus" />
+                                Add Event
+                            </button>
                             <button type="button" class="btn btn-sm btn-outline-secondary" data-calendar-nav="-1" aria-label="Previous month">
                                 <x-icon name="chevron-left" />
                             </button>
@@ -91,20 +102,23 @@
                 </section>
             </div>
 
-            <div class="col-xl-4 d-grid gap-4">
-                <section class="card employee-form-card" aria-labelledby="calendar-day-title">
-                    <h2 class="employee-form-section" id="calendar-day-title" data-calendar-day-title></h2>
-                    <div class="list-group list-group-flush calendar-day-list" data-calendar-day-events></div>
-                    <p class="text-body-secondary mb-0 d-none" data-calendar-day-empty></p>
-                </section>
-
-                <section class="card employee-form-card" aria-labelledby="calendar-details-title">
-                    <h2 class="employee-form-section" id="calendar-details-title">Event Details</h2>
-                    <div class="alert alert-danger py-2 d-none" role="alert" data-calendar-details-error></div>
-                    <div data-calendar-details></div>
-                    <p class="text-body-secondary mb-0" data-calendar-details-empty>Select an event to view its details.</p>
+            <div class="col-xl-4">
+                <section class="card employee-form-card" aria-labelledby="calendar-unscheduled-title" data-unscheduled-panel>
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                        <h2 class="fs-5 mb-0" id="calendar-unscheduled-title">Unscheduled Applicants</h2>
+                        <span class="ems-chip tabular-nums" data-unscheduled-count></span>
+                    </div>
+                    <p class="small text-body-secondary">
+                        Applicants waiting for their next interview with nothing scheduled. Choose one to schedule them.
+                    </p>
+                    <div class="list-group list-group-flush calendar-day-list" data-unscheduled-list></div>
+                    <p class="text-body-secondary mb-0 d-none" data-unscheduled-empty>
+                        Every applicant waiting for an interview has a schedule.
+                    </p>
                 </section>
             </div>
         </div>
     </div>
+
+    <x-calendar-schedule-modals />
 @endsection

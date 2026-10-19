@@ -1,6 +1,6 @@
 import { Modal } from 'bootstrap';
 import $ from './jquery.js';
-import { formatDate, formatPeso, initialsOf } from './format.js';
+import { formatDate, formatSalaryRange, initialsOf } from './format.js';
 import {
     addJobTitle,
     deleteJobTitle,
@@ -13,6 +13,7 @@ import {
     updateJobTitle,
 } from './mock-data.js';
 import { renderPagination } from './pagination.js';
+import { salaryRangeErrors } from './validation-rules.js';
 import { showToast } from './toast.js';
 
 const pageSize = 8;
@@ -23,7 +24,7 @@ const defaultBenefitCount = 5;
 const sortValue = {
     name: (jobTitle) => jobTitle.name.toLowerCase(),
     department: (jobTitle) => jobTitle.department.toLowerCase(),
-    salary: (jobTitle) => Number(jobTitle.salary),
+    salary: (jobTitle) => Number(jobTitle.salaryMin),
     benefits: (jobTitle) => jobTitle.benefits.length,
 };
 
@@ -100,7 +101,7 @@ function rowFor(jobTitle) {
     }).append(
         $('<td>', { class: 'fw-medium', text: jobTitle.name }),
         $('<td>', { text: jobTitle.department }),
-        $('<td>', { class: 'tabular-nums text-nowrap', text: formatPeso(Number(jobTitle.salary)) }),
+        $('<td>', { class: 'tabular-nums text-nowrap', text: formatSalaryRange(jobTitle.salaryMin, jobTitle.salaryMax) }),
         $('<td>').append($('<span>', { class: 'ems-chip', text: plural(jobTitle.benefits.length, 'benefit') })),
     );
 }
@@ -236,7 +237,7 @@ function initDetailsModal($modal, employeesUrl) {
         const values = {
             name: jobTitle.name,
             department: jobTitle.department,
-            salary: formatPeso(Number(jobTitle.salary)),
+            salary: formatSalaryRange(jobTitle.salaryMin, jobTitle.salaryMax),
             headcount: String(jobTitle.headcount),
             benefitCount: String(jobTitle.benefits.length),
         };
@@ -315,7 +316,9 @@ function validationRules($form, editingId) {
             return isJobTitleNameTaken(value, departmentId, editingId) ? 'This title already exists in that department.' : '';
         },
         departmentId: (value) => (value ? '' : 'Select a department.'),
-        salary: (value) => (value !== '' && Number(value) >= 0 ? '' : 'Enter a base salary of 0 or more.'),
+        // The minimum and maximum are checked together: both needed, 0 or more, the maximum not lower than the minimum.
+        salaryMin: () => salaryRangeErrors(fieldFor($form, 'salaryMin').val(), fieldFor($form, 'salaryMax').val()).salaryMin ?? '',
+        salaryMax: () => salaryRangeErrors(fieldFor($form, 'salaryMin').val(), fieldFor($form, 'salaryMax').val()).salaryMax ?? '',
     };
 }
 
@@ -369,7 +372,8 @@ function prepareForm($form, jobTitle) {
 
     fieldFor($form, 'name').val(jobTitle?.name ?? '');
     fieldFor($form, 'departmentId').val(jobTitle?.departmentId ?? '');
-    fieldFor($form, 'salary').val(jobTitle?.salary ?? '');
+    fieldFor($form, 'salaryMin').val(jobTitle?.salaryMin ?? '');
+    fieldFor($form, 'salaryMax').val(jobTitle?.salaryMax ?? '');
 }
 
 function readJobTitle($form) {
@@ -378,7 +382,8 @@ function readJobTitle($form) {
     return {
         name: value('name'),
         departmentId: value('departmentId'),
-        salary: Number(value('salary')),
+        salaryMin: Number(value('salaryMin')),
+        salaryMax: Number(value('salaryMax')),
         benefits: $form.find('[name="benefits"]:checked').map(function () {
             return $(this).val();
         }).get(),
@@ -408,9 +413,19 @@ function initFormModal($modal, $root) {
 
     // Once a field has been flagged, re-check it as the user corrects it. Changing the department
     // can resolve (or cause) a duplicate name, so the name is re-checked with it.
-    $form.on('input change', '.is-invalid, [name="departmentId"]', function () {
+    $form.on('input change', '.is-invalid, [name="departmentId"], [name="salaryMin"], [name="salaryMax"]', function () {
         const rules = validationRules($form, editingId);
-        const names = $(this).attr('name') === 'departmentId' ? ['departmentId', 'name'] : [$(this).attr('name')];
+        const changed = $(this).attr('name');
+        const salaryFlagged = fieldFor($form, 'salaryMin').hasClass('is-invalid') || fieldFor($form, 'salaryMax').hasClass('is-invalid');
+
+        // The salary range is one check: changing either end re-checks both once it has been flagged.
+        if (['salaryMin', 'salaryMax'].includes(changed) && !salaryFlagged) {
+            return;
+        }
+
+        const names = (changed === 'departmentId' && ['departmentId', 'name'])
+            || (['salaryMin', 'salaryMax'].includes(changed) && ['salaryMin', 'salaryMax'])
+            || [changed];
 
         names.forEach((name) => {
             const $field = fieldFor($form, name);

@@ -24,8 +24,8 @@ const stepText = { done: 'completed', current: 'current stage', pending: 'not re
 
 // Where an application stands, in the applicant's terms (each status follows what HR has completed).
 export const statusMessages = {
-    Applied: 'Your application has been received. HR will schedule your screening.',
-    Screening: 'Your screening is done. HR will schedule your interview.',
+    Applied: 'Your application has been received. HR will schedule your demo interview.',
+    'Demo Interview': 'Your demo interview is done. HR will schedule your interview.',
     Interview: 'Your interview is done. HR is reviewing your application.',
     Offered: 'You have been offered the position. HR will be in touch about your response.',
     Hired: 'Congratulations, you have been hired.',
@@ -34,8 +34,8 @@ export const statusMessages = {
 
 // What happens next when nothing is scheduled, by status (who acts is HR; the applicant only waits).
 export const nextStepHints = {
-    Applied: 'HR will schedule your screening',
-    Screening: 'HR will schedule your interview',
+    Applied: 'HR will schedule your demo interview',
+    'Demo Interview': 'HR will schedule your interview',
     Interview: 'HR is reviewing your application',
     Offered: 'HR will contact you about the offer',
     Hired: 'You have been hired',
@@ -68,7 +68,7 @@ export function renderSteps($root, application) {
 }
 
 /**
- * One screening or interview as a list row: its type (and position, when given), date, time, and status.
+ * One demo interview or interview as a list row: its type (and position, when given), date, time, and status.
  */
 export function activityItem(activity, jobTitle = '') {
     const isCompleted = activity.status === 'Completed';

@@ -1,7 +1,7 @@
 @php
     $fields = [
         'department' => 'Department',
-        'salary' => 'Base Salary (monthly)',
+        'salary' => 'Base Salary Range (monthly)',
         'headcount' => 'Employees',
         'benefitCount' => 'Benefits',
     ];

@@ -6,7 +6,7 @@
     $steps = [
         ['title' => 'Create an account', 'about' => 'Accept the Terms and Conditions, then set up your applicant account.'],
         ['title' => 'Apply for a position', 'about' => 'Fill in the application form once; your details are kept for your next application.'],
-        ['title' => 'Follow your application', 'about' => 'See your status and the screening and interview dates HR sets for you.'],
+        ['title' => 'Follow your application', 'about' => 'See your status and the demo interview and interview dates HR sets for you.'],
     ];
 @endphp
 

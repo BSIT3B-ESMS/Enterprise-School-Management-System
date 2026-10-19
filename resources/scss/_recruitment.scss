@@ -117,3 +117,32 @@
 .activity-completed {
     --bs-progress-bar-bg: #198a57;
 }
+
+// The applicant a link points to (for example, from the Calendar) is highlighted for a few seconds (see locateApplicant in
+// recruitment.js). The fill and the border are drawn inside the cells, so the row does not move, and they come from the
+// theme's primary color, so they read in both light and dark.
+.employees-table tbody tr.is-located > * {
+    --located-fill: color-mix(in srgb, var(--bs-primary) 18%, transparent);
+    --located-border: var(--bs-primary);
+
+    box-shadow:
+        inset 0 0 0 9999px var(--located-fill),
+        inset 0 2px 0 var(--located-border),
+        inset 0 -2px 0 var(--located-border);
+
+    &:first-child {
+        box-shadow:
+            inset 0 0 0 9999px var(--located-fill),
+            inset 0 2px 0 var(--located-border),
+            inset 0 -2px 0 var(--located-border),
+            inset 2px 0 0 var(--located-border);
+    }
+
+    &:last-child {
+        box-shadow:
+            inset 0 0 0 9999px var(--located-fill),
+            inset 0 2px 0 var(--located-border),
+            inset 0 -2px 0 var(--located-border),
+            inset -2px 0 0 var(--located-border);
+    }
+}

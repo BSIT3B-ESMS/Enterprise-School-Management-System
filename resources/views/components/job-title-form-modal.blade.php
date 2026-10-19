@@ -29,10 +29,17 @@
                     </div>
 
                     <div class="col-md-6">
-                        <label for="job-title-salary" class="form-label">Base Salary (monthly, ₱)</label>
-                        <input type="number" class="form-control" id="job-title-salary" name="salary" min="0" step="0.01"
-                            inputmode="decimal" aria-describedby="job-title-salary-error" required>
-                        <div class="invalid-feedback" id="job-title-salary-error"></div>
+                        <label for="job-title-salary-min" class="form-label">Minimum Base Salary (monthly, ₱)</label>
+                        <input type="number" class="form-control" id="job-title-salary-min" name="salaryMin" min="0" step="0.01"
+                            inputmode="decimal" aria-describedby="job-title-salary-min-error" required>
+                        <div class="invalid-feedback" id="job-title-salary-min-error"></div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label for="job-title-salary-max" class="form-label">Maximum Base Salary (monthly, ₱)</label>
+                        <input type="number" class="form-control" id="job-title-salary-max" name="salaryMax" min="0" step="0.01"
+                            inputmode="decimal" aria-describedby="job-title-salary-max-error" required>
+                        <div class="invalid-feedback" id="job-title-salary-max-error"></div>
                     </div>
                 </div>
 

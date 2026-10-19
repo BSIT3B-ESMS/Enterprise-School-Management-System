@@ -1,14 +1,15 @@
+import { Modal } from 'bootstrap';
 import $ from './jquery.js';
-import { deleteEmployee, findEmployee } from './mock-data.js';
-import { queueToast, showToast } from './toast.js';
+import { deleteArchivedEmployee, listArchivedEmployees } from './mock-data.js';
+import { showToast } from './toast.js';
 
-// Delete confirmation, opened from the profile's Delete button (data-employee-delete="EMP-…").
-// Once deleted there is no profile left to show, so it returns to the Employees list.
+// Permanent delete confirmation, opened from an Archived Employees row (data-employee-delete="EMP-…"). Only archived
+// employees can be deleted. The list updates itself afterwards, so the page stays where it is.
 function initDeleteModal($modal) {
     let deletingId = null;
 
     $modal.on('show.bs.modal', function (event) {
-        const employee = findEmployee($(event.relatedTarget).attr('data-employee-delete'));
+        const employee = listArchivedEmployees().find((candidate) => candidate.id === $(event.relatedTarget).attr('data-employee-delete'));
 
         if (!employee) {
             event.preventDefault();
@@ -18,20 +19,21 @@ function initDeleteModal($modal) {
 
         deletingId = employee.id;
         $modal.find('[data-employee-delete-message]')
-            .text(`Remove ${employee.name} (${employee.id}) from the system? This cannot be undone.`);
+            .text(`Permanently delete ${employee.name} (${employee.id})? Their record is removed from the system and this cannot be undone.`);
     });
 
     $modal.on('click', '[data-employee-delete-confirm]', function () {
-        const employee = deleteEmployee(deletingId);
+        const employee = deleteArchivedEmployee(deletingId);
+
+        Modal.getOrCreateInstance($modal[0]).hide();
 
         if (!employee) {
-            showToast('That employee no longer exists.', { isError: true });
+            showToast('That employee is no longer in the archive.', { isError: true });
 
             return;
         }
 
-        queueToast(`Employee deleted: ${employee.name} (${employee.id}).`);
-        window.location.assign($('[data-employee-back-link]').attr('href'));
+        showToast(`Employee deleted: ${employee.name} (${employee.id}).`);
     });
 }
 

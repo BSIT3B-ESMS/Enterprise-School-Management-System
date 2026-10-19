@@ -69,13 +69,43 @@ it('marks the employees sidebar link as the current page', function () {
         ->assertDontSee('aria-current="page" href="'.route('dashboard').'"', escape: false);
 });
 
-it('filters by a single date hired picker with no start or end date fields', function () {
+it('filters by hiring date with a month, a From Date and a To Date, applied with Apply Filter', function () {
     $this->get(route('employees.index'))
         ->assertSeeInOrder([
-            '<label class="input-group-text" for="employee-hired-on-filter">Date Hired</label>',
-            'type="date"', 'data-employee-filter="hiredOn"',
+            'data-hired-filter', 'Date Hired',
+            '<label for="employee-hired-month" class="form-label">Month</label>', 'type="month"', 'data-hired-month',
+            '<label for="employee-hired-from" class="form-label">From Date</label>', 'type="date"', 'data-hired-from',
+            '<label for="employee-hired-to" class="form-label">To Date</label>', 'data-hired-to',
+            'data-hired-apply>Apply Filter</button>', 'data-hired-clear>Clear Filter</button>',
             'data-employee-clear>Clear Filters</button>',
         ], escape: false)
-        ->assertDontSee('Start Date')
-        ->assertDontSee('End Date');
+        ->assertDontSee('data-employee-filter="hiredOn"', escape: false);
+});
+
+it('has an Archived Employees button in the lower right of the Employees page', function () {
+    $this->get(route('employees.index'))
+        ->assertSeeInOrder([
+            'data-employee-pagination',
+            'justify-content-end', 'href="'.route('employees.archived').'"', 'Archived Employees', 'data-archived-count',
+        ], escape: false);
+});
+
+it('serves the Archived Employees page with Restore and Delete, and the only delete confirmation', function () {
+    $this->get(route('employees.archived'))
+        ->assertOk()
+        ->assertSee('data-page="archived-employees"', escape: false)
+        ->assertSee('aria-current="page" href="'.route('employees.index').'"', escape: false)
+        ->assertSeeInOrder([
+            'Archived Employees', 'data-archived-search',
+            'Employee ID', 'Name', 'Department', 'Job Title', 'Date Hired', 'Archived On', 'Actions',
+            'data-archived-rows', 'data-archived-empty', 'No archived employees',
+            'id="employee-delete-modal"', 'Delete archived employee', 'data-employee-delete-confirm',
+        ], escape: false);
+});
+
+it('shows a sortable Base Salary column between Job Title and Date Hired', function () {
+    $this->get(route('employees.index'))
+        ->assertSeeInOrder([
+            'data-sort-key="jobTitle"', 'data-sort-key="salary"', 'Base Salary', 'data-sort-key="hiredOn"',
+        ], escape: false);
 });

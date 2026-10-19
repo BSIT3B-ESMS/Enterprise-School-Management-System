@@ -15,11 +15,13 @@ import {
     getPortalLeave,
     listApplicantApplications,
     listApplications,
+    listCalendarEvents,
     listLeaveRequests,
     onMockDataChange,
 } from './mock-data.js';
 import { showToast } from './toast.js';
 import { accountId, isSignedIn } from './applicant-portal.js';
+import { initCalendarScheduling } from './calendar-scheduling.js';
 
 const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const weekdayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -72,23 +74,28 @@ function eventSummary(event, labels) {
  * named by leave type, with no actions: nothing on it changes a request's status.
  *
  * With data-calendar-scope="applicant" (the Applicant interface) it shows only the signed-in applicant's own
- * screenings and interviews, across all of their applications, named by type and position, with no actions: only
+ * demo interviews and interviews, across all of their applications, named by type and position, with no actions: only
  * HR's Recruitment page schedules, reschedules, or completes them, and nothing here changes an application's status.
+ *
+ * On the HR Calendar (data-calendar-interactive) a date opens a modal with its events and notes (or the event form, for a date
+ * with no events), and an event opens its
+ * details, where HR schedules and reschedules (resources/js/calendar-scheduling.js); the side panels of the other two
+ * calendars are not used there.
  */
 function initCalendar($root) {
     const isOwn = $root.attr('data-calendar-scope') === 'own';
     const isApplicant = $root.attr('data-calendar-scope') === 'applicant';
     const labels = (isOwn && { ...eventTypes, leave: 'My Leave' })
-        || (isApplicant && { ...eventTypes, screening: 'Screening', interview: 'Interview' })
+        || (isApplicant && { ...eventTypes, 'demo-interview': 'Demo Interview', interview: 'Interview', other: 'Other' })
         || eventTypes;
     const words = (isOwn && {
         dataNotice: 'You have no leave requests on record.',
         month: 'You have no leave this month.',
         day: 'You have no leave on this date.',
     }) || (isApplicant && {
-        dataNotice: 'You have no screening or interview scheduled yet.',
-        month: 'You have no screening or interview this month.',
-        day: 'You have no screening or interview on this date.',
+        dataNotice: 'You have no demo interview or interview scheduled yet.',
+        month: 'You have no demo interview or interview this month.',
+        day: 'You have no demo interview or interview on this date.',
     }) || {
         month: 'No events scheduled for this month.',
         day: 'No events scheduled for this date.',
@@ -127,7 +134,7 @@ function initCalendar($root) {
             });
         }
 
-        return buildCalendarEvents({ leaveRequests: listLeaveRequests(), applications: listApplications() });
+        return buildCalendarEvents({ leaveRequests: listLeaveRequests(), applications: listApplications(), customEvents: listCalendarEvents() });
     }
 
     function renderLegend({ types, statuses }) {
@@ -173,7 +180,7 @@ function initCalendar($root) {
             }
 
             if (!isOwn && !events.some((event) => event.type !== 'leave')) {
-                missing.push('No applicant screenings or interviews are on record.');
+                missing.push('No applicant demo interviews or interviews are on record.');
             }
         }
 
@@ -279,6 +286,11 @@ function initCalendar($root) {
     }
 
     function renderDetails(shown) {
+        // The HR Calendar shows an event's details in a modal instead (calendar-scheduling.js).
+        if ($root.is('[data-calendar-interactive]')) {
+            return;
+        }
+
         const event = shown.find((candidate) => candidate.id === state.selectedEventId);
         const $details = $root.find('[data-calendar-details]').empty();
 
@@ -300,7 +312,7 @@ function initCalendar($root) {
             return;
         }
 
-        // The applicant's own screening or interview: its type, position, date, time, status, and when it was
+        // The applicant's own demo interview or interview: its type, position, date, time, status, and when it was
         // completed. No actions.
         if (isApplicant) {
             const { application, activity } = event.detail;
@@ -308,7 +320,8 @@ function initCalendar($root) {
                 detailRow('Event Type', labels[event.type]),
                 detailRow('Position', application.jobTitle),
                 detailRow('Date', dateText(event)),
-                detailRow('Time', formatTime(event.time)),
+                detailRow('Time', event.endTime ? `${formatTime(event.time)} to ${formatTime(event.endTime)}` : formatTime(event.time)),
+                ...(activity.venue ? [detailRow('Venue', activity.venue)] : []),
                 detailRow('Status', statusPill(event.status)),
             ];
 
@@ -422,15 +435,30 @@ function initCalendar($root) {
     // Back to the current month and today; the filters stay as they are.
     $root.on('click', '[data-calendar-today]', () => showMonth(new Date().getFullYear(), new Date().getMonth()));
 
+    // The HR Calendar's modals: a date's events and notes, an event's details, scheduling and rescheduling.
+    const scheduling = $root.is('[data-calendar-interactive]')
+        ? initCalendarScheduling($root, {
+            eventsOn: (date) => {
+                const events = allEvents();
+
+                return { all: eventsOn(events, date), shown: eventsOn(filterEvents(events, filters()), date) };
+            },
+            findEvent: (id) => allEvents().find((candidate) => candidate.id === id),
+            goToDate: (date) => selectDate(date),
+        })
+        : null;
+
     $root.on('click', '[data-calendar-day]', function (event) {
         if (!$(event.target).closest('button').length) {
             selectDate($(this).attr('data-calendar-day'));
+            scheduling?.openDate(state.selectedDate);
         }
     });
 
     $root.on('click', '[data-calendar-date]', function () {
         selectDate($(this).attr('data-calendar-date'));
         $root.find(`[data-calendar-date="${state.selectedDate}"].calendar-day-number`).trigger('focus');
+        scheduling?.openDate(state.selectedDate);
     });
 
     $root.on('click', '[data-calendar-event]', function () {
@@ -439,6 +467,13 @@ function initCalendar($root) {
 
         Object.assign(state, { year, month: month - 1, selectedDate: date, selectedEventId: $(this).attr('data-calendar-event') });
         render();
+
+        if (scheduling) {
+            scheduling.openEvent(state.selectedEventId);
+
+            return;
+        }
+
         $root.find('[data-calendar-details]').closest('section').find('h2').attr('tabindex', '-1').trigger('focus');
     });
 

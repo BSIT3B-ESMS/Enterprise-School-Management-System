@@ -1,12 +1,20 @@
 import $ from './jquery.js';
-import { formatDate, initialsOf } from './format.js';
-import { defaultSortDirection, employeeViewQuery, filterAndSortEmployees, readEmployeeView } from './employee-list.js';
-import { getEmployeeFormOptions, onMockDataChange } from './mock-data.js';
+import { formatDate, formatPesoAmount, initialsOf } from './format.js';
+import {
+    defaultSortDirection,
+    describeHiredRange,
+    employeeViewQuery,
+    filterAndSortEmployees,
+    monthBounds,
+    readEmployeeView,
+    validateHiredRange,
+} from './employee-list.js';
+import { getEmployeeFormOptions, listArchivedEmployees, onMockDataChange } from './mock-data.js';
 import { renderPagination } from './pagination.js';
 
 const pageSize = 8;
 
-// Table view state: search text, Date Hired, filters, sort column and direction (1 ascending,
+// Table view state: search text, Date Hired period, filters, sort column and direction (1 ascending,
 // -1 descending), and page. Read from the URL, so returning from Generate Report (or pressing
 // browser Back) restores it.
 const view = readEmployeeView(window.location.search);
@@ -74,6 +82,7 @@ function rowFor(employee, query) {
         ),
         $('<td>', { text: employee.department }),
         $('<td>', { text: employee.jobTitle }),
+        $('<td>', { class: 'tabular-nums text-nowrap', text: employee.salary === '' || employee.salary === undefined ? '—' : formatPesoAmount(Number(employee.salary)) }),
         $('<td>', { class: 'tabular-nums text-nowrap', text: formatDate(employee.hiredOn) }),
     );
 }
@@ -115,7 +124,52 @@ function renderTable($root) {
     );
     renderSortHeaders($root);
     renderPagination($root.find('[data-employee-pagination]'), view.page, pageCount);
+
+    const hiredLabel = describeHiredRange(view);
+
+    $root.find('[data-hired-summary]').text(hiredLabel ? `Date hired: ${hiredLabel}` : '').toggleClass('d-none', !hiredLabel);
+    $root.find('[data-archived-count]').text(listArchivedEmployees().length);
     syncUrl($root);
+}
+
+// The Date Hired controls: what is typed (not yet applied) and the limits and errors that go with it.
+function readHiredInputs($root) {
+    return {
+        month: String($root.find('[data-hired-month]').val() ?? ''),
+        from: String($root.find('[data-hired-from]').val() ?? ''),
+        to: String($root.find('[data-hired-to]').val() ?? ''),
+    };
+}
+
+// The date fields only offer days of the chosen month.
+function limitHiredDates($root) {
+    const { month } = readHiredInputs($root);
+    const bounds = /^\d{4}-(0[1-9]|1[0-2])$/.test(month) ? monthBounds(month) : null;
+
+    $root.find('[data-hired-from], [data-hired-to]').each(function () {
+        if (bounds) {
+            $(this).attr({ min: bounds.first, max: bounds.last });
+        } else {
+            $(this).removeAttr('min').removeAttr('max');
+        }
+    });
+}
+
+function showHiredErrors($root, errors) {
+    [['month', '[data-hired-month]'], ['from', '[data-hired-from]'], ['to', '[data-hired-to]']].forEach(([key, selector]) => {
+        const message = errors[key] ?? '';
+
+        $root.find(`[data-hired-error="${key}"]`).text(message);
+        $root.find(selector).toggleClass('is-invalid', Boolean(message)).attr('aria-invalid', String(Boolean(message)));
+    });
+}
+
+function fillHiredInputs($root) {
+    $root.find('[data-hired-month]').val(view.month);
+    $root.find('[data-hired-from]').val(view.hiredFrom);
+    $root.find('[data-hired-to]').val(view.hiredTo);
+    limitHiredDates($root);
+    showHiredErrors($root, {});
 }
 
 /**
@@ -148,11 +202,59 @@ $(function () {
         renderTable($employees);
     });
 
-    // Clears the search, the date, and every filter (including any linked from another page) and
+    // Clears the search, the Date Hired period, and every filter (including any linked from another page) and
     // returns to page 1; the sort order is kept.
     $employees.on('click', '[data-employee-clear]', function () {
-        Object.assign(view, { query: '', hiredOn: '', jobTitleId: '', departmentId: '', page: 1 });
+        Object.assign(view, { query: '', month: '', hiredFrom: '', hiredTo: '', jobTitleId: '', departmentId: '', page: 1 });
         $employees.find('[data-employee-search], [data-employee-filter]').val('');
+        fillHiredInputs($employees);
+        renderTable($employees);
+    });
+
+    // Date Hired: choosing a month limits the dates to that month (and drops dates from another month).
+    $employees.on('input change', '[data-hired-month]', function () {
+        limitHiredDates($employees);
+        $employees.find('[data-hired-from], [data-hired-to]').each(function () {
+            const { first, last } = $(this).attr('min') ? { first: $(this).attr('min'), last: $(this).attr('max') } : { first: '', last: '' };
+            const value = String($(this).val() ?? '');
+
+            if (!first || value < first || value > last) {
+                $(this).val('');
+            }
+        });
+        showHiredErrors($employees, {});
+    });
+
+    $employees.on('input change', '[data-hired-from], [data-hired-to]', () => showHiredErrors($employees, {}));
+
+    // Apply Filter checks the period first: nothing changes while it is invalid.
+    $employees.on('click', '[data-hired-apply]', function () {
+        const period = readHiredInputs($employees);
+        const errors = validateHiredRange(period);
+
+        showHiredErrors($employees, errors);
+
+        if (Object.keys(errors).length) {
+            $employees.find(`[data-hired-${Object.keys(errors)[0]}]`).trigger('focus');
+
+            return;
+        }
+
+        Object.assign(view, { month: period.month, hiredFrom: period.from, hiredTo: period.to, page: 1 });
+        renderTable($employees);
+    });
+
+    $employees.on('keydown', '[data-hired-filter] input', function (event) {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            $employees.find('[data-hired-apply]').trigger('click');
+        }
+    });
+
+    // Clear Filter removes only the Date Hired period.
+    $employees.on('click', '[data-hired-clear]', function () {
+        Object.assign(view, { month: '', hiredFrom: '', hiredTo: '', page: 1 });
+        fillHiredInputs($employees);
         renderTable($employees);
     });
 
@@ -177,9 +279,9 @@ $(function () {
 
     initRowLinks($employees);
 
-    // Show the restored search and date in their inputs (the selects are filled below).
+    // Show the restored search and Date Hired period in their inputs (the selects are filled below).
     $employees.find('[data-employee-search]').val(view.query);
-    $employees.find('[data-employee-filter="hiredOn"]').val(view.hiredOn);
+    fillHiredInputs($employees);
 
     renderFilterOptions($employees);
     renderTable($employees);

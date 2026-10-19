@@ -46,7 +46,7 @@ it('shows the recruitment workflow sections in the details modal in order', func
             'Next Step', 'Status changes only when a milestone is reached',
             'data-application-next-actions', 'data-application-activity-form',
             'name="date"', 'name="time"', 'data-application-confirm',
-            'Screening and Interviews', 'data-application-activities',
+            'Demo Interview and Interviews', 'data-application-activities',
             'Completed Milestones', 'data-application-milestones',
             'data-application-history-section',
         ], escape: false);
@@ -91,4 +91,10 @@ it('filters by a single application date picker with no start or end date fields
         ], escape: false)
         ->assertDontSee('Start Date')
         ->assertDontSee('End Date');
+});
+
+it('has the applicant list the Calendar links into, with rows the highlight can find', function () {
+    $this->get(route('recruitment.index'))
+        ->assertSee('data-page="recruitment"', escape: false)
+        ->assertSeeInOrder(['data-application-rows', 'data-application-empty', 'data-application-pagination'], escape: false);
 });

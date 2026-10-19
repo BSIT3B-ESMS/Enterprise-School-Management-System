@@ -44,7 +44,7 @@ function render($root) {
         return;
     }
 
-    // Newest first, so the latest screening or interview HR set is at the top.
+    // Newest first, so the latest demo interview or interview HR set is at the top.
     const activities = [...application.activities].sort((first, second) => (
         `${second.date} ${second.time}`.localeCompare(`${first.date} ${first.time}`)
     ));

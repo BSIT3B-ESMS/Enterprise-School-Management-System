@@ -27,7 +27,7 @@
 {{--
     Application record and its recruitment workflow. Opened with Modal#show(row) passing a Recruitment table
     row carrying data-application-row="c…"; filled in and driven by resources/js/application-details.js.
-    The status is never picked here: the Next Step buttons record milestones (a completed screening or
+    The status is never picked here: the Next Step buttons record milestones (a completed demo interview or
     interview, an issued or accepted offer, completed hiring, a rejection), and only those move the status.
     The footer offers only Delete and Edit, which hand the application ID on to those modals.
 --}}
@@ -122,7 +122,7 @@
                     <p class="text-body-secondary mb-2" data-application-waiting></p>
                     <div class="d-flex flex-wrap gap-2" data-application-next-actions></div>
 
-                    {{-- Inline form for scheduling or rescheduling a screening or interview. --}}
+                    {{-- Inline form for scheduling or rescheduling a demo interview or interview. --}}
                     <form class="border rounded p-3 mt-3 d-none" novalidate data-application-activity-form>
                         <h4 class="fs-6 mb-3" data-application-activity-form-title></h4>
 
@@ -161,7 +161,7 @@
 
                 <section aria-labelledby="application-activities-title">
                     <h3 class="employee-form-section" id="application-activities-title">
-                        Screening and Interviews <small>Scheduled and completed activities</small>
+                        Demo Interview and Interviews <small>Scheduled and completed activities</small>
                     </h3>
                     <ul class="list-group list-group-flush dashboard-list mb-0" data-application-activities></ul>
                 </section>

@@ -1,4 +1,5 @@
 import $ from './jquery.js';
+import { statusClass } from './recruitment-workflow.js';
 import { formatDate, formatDateTime, greetingForHour } from './format.js';
 import { getDashboardData, onMockDataChange } from './mock-data.js';
 import { renderPipelineBar } from './pipeline.js';
@@ -92,7 +93,7 @@ function renderPipeline($root, candidateStages) {
     $root.find('[data-dashboard-pipeline-legend]').empty().append(...candidateStages.map(({ stage, count }) => (
         $('<li>', { class: 'd-flex justify-content-between gap-2' }).append(
             $('<span>', { class: 'd-flex align-items-center gap-2' }).append(
-                $('<span>', { class: `dashboard-swatch stage-${stage.toLowerCase()}` }),
+                $('<span>', { class: `dashboard-swatch ${statusClass(stage)}` }),
                 document.createTextNode(stage),
             ),
             $('<strong>', { class: 'tabular-nums', text: count }),

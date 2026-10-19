@@ -16,6 +16,9 @@ Route::view('/employees/create', 'employees.create')->name('employees.create');
 // Reads the Employees list's search, filters, and sort from its query string (see resources/js/employee-list.js).
 Route::view('/employees/report', 'employees.report')->name('employees.report');
 
+// Employees HR has archived: restored to the Employees list, or deleted for good, from here (resources/js/archived-employees.js).
+Route::view('/employees/archived', 'employees.archived')->name('employees.archived');
+
 // The profile is filled in by resources/js/employee-profile.js from the mock data, so only the ID is passed.
 Route::view('/employees/{employee}', 'employees.show')
     ->where('employee', 'EMP-[0-9]+')
@@ -26,6 +29,10 @@ Route::view('/departments', 'departments.index')->name('departments.index');
 Route::view('/job-titles', 'job-titles.index')->name('job-titles.index');
 
 Route::view('/recruitment', 'recruitment.index')->name('recruitment.index');
+
+// HR manages the job postings here (add, view, edit, open, close, remove); the open ones are the positions on the public
+// Careers website, because both read the same job title records (resources/js/job-positions.js).
+Route::view('/job-positions', 'job-positions.index')->name('job-positions.index');
 
 Route::view('/calendar', 'calendar.index')->name('calendar.index');
 

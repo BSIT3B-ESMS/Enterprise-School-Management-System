@@ -1,26 +1,26 @@
 // Recruitment workflow rules. An application's status is not picked by hand: it moves forward only
 // when a milestone is reached, and the milestones are recorded as they happen.
 //
-//   Applied ──complete screening──▶ Screening ──complete interview──▶ Interview
+//   Applied ──complete demo interview──▶ Demo Interview ──complete interview──▶ Interview
 //   Interview ──issue offer──▶ Offered ──offer accepted + complete hiring──▶ Hired
 //   Any open stage ──reject──▶ Rejected
 //
-// Scheduling a screening or interview only puts it on the calendar; the status changes when that
+// Scheduling a demo interview or interview only puts it on the calendar; the status changes when that
 // activity is marked completed. Hired and Rejected are final. These functions only read plain
 // application objects, so they hold no state and can move to a backend unchanged.
 
-export const stageOrder = ['Applied', 'Screening', 'Interview', 'Offered', 'Hired'];
+export const stageOrder = ['Applied', 'Demo Interview', 'Interview', 'Offered', 'Hired'];
 
 export const finalStatuses = ['Hired', 'Rejected'];
 
-// The CSS class that colors a status (see the .stage-* rules in _dashboard.scss).
+// The CSS class that colors a status (see the .stage-* rules in _dashboard.scss): "Demo Interview" is stage-demo-interview.
 export function statusClass(status) {
-    return `stage-${status.toLowerCase()}`;
+    return `stage-${status.toLowerCase().replace(/\s+/g, '-')}`;
 }
 
 export const milestoneLabels = {
     applied: 'Application received',
-    screening: 'Screening completed',
+    demoInterview: 'Demo Interview completed',
     interview: 'Interview completed',
     offered: 'Offer issued',
     accepted: 'Offer accepted',
@@ -29,7 +29,10 @@ export const milestoneLabels = {
 };
 
 // The status each activity type moves an application to once it is completed.
-export const statusAfterCompleting = { Screening: 'Screening', Interview: 'Interview' };
+export const statusAfterCompleting = { 'Demo Interview': 'Demo Interview', Interview: 'Interview' };
+
+// The milestone recorded when an activity of each type is completed.
+export const milestoneKeyFor = { 'Demo Interview': 'demoInterview', Interview: 'interview' };
 
 /**
  * What can be done next for an application, from its status, offer response, and activities.
@@ -38,7 +41,7 @@ export const statusAfterCompleting = { Screening: 'Screening', Interview: 'Inter
  * @returns {{
  *   isFinal: boolean,
  *   pendingActivity: object|null,
- *   scheduleType: 'Screening'|'Interview'|null,
+ *   scheduleType: 'Demo Interview'|'Interview'|null,
  *   canIssueOffer: boolean,
  *   canRecordAcceptance: boolean,
  *   canCompleteHiring: boolean,
@@ -48,13 +51,14 @@ export const statusAfterCompleting = { Screening: 'Screening', Interview: 'Inter
 export function workflowFor(application) {
     const { status } = application;
     const isFinal = finalStatuses.includes(status);
-    const pendingActivity = (application.activities ?? []).find((activity) => activity.status === 'Scheduled') ?? null;
+    // Only the recruitment steps count; an "Other" schedule (set on the HR Calendar) never holds up the workflow.
+    const pendingActivity = (application.activities ?? []).find((activity) => activity.status === 'Scheduled' && activity.type !== 'Other') ?? null;
     const isFree = !isFinal && !pendingActivity;
     let scheduleType = null;
 
     if (isFree && status === 'Applied') {
-        scheduleType = 'Screening';
-    } else if (isFree && (status === 'Screening' || status === 'Interview')) {
+        scheduleType = 'Demo Interview';
+    } else if (isFree && (status === 'Demo Interview' || status === 'Interview')) {
         scheduleType = 'Interview';
     }
 
@@ -102,7 +106,7 @@ export function waitingMessage(application) {
  */
 export function progressSteps(application) {
     const reachedKeys = new Set((application.milestones ?? []).map((milestone) => milestone.key));
-    const reached = { Applied: true, Screening: reachedKeys.has('screening'), Interview: reachedKeys.has('interview'), Offered: reachedKeys.has('offered'), Hired: reachedKeys.has('hired') };
+    const reached = { Applied: true, 'Demo Interview': reachedKeys.has('demoInterview'), Interview: reachedKeys.has('interview'), Offered: reachedKeys.has('offered'), Hired: reachedKeys.has('hired') };
 
     return stageOrder.map((stage) => {
         if (application.status === stage) {
@@ -138,8 +142,8 @@ export function progressForStatus(application, today) {
     const activities = [];
 
     if (reached >= 2) {
-        milestones.push({ key: 'screening', at: on(2) });
-        activities.push({ id: 'a1', type: 'Screening', date: on(2), time: '10:00', status: 'Completed', completedOn: on(2) });
+        milestones.push({ key: 'demoInterview', at: on(2) });
+        activities.push({ id: 'a1', type: 'Demo Interview', date: on(2), time: '10:00', status: 'Completed', completedOn: on(2) });
     }
 
     if (reached >= 3) {

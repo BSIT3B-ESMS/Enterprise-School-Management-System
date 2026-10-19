@@ -1,4 +1,5 @@
 import $ from './jquery.js';
+import { statusClass } from './recruitment-workflow.js';
 
 function percentOf(value, total) {
     return `${Math.round((value / total) * 10000) / 100}%`;
@@ -23,6 +24,6 @@ export function renderPipelineBar($bar, stages) {
             'aria-valuemin': 0,
             'aria-valuemax': total,
         }).css('width', percentOf(count, total)).append(
-            $('<div>', { class: `progress-bar stage-${stage.toLowerCase()}`, title: `${stage}: ${count}` }),
+            $('<div>', { class: `progress-bar ${statusClass(stage)}`, title: `${stage}: ${count}` }),
         )));
 }

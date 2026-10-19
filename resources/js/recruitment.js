@@ -36,6 +36,11 @@ const sortValue = {
 // Table view state: search text, filters, sort column and direction (1 ascending, -1 descending), page.
 const view = { query: '', status: '', departmentId: '', appliedOn: '', sortKey: 'appliedOn', sortDirection: -1, page: 1 };
 
+// How long the applicant a link (for example, from the Calendar) pointed to stays highlighted in the list.
+const highlightSeconds = 4;
+let highlightedId = '';
+let highlightTimer = null;
+
 function plural(count, noun) {
     return `${count} ${noun}${count === 1 ? '' : 's'}`;
 }
@@ -129,7 +134,7 @@ function renderPipeline($root) {
 
 /**
  * The status as a label (it follows the recruitment workflow, so it is not editable here), with the
- * upcoming screening or interview underneath.
+ * upcoming demo interview or interview underneath.
  */
 function statusCellFor(application) {
     const { pendingActivity } = workflowFor(application);
@@ -147,7 +152,7 @@ function statusCellFor(application) {
 
 function rowFor(application) {
     return $('<tr>', {
-        class: 'employee-row',
+        class: `employee-row${application.id === highlightedId ? ' is-located' : ''}`,
         tabindex: 0,
         'aria-haspopup': 'dialog',
         title: `View ${application.name}`,
@@ -522,6 +527,45 @@ function initDeleteModal($modal) {
     });
 }
 
+/**
+ * Opens the list at one applicant (?applicant= is the application ID): any search or filter that would hide them is cleared,
+ * the list moves to their page, scrolls to their row, and highlights it for a few seconds. Nothing is changed or opened. An ID
+ * that matches no application only shows a notification, so no other record is shown in its place.
+ */
+function locateApplicant($root, applicantId) {
+    // The link is used up, so a reload or Clear Filters starts from the plain list.
+    window.history.replaceState(null, '', window.location.pathname);
+
+    const application = findApplication(applicantId);
+
+    if (!application) {
+        showToast('That applicant could not be found in Recruitment. They may have been removed.', { isError: true });
+
+        return;
+    }
+
+    if (!visibleApplications().some((candidate) => candidate.id === application.id)) {
+        Object.assign(view, { query: '', status: '', departmentId: '', appliedOn: '' });
+        $root.find('[data-application-search], [data-application-filter]').val('');
+    }
+
+    showPageWith(application.id);
+    highlightedId = application.id;
+    renderPage($root);
+
+    const row = $root.find(`tr[data-application-row="${application.id}"]`)[0];
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    row.scrollIntoView({ block: 'center', behavior: prefersReducedMotion ? 'auto' : 'smooth' });
+    row.focus({ preventScroll: true });
+
+    clearTimeout(highlightTimer);
+    highlightTimer = setTimeout(() => {
+        highlightedId = '';
+        $root.find('tr.is-located').removeClass('is-located');
+    }, highlightSeconds * 1000);
+}
+
 function setStatusFilter($root, status) {
     view.status = status;
     view.page = 1;
@@ -537,9 +581,11 @@ $(function () {
     }
 
     // The header's pending-candidates link opens this page with ?status=Applied.
-    const linkedStatus = new URLSearchParams(window.location.search).get('status') ?? '';
+    const params = new URLSearchParams(window.location.search);
+    const linkedStatus = params.get('status') ?? '';
+    const linkedApplicant = params.get('applicant') ?? '';
 
-    view.status = applicationStatuses.includes(linkedStatus) ? linkedStatus : '';
+    view.status = !linkedApplicant && applicationStatuses.includes(linkedStatus) ? linkedStatus : '';
 
     $recruitment.on('input', '[data-application-search]', function () {
         view.query = String($(this).val());
@@ -601,6 +647,11 @@ $(function () {
 
     renderFilterOptions($recruitment);
     renderPage($recruitment);
+
+    if (linkedApplicant) {
+        locateApplicant($recruitment, linkedApplicant);
+    }
+
     onMockDataChange(() => {
         renderFilterOptions($recruitment);
         renderPage($recruitment);

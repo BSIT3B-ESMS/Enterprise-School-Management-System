@@ -4,11 +4,15 @@
 
 export const eventTypes = {
     leave: 'Employee Leave',
-    screening: 'Applicant Screening',
-    interview: 'Applicant Interview',
+    'demo-interview': 'Applicant Demo Interview',
+    interview: 'Applicant Final Interview',
+    other: 'Other Applicant Event',
 };
 
-// Leave requests are Filed (submitted), Pending (under review), or Approved; screenings and interviews
+// The calendar event type of each kind of applicant schedule (Interview is the final interview).
+const activityEventTypes = { 'Demo Interview': 'demo-interview', Interview: 'interview', Other: 'other' };
+
+// Leave requests are Filed (submitted), Pending (under review), or Approved; demo interviews and interviews
 // are Scheduled until they are marked Completed. A past scheduled activity is still Scheduled.
 export const eventStatuses = ['Filed', 'Pending', 'Approved', 'Scheduled', 'Completed'];
 
@@ -28,13 +32,13 @@ export function isoDateOf(date) {
 }
 
 /**
- * Every calendar event. Leave spans startDate to endDate; screenings and interviews fall on one date
+ * Every calendar event. Leave spans startDate to endDate; demo interviews and interviews fall on one date
  * at a time.
  *
- * @param {{ leaveRequests: object[], applications: object[] }} data
+ * @param {{ leaveRequests: object[], applications: object[], customEvents?: object[] }} data (customEvents are the events HR added on the Calendar)
  * @returns {Array<{ id: string, type: string, name: string, startDate: string, endDate: string, time: string, status: string, detail: object }>}
  */
-export function buildCalendarEvents({ leaveRequests, applications }) {
+export function buildCalendarEvents({ leaveRequests, applications, customEvents = [] }) {
     const leaveEvents = leaveRequests.map((leave) => ({
         id: `leave-${leave.id}`,
         type: 'leave',
@@ -47,16 +51,29 @@ export function buildCalendarEvents({ leaveRequests, applications }) {
     }));
     const activityEvents = applications.flatMap((application) => application.activities.map((activity) => ({
         id: `activity-${application.id}-${activity.id}`,
-        type: activity.type === 'Screening' ? 'screening' : 'interview',
+        type: activityEventTypes[activity.type] ?? 'other',
         name: application.name,
         startDate: activity.date,
         endDate: activity.date,
         time: activity.time,
+        endTime: activity.endTime ?? '',
         status: activity.status,
         detail: { application, activity },
     })));
 
-    return [...leaveEvents, ...activityEvents];
+    const addedEvents = customEvents.map((event) => ({
+        id: `custom-${event.id}`,
+        type: event.type,
+        name: event.title,
+        startDate: event.date,
+        endDate: event.date,
+        time: event.time,
+        endTime: event.endTime,
+        status: event.status,
+        detail: { custom: event },
+    }));
+
+    return [...leaveEvents, ...activityEvents, ...addedEvents];
 }
 
 /**
@@ -73,7 +90,7 @@ export function occursOn(event, isoDate) {
 }
 
 /**
- * Events on one day, with timed ones (screenings and interviews) after leave and in time order.
+ * Events on one day, with timed ones (demo interviews and interviews) after leave and in time order.
  */
 export function eventsOn(events, isoDate) {
     return events

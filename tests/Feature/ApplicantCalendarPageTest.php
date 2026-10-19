@@ -7,11 +7,11 @@ it('serves the applicant calendar with Calendar current in the applicant sidebar
         ->assertSee('aria-current="page" href="'.route('applicant.calendar').'"', escape: false);
 });
 
-it('offers screening and interview types and scheduled and completed statuses, all selected', function () {
+it('offers demo interview and interview types and scheduled and completed statuses, all selected', function () {
     $this->get(route('applicant.calendar'))
         ->assertSeeInOrder([
             'Event Type',
-            'id="calendar-type-screening" value="screening"', 'checked data-calendar-type-filter', 'Screening',
+            'id="calendar-type-demo-interview" value="demo-interview"', 'checked data-calendar-type-filter', 'Demo Interview',
             'id="calendar-type-interview" value="interview"', 'Interview',
             'Event Status',
             'value="Scheduled"', 'checked data-calendar-status-filter', 'value="Completed"',
@@ -53,4 +53,14 @@ it('leaves the HR calendar unchanged', function () {
         ->assertSee('value="Filed"', escape: false)
         ->assertSee('data-employees-url', escape: false)
         ->assertDontSee('data-calendar-scope', escape: false);
+});
+
+it('keeps the side panels on the applicant calendar and adds Other schedules to its filter', function () {
+    $this->get(route('applicant.calendar'))
+        ->assertSee('id="calendar-type-other" value="other"', escape: false)
+        ->assertSee('data-calendar-day-title', escape: false)
+        ->assertSee('data-calendar-details', escape: false)
+        ->assertDontSee('data-calendar-interactive', escape: false)
+        ->assertDontSee('data-unscheduled-panel', escape: false)
+        ->assertDontSee('calendar-schedule-modal', escape: false);
 });

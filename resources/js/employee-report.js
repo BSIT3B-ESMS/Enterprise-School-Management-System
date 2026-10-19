@@ -1,8 +1,8 @@
 import $ from './jquery.js';
-import { formatDate, formatPeso } from './format.js';
+import { formatDate, formatPesoAmount } from './format.js';
 import { localIsoDate } from './date-filter.js';
 import { describeEmployeeView, employeeViewQuery, filterAndSortEmployees, readEmployeeView } from './employee-list.js';
-import { onMockDataChange } from './mock-data.js';
+import { getEmployeeFormOptions, onMockDataChange } from './mock-data.js';
 import { showToast } from './toast.js';
 import { buildXlsx } from './xlsx.js';
 
@@ -69,7 +69,7 @@ const fieldGroups = [
                 key: 'salary',
                 label: 'Base Salary (monthly)',
                 value: (employee) => (employee.salary === '' || employee.salary === undefined ? '' : Number(employee.salary)),
-                display: (employee) => (employee.salary === '' || employee.salary === undefined ? '' : formatPeso(Number(employee.salary))),
+                display: (employee) => (employee.salary === '' || employee.salary === undefined ? '' : formatPesoAmount(Number(employee.salary))),
             },
             { key: 'benefits', label: 'Benefits', value: (employee) => (employee.benefits ?? []).join('; ') },
         ],
@@ -224,6 +224,9 @@ function printReport(fields, employees, summary) {
  */
 function initReportPage($root) {
     const view = readEmployeeView(window.location.search);
+    // Back returns to the Employees page with the filters it came with; the report's own Department and Job Title choices
+    // below change only this report.
+    const employeesQuery = employeeViewQuery(view);
     const source = {
         rows: () => filterAndSortEmployees(view),
         summary: () => describeEmployeeView(view),
@@ -233,7 +236,7 @@ function initReportPage($root) {
     let isGenerating = false;
 
     // Back returns to the Employees page with its search, filters, sort, and page as they were.
-    $root.find('[data-report-back]').attr('href', `${$root.attr('data-employees-url')}${employeeViewQuery(view)}`);
+    $root.find('[data-report-back]').attr('href', `${$root.attr('data-employees-url')}${employeesQuery}`);
 
     function selectedFormat() {
         return String($root.find('[name="reportFormat"]:checked').val() ?? 'pdf');
@@ -327,6 +330,25 @@ function initReportPage($root) {
         $generate.prop('disabled', isGenerating || !hasRows || !hasFields);
     }
 
+    // Department and Job Title for this report: all of them, or the one chosen (they combine). A choice that no longer
+    // exists falls back to all.
+    function renderFilterOptions() {
+        const options = getEmployeeFormOptions();
+        const fill = (key, placeholder, items) => {
+            if (!items.some((item) => item.id === view[key])) {
+                view[key] = '';
+            }
+
+            $root.find(`[data-report-filter="${key}"]`).empty().append(
+                $('<option>', { value: '', text: placeholder }),
+                ...items.map((item) => $('<option>', { value: item.id, text: item.name })),
+            ).val(view[key]);
+        };
+
+        fill('departmentId', 'All Departments', options.departments);
+        fill('jobTitleId', 'All Job Titles', options.jobTitles);
+    }
+
     function renderFormat() {
         const format = formats[selectedFormat()];
 
@@ -347,6 +369,12 @@ function initReportPage($root) {
             .prop('disabled', generating);
         renderPreview();
     }
+
+    $root.on('change', '[data-report-filter]', function () {
+        view[$(this).attr('data-report-filter')] = String($(this).val());
+        showError('');
+        renderPreview();
+    });
 
     $root.on('change', '[name="reportFormat"]', function () {
         showError('');
@@ -405,13 +433,17 @@ function initReportPage($root) {
     });
 
     // Starts with PDF and the default fields, against the latest data.
+    renderFilterOptions();
     renderFieldOptions();
     syncGroupBoxes();
     renderFormat();
     renderPreview();
 
     // Keep the count and preview current if the records change (for example, in another tab).
-    onMockDataChange(renderPreview);
+    onMockDataChange(() => {
+        renderFilterOptions();
+        renderPreview();
+    });
 }
 
 $(function () {

@@ -85,3 +85,32 @@ export const newPasswordRule = (value) => {
 
     return /[0-9]/.test(value) ? '' : 'Include at least one number.';
 };
+
+/**
+ * Field errors for a job's base salary range (empty when valid): both amounts are needed and 0 or more, and the maximum
+ * cannot be lower than the minimum.
+ *
+ * @returns {{ salaryMin?: string, salaryMax?: string }}
+ */
+export function salaryRangeErrors(minimum, maximum) {
+    const errors = {};
+    const amountOf = (value) => (String(value).trim() === '' ? Number.NaN : Number(value));
+    const low = amountOf(minimum);
+    const high = amountOf(maximum);
+
+    if (String(minimum).trim() === '') {
+        errors.salaryMin = 'Enter a minimum base salary.';
+    } else if (Number.isNaN(low) || low < 0) {
+        errors.salaryMin = 'The minimum base salary must be 0 or more.';
+    }
+
+    if (String(maximum).trim() === '') {
+        errors.salaryMax = 'Enter a maximum base salary.';
+    } else if (Number.isNaN(high) || high < 0) {
+        errors.salaryMax = 'The maximum base salary must be 0 or more.';
+    } else if (!errors.salaryMin && high < low) {
+        errors.salaryMax = 'The maximum cannot be lower than the minimum.';
+    }
+
+    return errors;
+}

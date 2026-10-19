@@ -36,7 +36,7 @@ const confirmations = {
             : `${application.name} hired and added to Employees as ${result.employee.id}.`,
     },
     reject: {
-        message: (application) => `Reject ${application.name}? Any scheduled screening or interview is cancelled, and a rejected application cannot move forward again.`,
+        message: (application) => `Reject ${application.name}? Any scheduled demo interview or interview is cancelled, and a rejected application cannot move forward again.`,
         label: 'Reject Applicant',
         run: (id) => rejectApplication(id),
         success: (application) => `${application.name} was rejected.`,
@@ -178,7 +178,7 @@ function renderActivities($modal, application) {
     $modal.find('[data-application-activities]').empty().append(
         ...(activities.length
             ? activities.map(activityItem)
-            : [$('<li>', { class: 'list-group-item text-body-secondary', text: 'No screening or interview has been scheduled yet.' })]),
+            : [$('<li>', { class: 'list-group-item text-body-secondary', text: 'No demo interview or interview has been scheduled yet.' })]),
     );
 }
 
