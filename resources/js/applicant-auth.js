@@ -120,7 +120,7 @@ function initRegisterForm($root) {
     const $form = $root.find('[data-applicant-register-form]');
     const rules = {
         name: ({ name }) => (name.trim() ? '' : 'Enter your full name.'),
-        email: ({ email }) => emailRule(email),
+        email: ({ email }) => (email.trim() ? emailRule(email) : 'Enter your email address.'),
         password: ({ password }) => newPasswordRule(password),
         confirmPassword: ({ password, confirmPassword }) => {
             if (!confirmPassword) {

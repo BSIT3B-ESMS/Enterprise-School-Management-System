@@ -32,6 +32,14 @@
 
         <div class="row row-cols-1 row-cols-sm-3 g-3" data-applicant-kpis></div>
 
+        {{-- Applications saved as drafts, not yet submitted: they have no status and HR does not see them. --}}
+        <section class="card dashboard-panel d-none" aria-labelledby="applicant-drafts-title" data-applicant-drafts-panel>
+            <h2 id="applicant-drafts-title">Saved drafts</h2>
+            <p class="dashboard-panel-subtitle">Not submitted yet. Continue them to edit and submit.</p>
+
+            <ul class="list-group list-group-flush dashboard-list" data-applicant-drafts></ul>
+        </section>
+
         <div class="row g-4">
             <div class="col-lg-7">
                 <section class="card dashboard-panel" aria-labelledby="applicant-applications-title">

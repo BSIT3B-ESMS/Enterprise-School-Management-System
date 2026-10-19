@@ -6,7 +6,7 @@ import { formatDate, formatTime, initialsOf } from './format.js';
 import { progressForStatus, statusAfterCompleting, workflowFor } from './recruitment-workflow.js';
 
 const storageKey = 'ems-mock-data';
-const storageVersion = 15;
+const storageVersion = 16;
 
 const benefitNames = [
     'SSS',
@@ -449,6 +449,10 @@ function seedApplicationState() {
 // ones, have none of them (they read as blank).
 const applicantDetailFields = ['birthdate', 'sex', 'civilStatus', 'address', 'sssNumber', 'philhealthNumber', 'pagibigNumber', 'tin', 'birNumber'];
 
+// The emergency contact an applicant gives on the job application form. It is kept apart from the profile details above:
+// only the application form asks for it, so editing the profile never touches it.
+const applicantEmergencyFields = ['emergencyContactName', 'emergencyContactNumber', 'emergencyContactRelationship'];
+
 // The 201 file documents that apply at the application stage (the others belong to employment).
 const applicantDocumentKeys = ['hiringRequirements', 'education', 'workHistory'];
 
@@ -632,6 +636,9 @@ function createInitialState() {
         ...seedDepartmentState(),
         ...seedJobTitleState(),
         ...seedApplicationState(),
+        // Job applications an applicant has saved but not submitted (see saveApplicationDraft).
+        applicationDrafts: [],
+        nextDraftNumber: 1,
         ...seedLeaveState(employees, today),
         // Newest first; `at` is a timestamp in milliseconds.
         ...withActivityIds({ activity: [
@@ -728,6 +735,8 @@ function loadState() {
             ...(Array.isArray(saved.departments) ? {} : seedDepartmentState()),
             ...(Array.isArray(saved.jobTitles) ? {} : seedJobTitleState()),
             ...(Array.isArray(saved.applications) ? {} : seedApplicationState()),
+            // Application drafts (15 and earlier) start empty.
+            ...(Array.isArray(saved.applicationDrafts) ? {} : { applicationDrafts: [], nextDraftNumber: 1 }),
             ...withActivityIds(saved),
             // The HR profile (8 and earlier) starts from the sample account.
             hrProfile: saved.hrProfile?.name ? saved.hrProfile : { ...seedHrProfile },
@@ -1968,11 +1977,16 @@ export function submitApplication(accountId, details) {
     const jobTitle = findById(state.jobTitles, details.jobTitleId);
     const given = {
         phone: String(details.phone).trim(),
-        ...Object.fromEntries(applicantDetailFields.map((field) => [field, String(details[field] ?? '').trim()])),
+        ...Object.fromEntries([...applicantDetailFields, ...applicantEmergencyFields].map((field) => [field, String(details[field] ?? '').trim()])),
         documents: applicantDocuments(details.documents),
     };
 
     Object.assign(account, given, { documents: applicantDocuments(given.documents) });
+
+    // Submitting turns the draft into the application, so the draft goes away (before the change is announced).
+    state.applicationDrafts = state.applicationDrafts.filter((draft) => !(
+        draft.accountId === accountId && (draft.id === details.draftId || draft.jobTitleId === jobTitle.id)
+    ));
 
     const application = addApplication({
         ...given,
@@ -1988,6 +2002,90 @@ export function submitApplication(accountId, details) {
 }
 
 /**
+ * A saved draft as the Applicant interface shows it: what was filled in, the position it is for (blank when none was
+ * chosen yet), and when it was saved. A draft is not an application: it has no status and HR never sees it.
+ */
+function draftView(draft) {
+    const jobTitle = findById(state.jobTitles, draft.jobTitleId);
+
+    return {
+        ...draft,
+        documents: applicantDocuments(draft.documents),
+        jobTitle: jobTitle?.name ?? '',
+        department: findById(state.departments, jobTitle?.departmentId)?.name ?? '',
+    };
+}
+
+/**
+ * The applicant's saved drafts, most recently saved first.
+ */
+export function listApplicantDrafts(accountId) {
+    return state.applicationDrafts
+        .filter((draft) => draft.accountId === (accountId ?? ''))
+        .sort((first, second) => second.savedAt - first.savedAt)
+        .map(draftView);
+}
+
+/**
+ * One of the applicant's drafts, by its ID or else the one for a position, or undefined.
+ *
+ * @param {{ id?: string, jobTitleId?: string }} which
+ */
+export function getApplicationDraft(accountId, { id = '', jobTitleId = '' } = {}) {
+    const draft = state.applicationDrafts.find((candidate) => (
+        candidate.accountId === (accountId ?? '') && (id ? candidate.id === id : Boolean(jobTitleId) && candidate.jobTitleId === jobTitleId)
+    ));
+
+    return draft ? draftView(draft) : undefined;
+}
+
+/**
+ * Saves what the applicant has filled in so far, to reopen and edit later. Nothing is validated except the position
+ * (when one is chosen, it must still be open and not already applied for), and nothing else changes: no application
+ * is created, so there is no status, HR Recruitment does not show it, and the applicant's profile is left alone.
+ * Passing `draftId` updates that draft (even if its position changed); otherwise a position keeps one draft.
+ *
+ * @param {{ draftId?: string, jobTitleId: string, phone: string, documents: object }} details plus the 201 file and emergency contact fields
+ * @returns {{ ok: true, draft: object } | { ok: false, error: string, errors: object }}
+ */
+export function saveApplicationDraft(accountId, details) {
+    if (!findAccount(accountId)) {
+        return failure('Your account no longer exists.');
+    }
+
+    const jobTitleId = String(details.jobTitleId ?? '');
+    const block = jobTitleId ? applicationBlockFor(accountId, jobTitleId) : '';
+
+    if (block) {
+        return failure(block, { jobTitleId: block });
+    }
+
+    let draft = state.applicationDrafts.find((candidate) => candidate.id === details.draftId && candidate.accountId === accountId);
+
+    // Only one draft per position: saving for a position replaces any other draft of this applicant for it.
+    state.applicationDrafts = state.applicationDrafts.filter((candidate) => (
+        candidate === draft || !(jobTitleId && candidate.accountId === accountId && candidate.jobTitleId === jobTitleId)
+    ));
+
+    if (!draft) {
+        draft = { id: `dr${state.nextDraftNumber}`, accountId };
+        state.nextDraftNumber += 1;
+        state.applicationDrafts.push(draft);
+    }
+
+    Object.assign(draft, {
+        jobTitleId,
+        phone: String(details.phone ?? '').trim(),
+        ...Object.fromEntries([...applicantDetailFields, ...applicantEmergencyFields].map((field) => [field, String(details[field] ?? '').trim()])),
+        documents: applicantDocuments(details.documents),
+        savedAt: Date.now(),
+    });
+    commitChange();
+
+    return { ok: true, draft: draftView(draft) };
+}
+
+/**
  * An applicant's submitted documents: their lists of file records (name, size, date added), copied, with every
  * list present.
  */
@@ -2000,7 +2098,7 @@ function applicantDocuments(source) {
  */
 function submittedDetails(source) {
     return {
-        ...Object.fromEntries(applicantDetailFields.map((field) => [field, String(source[field] ?? '').trim()])),
+        ...Object.fromEntries([...applicantDetailFields, ...applicantEmergencyFields].map((field) => [field, String(source[field] ?? '').trim()])),
         documents: applicantDocuments(source.documents),
     };
 }

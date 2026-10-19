@@ -22,3 +22,19 @@ it('ends the applicant session from Log Out in the header and the sidebar', func
     expect(substr_count($html, 'href="'.route('login').'" data-applicant-logout'))->toBe(2)
         ->and($html)->toContain('Log Out')->not->toContain('Exit to Sign In');
 });
+
+it('marks every required registration field with an asterisk and nothing else', function () {
+    $html = $this->get(route('applicant.register'))->getContent();
+
+    expect(substr_count($html, 'form-label is-required'))->toBe(4)
+        ->and($html)->toContain('data-required-note');
+});
+
+it('marks the required job application fields and leaves the optional ones unmarked', function () {
+    $html = $this->get(route('applicant.apply'))->getContent();
+
+    expect(substr_count($html, 'form-label is-required'))->toBe(7)
+        ->and($html)->toContain('for="apply-phone" class="form-label is-required"', 'for="apply-job-title" class="form-label is-required"')
+        ->and($html)->toContain('for="apply-emergency-name" class="form-label is-required"', 'for="apply-emergency-number" class="form-label is-required"', 'for="apply-emergency-relationship" class="form-label is-required"')
+        ->and($html)->not->toContain('for="apply-address" class="form-label is-required"', 'for="apply-birthdate" class="form-label is-required"');
+});

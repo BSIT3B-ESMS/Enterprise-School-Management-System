@@ -63,6 +63,9 @@ function render($root) {
         sex: application.sex,
         civilStatus: application.civilStatus,
         address: application.address,
+        emergencyContactName: application.emergencyContactName,
+        emergencyContactNumber: application.emergencyContactNumber,
+        emergencyContactRelationship: application.emergencyContactRelationship,
     });
     $root.find('[data-applicant-position-link]').attr('href', `${$root.attr('data-position-url')}/${encodeURIComponent(application.jobTitleId)}`);
     $root.find('[data-applicant-status-pill]').attr('class', `status-pill ${statusClass(application.status)}`).text(application.status);

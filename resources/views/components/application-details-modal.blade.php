@@ -75,6 +75,15 @@
                     </dl>
                 </section>
 
+                <section aria-labelledby="application-emergency-title">
+                    <h3 class="employee-form-section" id="application-emergency-title">Emergency Contact</h3>
+                    <dl class="row row-cols-1 row-cols-md-3 g-3 mb-0 employee-details">
+                        <div class="col"><dt>Name</dt><dd class="mb-0" data-application-field="emergencyContactName"></dd></div>
+                        <div class="col"><dt>Number</dt><dd class="mb-0" data-application-field="emergencyContactNumber"></dd></div>
+                        <div class="col"><dt>Relationship</dt><dd class="mb-0" data-application-field="emergencyContactRelationship"></dd></div>
+                    </dl>
+                </section>
+
                 <section aria-labelledby="application-government-title">
                     <h3 class="employee-form-section" id="application-government-title">Government and Tax</h3>
                     <dl class="row row-cols-1 row-cols-md-2 g-3 mb-0 employee-details">

@@ -27,28 +27,32 @@
 
                 <div class="d-grid gap-3">
                     <div>
-                        <label for="applicant-register-name" class="form-label">Full Name</label>
+                        <label for="applicant-register-name" class="form-label is-required">Full Name</label>
                         <input type="text" class="form-control" id="applicant-register-name" name="name" maxlength="120"
                             autocomplete="name" placeholder="e.g. Juan Dela Cruz" aria-describedby="applicant-register-name-error" required>
                         <div class="invalid-feedback" id="applicant-register-name-error"></div>
                     </div>
 
                     <div>
-                        <label for="applicant-register-email" class="form-label">Email</label>
+                        <label for="applicant-register-email" class="form-label is-required">Email</label>
                         <input type="email" class="form-control" id="applicant-register-email" name="email" autocomplete="email"
                             placeholder="name@mail.com" aria-describedby="applicant-register-email-error" required>
                         <div class="invalid-feedback" id="applicant-register-email-error"></div>
                     </div>
 
                     <div>
-                        <x-password-field id="applicant-register-password" name="password" label="Password" autocomplete="new-password"
+                        <x-password-field id="applicant-register-password" name="password" label="Password" autocomplete="new-password" marked
                             hint="At least 8 characters, with an uppercase letter, a lowercase letter, and a number." />
                     </div>
 
                     <div>
                         <x-password-field id="applicant-register-confirm-password" name="confirmPassword" label="Confirm Password"
-                            autocomplete="new-password" />
+                            autocomplete="new-password" marked />
                     </div>
+
+                    <p class="small text-body-secondary mb-0" data-required-note>
+                        <span class="text-danger fw-semibold" aria-hidden="true">*</span> Required field
+                    </p>
 
                     <p class="small text-body-secondary mb-0">
                         This is a demo account kept in this browser only. Do not use a password you use anywhere else.

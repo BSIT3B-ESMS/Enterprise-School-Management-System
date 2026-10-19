@@ -4,3 +4,11 @@
 .public-header {
     min-height: 4rem;
 }
+
+// A required field's label ends with a red asterisk (add .is-required to the label); optional fields stay unmarked.
+.form-label.is-required::after {
+    margin-left: 0.25rem;
+    font-weight: 600;
+    color: var(--bs-danger);
+    content: "*";
+}

@@ -83,3 +83,8 @@ it('links the application confirmation to the new application and the dashboard'
             'data-apply-application-link>View Application',
         ], escape: false);
 });
+
+it('lists each application with its status and progress on the dashboard', function () {
+    $this->get(route('applicant.dashboard'))
+        ->assertSeeInOrder(['Your applications', 'Current status of each application', 'data-applicant-application-list'], escape: false);
+});

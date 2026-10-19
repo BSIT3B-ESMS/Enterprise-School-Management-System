@@ -80,3 +80,64 @@ it('keeps documents out of the applicant profile edit form, since they are added
     expect($form)->toContain('name="email"', 'name="phone"', 'name="birthdate"')
         ->and($form)->not->toContain('type="file"', 'data-document-field');
 });
+
+it('asks for a required emergency contact on the job application form only', function () {
+    $this->get(route('applicant.apply'))
+        ->assertSeeInOrder([
+            'Contact Information', 'name="phone"',
+            'Emergency Contact',
+            'name="emergencyContactName"', 'name="emergencyContactNumber"', 'name="emergencyContactRelationship"',
+            'Government and Tax',
+        ], escape: false);
+
+    foreach ([route('applicant.register'), route('applicant.profile')] as $url) {
+        $this->get($url)->assertDontSee('emergencyContact', escape: false);
+    }
+});
+
+it('shows the emergency contact on the applicant\'s application and on HR\'s applicant record', function () {
+    $this->get(route('applicant.applications.show', 'c1'))
+        ->assertSeeInOrder(['data-applicant-field="emergencyContactName"', 'data-applicant-field="emergencyContactNumber"', 'data-applicant-field="emergencyContactRelationship"'], escape: false);
+
+    $this->get(route('recruitment.index'))
+        ->assertSeeInOrder(['Emergency Contact', 'data-application-field="emergencyContactName"', 'data-application-field="emergencyContactNumber"', 'data-application-field="emergencyContactRelationship"', 'Government and Tax'], escape: false);
+});
+
+it('masks the phone and government number fields and shows their formats', function (string $route, string $prefix) {
+    $this->get(route($route))
+        ->assertSee('id="'.$prefix.'-phone"', escape: false)
+        ->assertSee('data-mask="phone"', escape: false)
+        ->assertSee('Mobile number: 09XXXXXXXXX or +639XXXXXXXXX', escape: false)
+        ->assertSee('data-mask="sss" placeholder="00-1234567-8"', escape: false)
+        ->assertSee('data-mask="philhealth" placeholder="12-123456789-0"', escape: false)
+        ->assertSee('data-mask="pagibig" placeholder="1234-5678-9012"', escape: false)
+        ->assertSee('data-mask="tin" placeholder="123-456-789"', escape: false)
+        ->assertSee('Format: 123-456-789 (9 digits), or 123-456-789-000 with a branch code', escape: false)
+        // The BIR number has no fixed format, so it keeps the existing digits-and-dashes check without a mask.
+        ->assertDontSee('data-mask="bir"', escape: false);
+})->with([['applicant.apply', 'apply'], ['applicant.profile', 'applicant']]);
+
+it('offers Save Draft separately from Submit Application on the job application form', function () {
+    $this->get(route('applicant.apply'))
+        ->assertSeeInOrder([
+            'data-apply-draft-notice',
+            'data-apply-form',
+            'type="button" class="btn btn-outline-primary" data-apply-save>Save Draft</button>',
+            'type="submit" class="btn btn-primary">Submit Application</button>',
+        ], escape: false);
+});
+
+it('lists saved drafts on the dashboard, apart from the submitted applications', function () {
+    $this->get(route('applicant.dashboard'))
+        ->assertSeeInOrder([
+            'data-applicant-drafts-panel', 'Saved drafts', 'Not submitted yet', 'data-applicant-drafts',
+            'Your applications', 'data-applicant-application-list',
+        ], escape: false)
+        ->assertSee('data-apply-url="'.route('applicant.apply').'"', escape: false);
+});
+
+it('keeps drafts out of HR Recruitment', function () {
+    $this->get(route('recruitment.index'))
+        ->assertDontSee('data-apply-save', escape: false)
+        ->assertDontSee('data-applicant-draft', escape: false);
+});

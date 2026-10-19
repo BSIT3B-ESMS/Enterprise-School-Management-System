@@ -1,10 +1,10 @@
-@props(['id', 'name', 'label', 'autocomplete', 'hint' => null])
+@props(['id', 'name', 'label', 'autocomplete', 'hint' => null, 'marked' => false])
 
 {{--
     A password input with a Show/Hide control and an error line, using the sign-in page's password styles.
     resources/js/password-change.js toggles the field and fills in `{id}-error`.
 --}}
-<label for="{{ $id }}" class="form-label">{{ $label }}</label>
+<label for="{{ $id }}" class="form-label{{ $marked ? ' is-required' : '' }}">{{ $label }}</label>
 <div class="login-password position-relative">
     <input type="password" class="form-control" id="{{ $id }}" name="{{ $name }}" autocomplete="{{ $autocomplete }}"
         aria-describedby="{{ $hint ? $id.'-hint ' : '' }}{{ $id }}-error" required>
