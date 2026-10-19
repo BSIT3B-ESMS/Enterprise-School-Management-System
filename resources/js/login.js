@@ -1,4 +1,6 @@
 import { Toast } from 'bootstrap';
+import { authenticateApplicant } from './mock-data.js';
+import { signIn } from './applicant-session.js';
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const minimumPasswordLength = 6;
@@ -64,7 +66,33 @@ function initLoginPage(root) {
 
         if (emailError || passwordError) {
             (emailError ? email : password).focus();
+
+            return;
         }
+
+        // Mock sign-in: the email and password are checked against the applicant accounts in the shared mock data. A match
+        // opens that applicant's dashboard; anything else shows an error. (HR and Employee accounts are not checked here yet.)
+        const result = authenticateApplicant(email.value, password.value);
+        const $error = form.querySelector('[data-login-error]');
+
+        $error.textContent = result.ok ? '' : result.error;
+        $error.classList.toggle('d-none', result.ok);
+
+        if (!result.ok) {
+            password.value = '';
+            password.focus();
+
+            return;
+        }
+
+        signIn(result.account.id);
+
+        // The position chosen on the Careers website (?position=) stays selected through to the dashboard.
+        const position = new URLSearchParams(window.location.search).get('position');
+
+        window.location.assign(position
+            ? `${form.dataset.applicantDashboardUrl}?position=${encodeURIComponent(position)}`
+            : form.dataset.applicantDashboardUrl);
     });
 }
 

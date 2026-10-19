@@ -38,11 +38,28 @@ Route::view('/profile', 'profile.show')->name('profile.show');
 // Security section; filled in by resources/js/account-settings.js.
 Route::view('/account-settings', 'account.settings')->name('account.settings');
 
-// The Applicant interface: applying for a position (open to anyone, reached from the login page) and then
-// following that application. Filled in from the mock data by resources/js/applicant-apply.js and
-// applicant-portal.js; the application is identified by the ?ref= in the address, not by an account.
+// The public Careers website: open positions, job details, benefits, and contact details anyone can browse without an
+// account, filled in by resources/js/applicant-positions.js from the job titles HR manages. Create Account and Apply
+// Now ask for the Terms and Conditions first.
+Route::view('/careers', 'careers.index')->name('careers.index');
+
+Route::view('/careers/{position}', 'careers.show')
+    ->where('position', 't[0-9]+')
+    ->name('careers.show');
+
+// The Applicant interface. Create Account (resources/js/applicant-auth.js) adds a mock account to the shared mock data
+// after the Terms and Conditions are accepted and signs it in for the browser tab's session only
+// (resources/js/applicant-session.js). Signing in again goes through the shared Login page. The other pages are filled
+// in from the mock data for the signed-in account and send anyone who is not signed in to Login
+// (resources/js/applicant-portal.js).
+Route::redirect('/applicant', '/applicant/dashboard');
+
 Route::prefix('applicant')->name('applicant.')->group(function () {
-    Route::view('/apply', 'applicant.apply')->name('apply');
+    // The public Applicant Portal Apply leads to: Create Account (after the Terms and Conditions) or Login, with the
+    // chosen position kept in ?position=.
+    Route::view('/portal', 'applicant.portal')->name('portal');
+
+    Route::view('/register', 'applicant.register')->name('register');
 
     Route::view('/dashboard', 'applicant.dashboard')->name('dashboard');
 
@@ -52,9 +69,17 @@ Route::prefix('applicant')->name('applicant.')->group(function () {
 
     Route::view('/positions', 'applicant.positions')->name('positions');
 
+    Route::view('/positions/{position}', 'applicant.position')
+        ->where('position', 't[0-9]+')
+        ->name('positions.show');
+
+    Route::view('/apply', 'applicant.apply')->name('apply');
+
     Route::view('/applications', 'applicant.applications')->name('applications');
 
-    Route::view('/application', 'applicant.application')->name('application');
+    Route::view('/applications/{application}', 'applicant.application')
+        ->where('application', 'c[0-9]+')
+        ->name('applications.show');
 });
 
 // The Employee interface: a separate dashboard and sidebar from the HR pages above, filled in from the

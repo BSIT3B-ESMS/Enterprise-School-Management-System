@@ -1,4 +1,4 @@
-{{-- The applicant's name and details are filled in by resources/js/applicant-portal.js. --}}
+{{-- The signed-in applicant's name and email are filled in by resources/js/applicant-portal.js from their account. --}}
 <header class="app-header">
     <div class="d-flex align-items-center gap-2 gap-lg-3 min-w-0">
         <button type="button" class="app-icon-btn" aria-label="Toggle navigation" aria-controls="app-sidebar"
@@ -6,7 +6,7 @@
             <x-icon name="menu" />
         </button>
 
-        <a class="app-brand" href="{{ route('applicant.dashboard') }}" data-applicant-link>
+        <a class="app-brand" href="{{ route('applicant.dashboard') }}">
             <span class="app-brand-logo"><x-brand-logo /></span>
             <span class="app-brand-name">Employee Management System</span>
         </a>
@@ -44,8 +44,7 @@
 
                 @php($isProfilePage = request()->routeIs('applicant.profile'))
                 <a class="dropdown-item d-flex align-items-center gap-2 py-2{{ $isProfilePage ? ' active' : '' }}"
-                    aria-current="{{ $isProfilePage ? 'page' : 'false' }}" href="{{ route('applicant.profile') }}"
-                    data-applicant-link>
+                    aria-current="{{ $isProfilePage ? 'page' : 'false' }}" href="{{ route('applicant.profile') }}">
                     <x-icon name="user" />
                     My Profile
                 </a>
@@ -57,9 +56,9 @@
                     <span class="theme-when-light">Dark mode</span>
                 </button>
 
-                <a class="dropdown-item d-flex align-items-center gap-2 py-2" href="{{ route('login') }}">
+                <a class="dropdown-item d-flex align-items-center gap-2 py-2" href="{{ route('login') }}" data-applicant-logout>
                     <x-icon name="logout" />
-                    Exit to Sign In
+                    Log Out
                 </a>
             </div>
         </div>

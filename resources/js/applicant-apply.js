@@ -2,22 +2,18 @@ import $ from './jquery.js';
 import { bindDocumentFields, readDocuments, setDocuments, todayIsoDate } from './employee-documents.js';
 import { formatDate } from './format.js';
 import {
-    addApplication,
-    getApplicantApplication,
-    isDuplicateApplication,
+    applicationBlockFor,
+    findPosition,
+    getApplicantAccount,
     listApplicantApplications,
     listOpenPositions,
     onMockDataChange,
+    submitApplication,
 } from './mock-data.js';
-import { idNumberRule } from './validation-rules.js';
+import { accountId, isSignedIn } from './applicant-portal.js';
+import { idNumberRule, phoneRule } from './validation-rules.js';
 
-// An applicant who comes from the portal brings their application reference; anyone else applies as a newcomer.
-const referenceParam = new URLSearchParams(window.location.search).get('ref') ?? '';
-
-const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-const phonePattern = /^\+?[\d\s().-]+$/;
-
-// The 201 file details on the form that are copied to and from the application as they are typed (the employee form's names).
+// The 201 file details on the form, with the employee record's field names, so they carry over when the applicant is hired.
 const detailFields = ['birthdate', 'sex', 'civilStatus', 'address', 'sssNumber', 'philhealthNumber', 'pagibigNumber', 'tin', 'birNumber'];
 
 function fieldFor($form, name) {
@@ -34,52 +30,28 @@ function setFieldError($field, message) {
     }
 }
 
-// Each rule returns an error message, or '' when the value is valid. The email is also checked against
-// other applications for the chosen position, so it reads the position field too.
-function validationRules($form) {
-    return {
-        name: (value) => (value.trim() ? '' : 'Enter your full name.'),
-        email: (value) => {
-            if (!emailPattern.test(value.trim())) {
-                return 'Enter a valid email address.';
-            }
-
-            const jobTitleId = String(fieldFor($form, 'jobTitleId').val() ?? '');
-
-            return jobTitleId && isDuplicateApplication(value, jobTitleId)
-                ? 'An application from this email address already exists for this position.'
-                : '';
-        },
-        phone: (value) => {
-            const digitCount = value.replace(/\D/g, '').length;
-
-            if (!value.trim()) {
-                return 'Enter your phone number.';
-            }
-
-            return phonePattern.test(value.trim()) && digitCount >= 7 && digitCount <= 15 ? '' : 'Enter a valid phone number.';
-        },
-        birthdate: (value) => (value && value > todayIsoDate() ? 'The birthdate cannot be in the future.' : ''),
-        sssNumber: idNumberRule,
-        philhealthNumber: idNumberRule,
-        pagibigNumber: idNumberRule,
-        tin: idNumberRule,
-        birNumber: idNumberRule,
-        jobTitleId: (value) => (value ? '' : 'Select the position you are applying for.'),
-    };
-}
+// Each rule returns an error message, or '' when the value is valid (the same rules as the HR employee form).
+const validationRules = {
+    birthdate: (value) => (value && value > todayIsoDate() ? 'The birthdate cannot be in the future.' : ''),
+    jobTitleId: (value) => (value ? applicationBlockFor(accountId, value) : 'Select the position you are applying for.'),
+    phone: phoneRule,
+    sssNumber: idNumberRule,
+    philhealthNumber: idNumberRule,
+    pagibigNumber: idNumberRule,
+    tin: idNumberRule,
+    birNumber: idNumberRule,
+};
 
 /**
- * Lists the open positions (those with at least one opening) under their department, keeping the
- * current choice while it is still open. Positions the applicant has already applied for are listed but
- * cannot be chosen again.
+ * Lists the open positions under their department, keeping the current choice while it can still be chosen.
+ * Positions the applicant has already applied for are listed but cannot be chosen again. Returns how many can be chosen.
  */
 function renderPositions($form) {
     const $select = fieldFor($form, 'jobTitleId');
     const selected = String($select.val() ?? '');
     const positions = listOpenPositions();
     const departments = [...new Set(positions.map((position) => position.department))];
-    const applied = new Set(listApplicantApplications(referenceParam).applications.map((application) => application.jobTitleId));
+    const applied = new Set(listApplicantApplications(accountId).map((application) => application.jobTitleId));
 
     $select.empty().append(
         $('<option>', { value: '', text: 'Select position' }),
@@ -98,7 +70,27 @@ function renderPositions($form) {
         $select.val(selected);
     }
 
-    return positions.length;
+    return positions.filter((position) => !applied.has(position.id)).length;
+}
+
+// The chosen position's employment type, location, and department under the select.
+function renderPositionSummary($form) {
+    const position = findPosition(String(fieldFor($form, 'jobTitleId').val() ?? ''));
+
+    $form.find('[data-apply-position-summary]').text(position
+        ? [position.department, position.employmentType, position.location].filter(Boolean).join(' · ')
+        : '');
+}
+
+// The applicant's profile fills in the form, so nothing they gave before is asked for twice.
+function prefill($form) {
+    const account = getApplicantAccount(accountId);
+
+    $form.find('[data-apply-account="name"]').val(account.name);
+    $form.find('[data-apply-account="email"]').val(account.email);
+    fieldFor($form, 'phone').val(account.phone);
+    detailFields.filter((field) => account[field]).forEach((field) => fieldFor($form, field).val(account[field]));
+    setDocuments($form, account.documents);
 }
 
 function initApplyPage($root) {
@@ -109,6 +101,7 @@ function initApplyPage($root) {
     setDocuments($form);
     bindDocumentFields($form);
     fieldFor($form, 'birthdate').attr('max', todayIsoDate());
+    prefill($form);
 
     function render() {
         // Once submitted, the confirmation stays as it is.
@@ -120,29 +113,22 @@ function initApplyPage($root) {
 
         $root.find('[data-apply-none]').toggleClass('d-none', hasPositions);
         $form.toggleClass('d-none', !hasPositions);
+        renderPositionSummary($form);
     }
 
     // Once a field has been flagged, re-check it as it is corrected.
     $form.on('input change', '.is-invalid', function () {
-        setFieldError($(this), validationRules($form)[$(this).attr('name')](String($(this).val() ?? '')));
+        setFieldError($(this), validationRules[$(this).attr('name')](String($(this).val() ?? '')));
     });
 
-    // A flagged email can depend on the position (one application per email per position).
-    $form.on('change', '[name="jobTitleId"]', function () {
-        const $email = fieldFor($form, 'email');
-
-        if ($email.hasClass('is-invalid')) {
-            setFieldError($email, validationRules($form).email(String($email.val() ?? '')));
-        }
-    });
+    $form.on('change', '[name="jobTitleId"]', () => renderPositionSummary($form));
 
     $form.on('submit', function (event) {
         event.preventDefault();
 
-        const rules = validationRules($form);
         let $firstInvalid = null;
 
-        Object.entries(rules).forEach(([name, rule]) => {
+        Object.entries(validationRules).forEach(([name, rule]) => {
             const $field = fieldFor($form, name);
             const message = rule(String($field.val() ?? ''));
 
@@ -159,34 +145,31 @@ function initApplyPage($root) {
             return;
         }
 
-        const position = listOpenPositions().find((candidate) => candidate.id === String(fieldFor($form, 'jobTitleId').val()));
+        const result = submitApplication(accountId, {
+            jobTitleId: String(fieldFor($form, 'jobTitleId').val()),
+            phone: String(fieldFor($form, 'phone').val()),
+            ...Object.fromEntries(detailFields.map((field) => [field, String(fieldFor($form, field).val() ?? '')])),
+            documents: readDocuments($form),
+        });
 
-        if (!position) {
-            setFieldError(fieldFor($form, 'jobTitleId'), 'That position is no longer open. Choose another.');
-            renderPositions($form);
+        // The position closed, or an application for it came in, while the form was open (for example, from HR in another tab).
+        if (!result.ok) {
+            render();
+            setFieldError(fieldFor($form, 'jobTitleId'), result.error);
+            fieldFor($form, 'jobTitleId').trigger('focus');
 
             return;
         }
 
-        const name = String(fieldFor($form, 'name').val()).trim();
-        const application = addApplication({
-            name,
-            email: String(fieldFor($form, 'email').val()).trim(),
-            phone: String(fieldFor($form, 'phone').val()).trim(),
-            jobTitleId: position.id,
-            departmentId: position.departmentId,
-            appliedOn: todayIsoDate(),
-            ...Object.fromEntries(detailFields.map((field) => [field, String(fieldFor($form, field).val() ?? '').trim()])),
-            documents: readDocuments($form),
-        }, name);
+        const { application } = result;
 
         submitted = true;
-        $success.find('[data-apply-field="firstName"]').text(name.split(/\s+/)[0]);
-        $success.find('[data-apply-field="jobTitle"]').text(position.name);
-        $success.find('[data-apply-field="department"]').text(position.department);
+        $success.find('[data-apply-field="firstName"]').text(application.name.split(/\s+/)[0]);
+        $success.find('[data-apply-field="jobTitle"]').text(application.jobTitle);
+        $success.find('[data-apply-field="department"]').text(application.department);
         $success.find('[data-apply-field="appliedOn"]').text(formatDate(application.appliedOn));
-        $success.find('[data-apply-portal-link]').attr('href', `${$root.attr('data-portal-url')}?ref=${encodeURIComponent(application.id)}`);
-        $success.find('[data-apply-applications-link]').attr('href', `${$root.attr('data-applications-url')}?ref=${encodeURIComponent(application.id)}`);
+        $success.find('[data-apply-application-link]').attr('href', `${$root.attr('data-application-url')}/${encodeURIComponent(application.id)}`);
+        $root.find('[data-apply-position-notice]').addClass('d-none');
         $form.addClass('d-none');
         $success.removeClass('d-none');
         $success.find('#apply-success-title').trigger('focus');
@@ -195,33 +178,18 @@ function initApplyPage($root) {
     render();
     onMockDataChange(render);
 
-    // From Open Positions: ?position= chooses the position and ?ref= is the applicant's existing application, whose
-    // details and documents fill in the form, so nothing is asked for twice. Only an open position can be chosen; a closed or unknown one is refused.
-    const params = new URLSearchParams(window.location.search);
-    const requested = params.get('position');
-    const existing = getApplicantApplication(params.get('ref') ?? '');
-
-    if (existing) {
-        fieldFor($form, 'name').val(existing.name);
-        fieldFor($form, 'email').val(existing.email);
-        fieldFor($form, 'phone').val(existing.phone);
-        detailFields.filter((field) => existing[field]).forEach((field) => fieldFor($form, field).val(existing[field]));
-        setDocuments($form, existing.documents);
-
-        // Cancelling or going back returns to the applicant's applications instead of the sign-in page.
-        $root.find('[data-apply-back]').attr('href', `${$root.attr('data-applications-url')}?ref=${encodeURIComponent(referenceParam)}`);
-        $root.find('[data-apply-back-label]').text('Back to Applications');
-    }
+    // From a position's Apply Now (also after Create Account): choose that position, unless it is closed or
+    // already applied for, which is explained instead.
+    const requested = new URLSearchParams(window.location.search).get('position');
 
     if (requested) {
-        const alreadyApplied = listApplicantApplications(referenceParam).applications.some((application) => application.jobTitleId === requested);
+        const block = applicationBlockFor(accountId, requested);
 
-        if (alreadyApplied) {
-            $root.find('[data-apply-position-notice]').text('You have already applied for that position. Choose another.').removeClass('d-none');
-        } else if (listOpenPositions().some((position) => position.id === requested)) {
-            fieldFor($form, 'jobTitleId').val(requested);
+        if (block) {
+            $root.find('[data-apply-position-notice]').text(`${block} Choose another position.`).removeClass('d-none');
         } else {
-            $root.find('[data-apply-position-notice]').removeClass('d-none');
+            fieldFor($form, 'jobTitleId').val(requested);
+            renderPositionSummary($form);
         }
     }
 }
@@ -229,7 +197,7 @@ function initApplyPage($root) {
 $(function () {
     const $apply = $('[data-page="applicant-apply"]');
 
-    if ($apply.length) {
+    if ($apply.length && isSignedIn()) {
         initApplyPage($apply);
     }
 });

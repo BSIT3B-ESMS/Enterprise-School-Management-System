@@ -10,10 +10,10 @@
 @endphp
 
 {{--
-    The applicant's own screening and interview schedule on the same calendar the HR pages use
-    (resources/js/calendar.js, in its "applicant" mode), from the same Recruitment data HR schedules in, so a change
-    there shows here. The application is found by the ?ref= in the address (there are no accounts). Nothing here
-    schedules, completes, or changes the status of anything.
+    The signed-in applicant's own screening and interview schedule, across all of their applications, on the same
+    calendar the HR pages use (resources/js/calendar.js, in its "applicant" mode), from the same Recruitment data HR
+    schedules in, so a new or rescheduled activity there shows here. Nothing here schedules, completes, or changes
+    the status of anything.
 --}}
 @section('content')
     <div class="d-grid gap-4" data-page="calendar" data-calendar-scope="applicant">
@@ -22,18 +22,7 @@
             <p class="text-body-secondary mt-1 mb-0">Your screening and interview schedule.</p>
         </div>
 
-        <div class="card d-none" data-applicant-missing>
-            <div class="employees-empty">
-                <strong>No application found</strong>
-                Open this page from your application confirmation, or apply for a position.
-                <div class="d-flex justify-content-center flex-wrap gap-2 mt-3">
-                    <a class="btn btn-primary" href="{{ route('applicant.apply') }}">Apply for a Position</a>
-                    <a class="btn btn-outline-secondary" href="{{ route('login') }}">Back to Sign In</a>
-                </div>
-            </div>
-        </div>
-
-        <div class="d-grid gap-4" data-applicant-content>
+        <div class="d-grid gap-4">
             <div class="card employees-filters">
                 <div class="row g-3 align-items-start">
                     <fieldset class="col-lg-5">

@@ -1,8 +1,47 @@
 import $ from './jquery.js';
-import { reference } from './applicant-portal.js';
-import { listPositions, onMockDataChange } from './mock-data.js';
+import { formatPeso } from './format.js';
+import {
+    applicationBlockFor,
+    findPosition,
+    getApplicantAccount,
+    getOpenPositionBenefits,
+    listApplicantApplications,
+    listPositions,
+    onMockDataChange,
+} from './mock-data.js';
+import { currentAccountId } from './applicant-session.js';
+import { isSignedIn, plural } from './applicant-portal.js';
+import { setThemeChoice } from './theme.js';
 
-const plural = (count, word) => `${count} ${word}${count === 1 ? '' : 's'}`;
+const notSpecified = 'Not specified';
+
+/**
+ * The signed-in applicant on a public page ('' when no one is signed in this session). In the Applicant interface
+ * the portal decides who is signed in (see applicant-portal.js).
+ */
+function publicAccountId() {
+    const accountId = currentAccountId();
+
+    return accountId && getApplicantAccount(accountId) ? accountId : '';
+}
+
+function accountFor($root) {
+    if ($root.attr('data-positions-context') === 'portal') {
+        return isSignedIn() ? currentAccountId() : '';
+    }
+
+    return publicAccountId();
+}
+
+// "₱58,000 per month" for a position's base salary (the job title's salary in HR); a part-time position's figure is the
+// full-time equivalent. "Not specified" when HR has set none.
+function salaryText(position) {
+    if (!position.baseSalary) {
+        return notSpecified;
+    }
+
+    return `${formatPeso(position.baseSalary)} per month${position.employmentType === 'Part-time' ? ' (full-time equivalent)' : ''}`;
+}
 
 // "Open · 4 openings" for an open position, "Closed" for one with no openings.
 function statusBadge(position) {
@@ -11,103 +50,248 @@ function statusBadge(position) {
         : $('<span>', { class: 'ems-chip', text: 'Closed' });
 }
 
-// The application form for a position, keeping the applicant's reference so the form can use their details.
-// Only open positions have one: a closed position can be viewed but not applied for.
-function applyUrl($root, position) {
-    const query = new URLSearchParams({ position: position.id, ...(reference ? { ref: reference } : {}) });
+// Apply: the application form for an applicant who is signed in. For anyone else it is the registration form, which
+// the link reaches only through the Terms and Conditions modal (data-terms-continue, see applicant-terms.js). Either
+// way it keeps the chosen position.
+function applyHref($root, positionId, accountId) {
+    const base = accountId ? $root.attr('data-apply-url') : $root.attr('data-register-url');
 
-    return `${$root.attr('data-apply-url')}?${query}`;
+    return `${base}?position=${encodeURIComponent(positionId)}`;
 }
 
-function positionCard($root, position) {
-    const $actions = $('<div>', { class: 'd-flex flex-wrap gap-2 mt-auto pt-2' }).append(
-        $('<button>', {
-            type: 'button',
-            class: 'btn btn-sm btn-outline-secondary',
-            text: 'View Details',
-            'aria-label': `View details for ${position.name}`,
-            'data-bs-toggle': 'modal',
-            'data-bs-target': '#position-details-modal',
-            'data-position-id': position.id,
-        }),
-        position.isOpen
-            ? $('<a>', { class: 'btn btn-sm btn-primary', href: applyUrl($root, position), text: 'Apply', 'aria-label': `Apply for ${position.name}` })
-            : $('<button>', { type: 'button', class: 'btn btn-sm btn-primary', disabled: true, text: 'Applications closed' }),
-    );
+// Marks an Apply link as one that shows the Terms first (nobody is signed in), and where declining goes: nowhere on the
+// list (the visitor stays on Open Positions), or back to Open Positions from a position's details.
+function setTermsGate($link, needsTerms, declineUrl = '') {
+    if (needsTerms) {
+        $link.attr('data-terms-continue', '');
+    } else {
+        $link.removeAttr('data-terms-continue');
+    }
+
+    if (needsTerms && declineUrl) {
+        $link.attr('data-terms-decline-url', declineUrl);
+    } else {
+        $link.removeAttr('data-terms-decline-url');
+    }
+}
+
+function positionCard($root, position, appliedIds, accountId, isSelected) {
+    const detailsUrl = `${$root.attr('data-details-url')}/${encodeURIComponent(position.id)}`;
+    const facts = [position.employmentType || notSpecified, position.location || notSpecified];
 
     return $('<div>', { class: 'col' }).append(
-        $('<article>', { class: `card dashboard-panel${position.isOpen ? '' : ' position-closed'}` }).append(
+        $('<article>', {
+            id: `position-${position.id}`,
+            class: `card dashboard-panel h-100 d-flex flex-column${isSelected ? ' border-primary' : ''}`,
+        }).append(
             $('<div>', { class: 'd-flex justify-content-between align-items-start gap-3 mb-1' }).append(
-                $('<h3>', { class: 'fs-6 fw-semibold mb-0', text: position.name }),
-                statusBadge(position),
+                $('<h3>', { class: 'fs-6 fw-semibold mb-0' }).append(
+                    $('<a>', { class: 'text-reset text-decoration-none', href: detailsUrl, text: position.name }),
+                ),
+                appliedIds.has(position.id) ? $('<span>', { class: 'ems-chip', text: 'Applied' }) : statusBadge(position),
             ),
-            $('<div>', { class: 'text-body-secondary mb-2', text: position.department }),
-            position.description
-                ? $('<p>', { class: 'mb-2', text: position.description })
+            $('<div>', { class: 'text-body-secondary', text: position.department }),
+            $('<div>', { class: 'small text-body-secondary mb-2', text: facts.join(' · ') }),
+            $('<div>', { class: 'fw-semibold mb-2' }).append(
+                $('<span>', { class: 'visually-hidden', text: 'Base salary: ' }),
+                $('<span>', { class: 'tabular-nums', text: salaryText(position) }),
+            ),
+            position.summary
+                ? $('<p>', { class: 'mb-2', text: position.summary })
                 : $('<p>', { class: 'text-body-secondary mb-2', text: 'No description is available.' }),
-            $actions,
+            $('<div>', { class: 'mt-auto pt-2 d-flex flex-wrap gap-2' }).append(
+                $('<a>', {
+                    class: 'btn btn-sm btn-outline-primary',
+                    href: detailsUrl,
+                    text: 'View Details',
+                    'aria-label': `View details for ${position.name}`,
+                }),
+                appliedIds.has(position.id)
+                    ? $('<span>', { class: 'btn btn-sm disabled', text: 'Already applied' })
+                    : $('<a>', {
+                        class: 'btn btn-sm btn-primary',
+                        href: applyHref($root, position.id, accountId),
+                        text: 'Apply',
+                        'aria-label': `Apply for ${position.name}`,
+                        ...(accountId ? {} : { 'data-terms-continue': '' }),
+                    }),
+            ),
         ),
     );
 }
 
-function renderPositions($root) {
-    const positions = listPositions();
-    const open = positions.filter((position) => position.isOpen);
-    const closed = positions.filter((position) => !position.isOpen);
+function initPositionList($root) {
+    // Declining the Terms returns here with ?position= so the chosen position and its Apply button stay in view.
+    const selectedId = new URLSearchParams(window.location.search).get('position') ?? '';
+    const $search = $root.find('[data-positions-search]');
+    const $department = $root.find('[data-positions-department]');
 
-    $root.find('[data-positions-none]').toggleClass('d-none', positions.length > 0);
-    $root.find('[data-positions-content]').toggleClass('d-none', positions.length === 0);
-    $root.find('[data-positions-open-count]').text(open.length);
-    $root.find('[data-positions-open]').empty().append(...open.map((position) => positionCard($root, position)));
-    $root.find('[data-positions-open-empty]').toggleClass('d-none', open.length > 0);
-    $root.find('[data-positions-closed]').empty().append(...closed.map((position) => positionCard($root, position)));
-    $root.find('[data-positions-closed-section]').toggleClass('d-none', closed.length === 0);
+    function render() {
+        // Only open positions are listed; a closed one can still be opened from a saved link and says it is closed.
+        const open = listPositions().filter((position) => position.isOpen);
+        const departments = [...new Set(open.map((position) => position.department))].sort();
+        const selectedDepartment = String($department.val() ?? '');
+        const query = String($search.val() ?? '').trim().toLowerCase();
+        const accountId = accountFor($root);
+        const appliedIds = new Set(listApplicantApplications(accountId).map((application) => application.jobTitleId));
+
+        $department.empty().append(
+            $('<option>', { value: '', text: 'All departments' }),
+            ...departments.map((department) => $('<option>', { value: department, text: department })),
+        );
+        $department.val(departments.includes(selectedDepartment) ? selectedDepartment : '');
+
+        const shown = open.filter((position) => (
+            (!$department.val() || position.department === $department.val())
+            && (!query || `${position.name} ${position.department} ${position.employmentType} ${position.location} ${position.summary} ${position.description}`.toLowerCase().includes(query))
+        ));
+
+        $root.find('[data-positions-open-count]').text(open.length);
+        $root.find('[data-positions-open]').empty().append(...shown.map((position) => positionCard($root, position, appliedIds, accountId, position.id === selectedId)));
+        $root.find('[data-positions-none]').toggleClass('d-none', open.length > 0);
+        $root.find('[data-positions-no-match]').toggleClass('d-none', open.length === 0 || shown.length > 0);
+    }
+
+    $search.on('input', render);
+    $department.on('change', render);
+    render();
+    renderBenefits($root);
+    document.getElementById(`position-${selectedId}`)?.scrollIntoView({ block: 'center' });
+    onMockDataChange(() => {
+        render();
+        renderBenefits($root);
+    });
 }
 
-// The details modal is filled in when it opens, from the position's trigger (data-position-id).
-function initDetailsModal($root, $modal) {
-    $modal.on('show.bs.modal', function (event) {
-        const position = listPositions().find((candidate) => candidate.id === $(event.relatedTarget).attr('data-position-id'));
+// The Careers website's benefits: what the open positions offer, from the same job titles HR manages.
+function renderBenefits($root) {
+    const benefits = getOpenPositionBenefits();
+    const $benefits = $root.find('[data-careers-benefits]');
+
+    $benefits.empty().append(...(benefits.length
+        ? benefits.map((benefit) => $('<div>', { class: 'col' }).append(
+            $('<div>', { class: 'quick-link' }).append(
+                $('<span>', { class: 'quick-link-label', text: benefit.name }),
+                $('<small>', { text: benefit.description }),
+            ),
+        ))
+        : [$('<p>', { class: 'col text-body-secondary mb-0', text: 'Benefits are listed when positions are open.' })]));
+}
+
+function fillList($details, name, items) {
+    $details.find(`[data-position-list="${name}"]`).empty().append(...items.map((item) => $('<li>', { text: item })));
+    $details.find(`[data-position-list-empty="${name}"]`).toggleClass('d-none', items.length > 0);
+}
+
+/**
+ * Apply Now, by who is looking: in the Applicant interface (or signed in on a public page) it opens the application
+ * form for the position; on a public page without an account it shows the Terms and Conditions and, once accepted,
+ * opens the registration form with the position kept. A closed position, or one the applicant already applied for, has no Apply Now.
+ */
+function renderActions($root, $details, position) {
+    const accountId = accountFor($root);
+    const ownApplication = listApplicantApplications(accountId).find((application) => application.jobTitleId === position.id);
+    const block = accountId ? applicationBlockFor(accountId, position.id) : '';
+    const canApply = position.isOpen && !ownApplication && !block;
+    let notice = '';
+
+    if (!position.isOpen) {
+        notice = 'This position is closed and is not accepting applications.';
+    } else if (ownApplication) {
+        notice = `You applied for this position. Its status is ${ownApplication.status}.`;
+    } else if (block) {
+        notice = block;
+    }
+
+    const $apply = $details.find('[data-position-apply]');
+
+    $apply.toggleClass('d-none', !canApply).attr('href', applyHref($root, position.id, accountId));
+    setTermsGate($apply, !accountId, `${$root.attr('data-careers-url')}?position=${encodeURIComponent(position.id)}`);
+    $details.find('[data-position-closed]').toggleClass('d-none', position.isOpen);
+    $details.find('[data-position-view-application]')
+        .toggleClass('d-none', !ownApplication)
+        .attr('href', ownApplication ? `${$root.attr('data-application-url')}/${encodeURIComponent(ownApplication.id)}` : '#');
+    $details.find('[data-position-notice]')
+        .text(notice)
+        .toggleClass('d-none', !notice)
+        .toggleClass('alert-warning', !position.isOpen)
+        .toggleClass('alert-secondary', position.isOpen);
+}
+
+function initPositionDetails($root) {
+    const $details = $root.find('[data-position-details]');
+    const id = $details.attr('data-position-id');
+
+    function render() {
+        const position = findPosition(id);
+
+        $details.find('[data-position-missing]').toggleClass('d-none', Boolean(position));
+        $details.find('[data-position-content]').toggleClass('d-none', !position);
 
         if (!position) {
-            event.preventDefault();
-
             return;
         }
 
-        $modal.find('[data-position-field="name"]').text(position.name);
-        $modal.find('[data-position-field="department"]').text(position.department);
-        $modal.find('[data-position-status]').empty().append(statusBadge(position));
+        const values = {
+            name: position.name,
+            department: position.department,
+            employmentType: position.employmentType || notSpecified,
+            location: position.location || notSpecified,
+            salary: salaryText(position),
+            openings: position.isOpen ? position.openings : 'None',
+            description: position.description || 'No description is available.',
+        };
 
-        $modal.find('[data-position-field="description"]')
-            .text(position.description || 'No description is available.')
-            .toggleClass('text-body-secondary', !position.description);
-
-        $modal.find('[data-position-qualifications]').empty().append(
-            ...position.qualifications.map((qualification) => $('<li>', { text: qualification })),
-        );
-        $modal.find('[data-position-qualifications-empty]').toggleClass('d-none', position.qualifications.length > 0);
-
-        $modal.find('[data-position-benefits]').empty().append(
+        Object.entries(values).forEach(([field, value]) => {
+            $details.find(`[data-position-field="${field}"]`).text(value);
+        });
+        $details.find('[data-position-status]').empty().append(statusBadge(position));
+        fillList($details, 'responsibilities', position.responsibilities);
+        fillList($details, 'qualifications', position.qualifications);
+        fillList($details, 'requirements', position.requirements);
+        $details.find('[data-position-benefits]').empty().append(
             ...(position.benefits.length
                 ? position.benefits.map((benefit) => $('<span>', { class: 'ems-chip', text: benefit }))
                 : [$('<span>', { class: 'text-body-secondary', text: 'No benefits are listed.' })]),
         );
+        renderActions($root, $details, position);
+    }
 
-        // Only an open position can be applied for.
-        $modal.find('[data-position-apply]').toggleClass('d-none', !position.isOpen).attr('href', applyUrl($root, position));
-        $modal.find('[data-position-closed]').toggleClass('d-none', position.isOpen);
+    render();
+    onMockDataChange(render);
+}
+
+// The public header: Login and Create Account, or My Dashboard for an applicant already signed in this session, and
+// the same light/dark toggle as the app shell's header.
+function initPublicHeader() {
+    const isSignedInHere = Boolean(publicAccountId());
+    const $header = $('.public-header');
+
+    $header.find('[data-public-signed-out]').toggleClass('d-none', isSignedInHere);
+    $header.find('[data-public-signed-in]').toggleClass('d-none', !isSignedInHere);
+    $header.on('click', '[data-theme-toggle]', () => {
+        setThemeChoice(document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark');
     });
 }
 
 $(function () {
-    const $positions = $('[data-page="applicant-positions"]');
+    const $list = $('[data-page="applicant-positions"]');
+    const $details = $('[data-page="applicant-position"]');
+    const $page = $list.length ? $list : $details;
 
-    if (!$positions.length) {
+    if (!$page.length) {
         return;
     }
 
-    initDetailsModal($positions, $('[data-position-details-modal]'));
-    renderPositions($positions);
-    onMockDataChange(() => renderPositions($positions));
+    if ($page.attr('data-positions-context') === 'public') {
+        initPublicHeader();
+    } else if (!isSignedIn()) {
+        return;
+    }
+
+    if ($list.length) {
+        initPositionList($list);
+    } else {
+        initPositionDetails($details);
+    }
 });

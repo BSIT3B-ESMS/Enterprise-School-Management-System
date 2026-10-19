@@ -24,11 +24,10 @@ it('offers screening and interview types and scheduled and completed statuses, a
         ->assertDontSee('value="Approved"', escape: false);
 });
 
-it('reuses the calendar navigation, grid, day panel, and details, with a not found state', function () {
+it('reuses the calendar navigation, grid, day panel, and details', function () {
     $this->get(route('applicant.calendar'))
         ->assertSeeInOrder([
-            'data-applicant-missing', 'No application found',
-            'data-applicant-content',
+            'data-calendar-data-notice',
             'data-calendar-month-title',
             'aria-label="Previous month"', 'data-calendar-today>Today</button>', 'aria-label="Next month"',
             'data-calendar-month-empty',

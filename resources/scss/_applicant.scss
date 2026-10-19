@@ -1,0 +1,6 @@
+// Applicant interface: the header of the pages anyone can open without an account (layouts/public.blade.php).
+// It reuses .app-header, which takes its height from the app shell's grid everywhere else.
+
+.public-header {
+    min-height: 4rem;
+}

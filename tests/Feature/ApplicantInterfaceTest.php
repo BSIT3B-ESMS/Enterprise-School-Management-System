@@ -1,55 +1,79 @@
 <?php
 
-it('adds Apply for a Position at the bottom of the login page and keeps the sign-in form', function () {
+it('keeps one shared Login page, with Login and an Apply for a Job link to the Careers website', function () {
     $this->get(route('login'))
         ->assertSeeInOrder([
             'data-login-form',
-            'name="email"', 'name="password"', 'Remember Me', 'data-forgot-password', 'Sign In</button>',
-            'Looking for a job?', 'href="'.route('applicant.apply').'"', 'Apply for a Position',
-        ], escape: false);
+            'Welcome Back',
+            'name="email"', 'name="password"', 'Remember Me', 'data-forgot-password', 'Login</button>',
+            'Looking for a job?',
+            'href="'.route('careers.index').'">Apply for a Job</a>',
+        ], escape: false)
+        ->assertDontSee('Sign In</button>', escape: false)
+        ->assertDontSee('data-terms-modal', escape: false)
+        ->assertDontSee('href="'.route('applicant.dashboard').'"', escape: false);
 });
 
-it('opens the application form without an account, with the existing form controls', function () {
-    $this->get(route('applicant.apply'))
-        ->assertOk()
-        ->assertSee('data-page="applicant-apply"', escape: false)
-        ->assertSeeInOrder([
-            'Apply for a Position', 'Back to Sign In',
-            'data-apply-none', 'No open positions',
-            'data-apply-form',
-            'name="name"', 'name="email"', 'name="phone"',
-            'name="jobTitleId"', 'data-apply-positions',
-            'Cancel', 'Submit Application',
-            'data-apply-success', 'Application submitted', 'data-apply-portal-link',
-        ], escape: false)
-        ->assertDontSee('type="password"', escape: false)
-        ->assertDontSee('data-app-shell', escape: false)
-        ->assertDontSee('href="'.route('employees.index').'"', escape: false);
+it('signs applicants in from the shared Login page, with an error area for wrong credentials', function () {
+    $this->get(route('login'))
+        ->assertSee('data-applicant-dashboard-url="'.route('applicant.dashboard').'"', escape: false)
+        ->assertSeeInOrder(['Welcome Back', 'data-login-error', 'name="email"', 'name="password"'], escape: false);
 });
+
+it('hides the registration form until the terms are accepted', function () {
+    $html = $this->get(route('applicant.register'))->getContent();
+
+    expect($html)->toContain('d-none" novalidate data-applicant-register-form')
+        ->and($html)->toContain('id="applicant-terms-modal"');
+});
+
+it('asks for the terms and privacy notice before registration', function (string $route) {
+    $this->get(route($route, ['position' => 't5']))
+        ->assertSeeInOrder([
+            'id="applicant-terms-modal"', 'data-bs-backdrop="static"', 'data-terms-modal',
+            'Terms and Conditions', 'Privacy Notice',
+            'type="checkbox" id="applicant-terms-agree" data-terms-agree',
+            'data-terms-decline>Decline</button>',
+            'disabled data-terms-accept>Accept and Continue</button>',
+            'data-terms-declined-toast',
+        ], escape: false);
+})->with(['applicant.register', 'careers.index', 'careers.show']);
+
+it('does not claim consent or applications are permanently saved', function (string $route) {
+    $this->get(route($route, ['position' => 't5']))
+        ->assertSee('kept in this browser only', escape: false)
+        ->assertDontSee('permanently', escape: false)
+        ->assertDontSee('securely stored', escape: false);
+})->with(['applicant.register', 'careers.show']);
 
 it('serves the application details page in the applicant shell with Applications current', function () {
-    $this->get(route('applicant.application'))
+    $this->get(route('applicant.applications.show', 'c1'))
         ->assertOk()
-        ->assertSee('data-page="applicant-application"', escape: false)
+        ->assertSee('data-page="applicant-application" data-applicant-application="c1"', escape: false)
         ->assertSee('aria-current="page" href="'.route('applicant.applications').'"', escape: false)
         ->assertSeeInOrder(['Application Details', 'Back to Applications'], escape: false)
-        ->assertSee('Exit to Sign In')
+        ->assertSee('data-applicant-logout', escape: false)
         ->assertSeeInOrder(['data-applicant-initials', 'data-applicant-name', 'data-applicant-email', 'Applicant'], escape: false);
 });
 
-it('shows the progress, schedule, and details sections and the not found state on the applicant page', function () {
-    $this->get(route('applicant.application'))
+it('only accepts application and position IDs in the applicant addresses', function (string $uri) {
+    $this->get($uri)->assertNotFound();
+})->with(['/applicant/applications/EMP-1001', '/applicant/positions/d1', '/jobs/abc']);
+
+it('shows the progress, schedule, position, and submitted details, with a not found state', function () {
+    $this->get(route('applicant.applications.show', 'c1'))
         ->assertSeeInOrder([
-            'data-applicant-missing', 'No application found', 'href="'.route('applicant.apply').'"',
+            'data-applicant-missing', 'No application found', 'not one of yours',
             'data-applicant-status-message',
             'Progress', 'data-applicant-steps',
             'Screening and interview', 'data-applicant-activities', 'Nothing has been scheduled yet.',
-            'Your application', 'data-applicant-field="jobTitle"', 'data-applicant-field="email"',
+            'Position', 'data-applicant-field="employmentType"', 'data-applicant-field="location"',
+            'Your application', 'data-applicant-field="email"', 'data-applicant-documents="education"',
         ], escape: false);
 });
 
 it('gives the applicant no way to change the application or reach HR pages', function () {
-    $this->get(route('applicant.application'))
+    $this->get(route('applicant.applications.show', 'c1'))
         ->assertDontSee('data-application-', escape: false)
         ->assertDontSee('<form', escape: false)
         ->assertDontSee('href="'.route('employees.index').'"', escape: false)
@@ -62,6 +86,7 @@ it('gives the applicant no way to change the application or reach HR pages', fun
 it('keeps the HR and Employee interfaces free of the applicant interface', function (string $route) {
     $this->get(route($route))
         ->assertDontSee('href="'.route('applicant.apply').'"', escape: false)
-        ->assertDontSee('href="'.route('applicant.application').'"', escape: false)
-        ->assertDontSee('data-applicant-', escape: false);
+        ->assertDontSee('href="'.route('applicant.applications').'"', escape: false)
+        ->assertDontSee('data-applicant-', escape: false)
+        ->assertDontSee('data-terms-modal', escape: false);
 })->with(['dashboard', 'employees.index', 'recruitment.index', 'employee.dashboard', 'employee.profile']);

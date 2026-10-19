@@ -1,85 +1,51 @@
 import $ from './jquery.js';
-import { documentItem } from './employee-documents.js';
+import { todayIsoDate } from './employee-documents.js';
 import { formatDate, initialsOf } from './format.js';
-import { reference } from './applicant-portal.js';
-import { getApplicantApplication, isApplicantEmailTaken, onMockDataChange, updateApplicantProfile } from './mock-data.js';
-import { statusClass } from './recruitment-workflow.js';
+import { fillDocuments, fillFields } from './applicant-application.js';
+import { accountId, isSignedIn } from './applicant-portal.js';
+import { getApplicantAccount, onMockDataChange, updateApplicantAccount, validateApplicantEmail } from './mock-data.js';
+import { emailRule, idNumberRule, phoneRule } from './validation-rules.js';
 import { showToast } from './toast.js';
 
-const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-const phonePattern = /^\+?[\d\s().-]+$/;
+// The profile details the form edits (the 201 file's field names); the name is not one of them.
+const editableFields = ['email', 'phone', 'address', 'birthdate', 'sex', 'civilStatus', 'sssNumber', 'philhealthNumber', 'pagibigNumber', 'tin', 'birNumber'];
 
-// Each rule returns an error message, or '' when the value is valid. The email is also checked against other
-// applications for the same position (one application per email per position).
+// Each rule returns an error message, or '' when the value is valid (the same rules as the job application form).
 const validationRules = {
-    email: (value) => {
-        if (!emailPattern.test(value.trim())) {
-            return 'Enter a valid email address.';
-        }
-
-        return isApplicantEmailTaken(reference, value) ? 'An application from this email address already exists for this position.' : '';
-    },
-    phone: (value) => {
-        const digitCount = value.replace(/\D/g, '').length;
-
-        if (!value.trim()) {
-            return 'Enter your phone number.';
-        }
-
-        return phonePattern.test(value.trim()) && digitCount >= 7 && digitCount <= 15 ? '' : 'Enter a valid phone number.';
-    },
+    birthdate: (value) => (value && value > todayIsoDate() ? 'The birthdate cannot be in the future.' : ''),
+    email: (value) => emailRule(value) || validateApplicantEmail(accountId, value).email || '',
+    phone: phoneRule,
+    sssNumber: idNumberRule,
+    philhealthNumber: idNumberRule,
+    pagibigNumber: idNumberRule,
+    tin: idNumberRule,
+    birNumber: idNumberRule,
 };
 
 function renderProfile($root) {
-    const application = getApplicantApplication(reference);
+    const account = getApplicantAccount(accountId);
 
-    // No reference, or the application was deleted (for example, by HR in another tab).
-    $root.find('[data-applicant-missing]').toggleClass('d-none', Boolean(application));
-    $root.find('[data-applicant-content]').toggleClass('d-none', !application);
-
-    if (!application) {
+    if (!account) {
         return;
     }
 
-    const values = {
-        initials: initialsOf(application.name),
-        name: application.name,
-        role: `${application.jobTitle} · ${application.department}`,
-        birthdate: application.birthdate ? formatDate(application.birthdate) : '',
-        sex: application.sex,
-        civilStatus: application.civilStatus,
-        email: application.email,
-        phone: application.phone,
-        address: application.address,
-        sssNumber: application.sssNumber,
-        philhealthNumber: application.philhealthNumber,
-        pagibigNumber: application.pagibigNumber,
-        tin: application.tin,
-        birNumber: application.birNumber,
-        jobTitle: application.jobTitle,
-        department: application.department,
-        appliedOn: formatDate(application.appliedOn),
-        status: application.status,
-    };
-
-    Object.entries(values).forEach(([field, value]) => {
-        const $fields = $root.find(`[data-applicant-field="${field}"]`);
-
-        if (value) {
-            $fields.text(value).removeClass('text-body-secondary');
-        } else {
-            $fields.text('Not provided').addClass('text-body-secondary');
-        }
+    fillFields($root, {
+        initials: initialsOf(account.name),
+        name: account.name,
+        createdOn: account.createdOn ? formatDate(account.createdOn) : '',
+        birthdate: account.birthdate ? formatDate(account.birthdate) : '',
+        sex: account.sex,
+        civilStatus: account.civilStatus,
+        email: account.email,
+        phone: account.phone,
+        address: account.address,
+        sssNumber: account.sssNumber,
+        philhealthNumber: account.philhealthNumber,
+        pagibigNumber: account.pagibigNumber,
+        tin: account.tin,
+        birNumber: account.birNumber,
     });
-    $root.find('[data-applicant-status-pill]').attr('class', `status-pill ${statusClass(application.status)}`).text(application.status);
-
-    $root.find('[data-applicant-documents]').each(function () {
-        const key = $(this).attr('data-applicant-documents');
-        const files = application.documents?.[key] ?? [];
-
-        $(this).empty().append(...files.map((file) => documentItem(file)));
-        $root.find(`[data-applicant-documents-empty="${key}"]`).toggleClass('d-none', files.length > 0);
-    });
+    fillDocuments($root, account.documents);
 }
 
 function setFieldError($field, message) {
@@ -111,22 +77,17 @@ function initEdit($root) {
         $editButton.trigger('focus');
     }
 
+    field('birthdate').attr('max', todayIsoDate());
+
     $editButton.on('click', function () {
-        const application = getApplicantApplication(reference);
-
-        if (!application) {
-            showToast('Your application no longer exists.', { isError: true });
-
-            return;
-        }
+        const account = getApplicantAccount(accountId);
 
         $form.find('.is-invalid').removeClass('is-invalid').removeAttr('aria-invalid');
         $form.find('.invalid-feedback').text('');
-        field('email').val(application.email);
-        field('phone').val(application.phone);
-        $form.find('[data-applicant-input="name"]').val(application.name);
+        $form.find('[data-applicant-input="name"]').val(account.name);
+        editableFields.forEach((name) => field(name).val(account[name] ?? ''));
         setEditing(true);
-        field('email').trigger('focus');
+        field('birthdate').trigger('focus');
     });
 
     $form.on('click', '[data-applicant-edit-cancel]', stopEditing);
@@ -157,8 +118,15 @@ function initEdit($root) {
             return;
         }
 
-        if (!updateApplicantProfile(reference, { email: String(field('email').val()), phone: String(field('phone').val()) })) {
-            showToast('Your application no longer exists.', { isError: true });
+        const result = updateApplicantAccount(accountId, Object.fromEntries(editableFields.map((name) => [name, String(field(name).val() ?? '')])));
+
+        if (!result.ok) {
+            if (result.errors.email) {
+                setFieldError(field('email'), result.errors.email);
+                field('email').trigger('focus');
+            } else {
+                showToast(result.error, { isError: true });
+            }
 
             return;
         }
@@ -171,7 +139,7 @@ function initEdit($root) {
 $(function () {
     const $profile = $('[data-page="applicant-profile"]');
 
-    if (!$profile.length) {
+    if (!$profile.length || !isSignedIn()) {
         return;
     }
 

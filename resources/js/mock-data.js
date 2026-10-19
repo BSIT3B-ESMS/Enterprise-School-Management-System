@@ -6,7 +6,7 @@ import { formatDate, formatTime, initialsOf } from './format.js';
 import { progressForStatus, statusAfterCompleting, workflowFor } from './recruitment-workflow.js';
 
 const storageKey = 'ems-mock-data';
-const storageVersion = 12;
+const storageVersion = 15;
 
 const benefitNames = [
     'SSS',
@@ -32,48 +32,157 @@ const benefitDescriptions = {
     'Research Allowance': 'Funding that supports research work and related expenses.',
 };
 
-// What each of the sample positions involves and asks for, as the Applicant interface shows it (job titles hold
-// no description or qualifications of their own). A position HR adds later has none until this lists it.
+/// What each of the sample positions involves and asks for, as the Applicant interface shows it (job titles hold
+// no description, employment type, location, or qualifications of their own). `summary` is the short description the
+// position cards show; positions without one show their `description`. A position HR adds later has none
+// until this lists it, and the Applicant interface shows "Not specified" for what is missing.
+const mainCampus = '12-B Alcalde Jose, Pasig City';
+const satelliteCampus = 'Hybrid (on-site at 12-B Alcalde Jose, Pasig City)';
+const standardRequirements = ['Application letter', 'Curriculum vitae (CV)', 'Transcript of records', 'Two valid government-issued IDs'];
+
 const positionDetails = {
     t1: {
+        employmentType: 'Full-time',
+        location: mainCampus,
         description: 'Leads the college: sets its academic direction, oversees faculty and programs, and represents the college within the university.',
+        responsibilities: ['Set the academic direction and strategic plan of the college', 'Oversee faculty hiring, development, and evaluation', 'Approve curricula and program changes', 'Represent the college in university councils and with partners'],
         qualifications: ['Doctoral degree in a relevant field', 'At least 8 years of teaching experience, including academic leadership', 'A record of research or professional publications', 'Strong leadership and communication skills'],
+        requirements: [...standardRequirements, 'Diploma of the highest degree earned', 'List of publications', 'Two letters of recommendation'],
     },
     t2: {
+        employmentType: 'Full-time',
+        location: mainCampus,
         description: 'Manages the department’s faculty, course offerings, and schedules, and supports students and faculty.',
+        responsibilities: ['Prepare the department’s course offerings and teaching schedules', 'Coordinate and evaluate the department’s faculty', 'Handle student concerns and academic advising', 'Teach a reduced course load'],
         qualifications: ['Master’s degree required; doctoral degree preferred', 'At least 5 years of teaching experience', 'Experience coordinating academic programs'],
+        requirements: [...standardRequirements, 'Diploma of the highest degree earned', 'Certificate of teaching experience'],
     },
     t3: {
+        employmentType: 'Full-time',
+        location: mainCampus,
         description: 'Teaches advanced courses, mentors junior faculty, and leads research in the department.',
+        responsibilities: ['Teach advanced undergraduate and graduate courses', 'Lead research projects and publish findings', 'Mentor junior faculty and advise graduate students', 'Serve on department and university committees'],
         qualifications: ['Doctoral degree in the discipline', 'At least 8 years of teaching experience', 'Published research in peer-reviewed journals'],
+        requirements: [...standardRequirements, 'Diploma of the highest degree earned', 'List of publications'],
     },
     t4: {
+        employmentType: 'Full-time',
+        location: mainCampus,
         description: 'Teaches undergraduate and graduate courses, conducts research, and serves on department committees.',
+        responsibilities: ['Teach undergraduate and graduate courses', 'Conduct and publish research', 'Advise students on theses and projects', 'Serve on department committees'],
         qualifications: ['Doctoral degree in the discipline', 'At least 5 years of teaching experience', 'Research output in peer-reviewed publications'],
+        requirements: [...standardRequirements, 'Diploma of the highest degree earned', 'List of publications'],
     },
     t5: {
+        employmentType: 'Full-time',
+        location: mainCampus,
         description: 'Teaches courses, advises students, and builds an independent research program.',
+        responsibilities: ['Teach a full load of undergraduate courses', 'Advise and mentor students', 'Build an independent research program', 'Take part in curriculum development'],
         qualifications: ['Doctoral degree, or a master’s degree with relevant experience', 'Teaching experience or strong teaching potential', 'Evidence of research interest'],
+        requirements: [...standardRequirements, 'Diploma of the highest degree earned'],
     },
     t6: {
+        employmentType: 'Full-time',
+        location: mainCampus,
         description: 'Teaches a full load of courses and helps coordinate the curriculum for the unit.',
+        responsibilities: ['Teach a full load of courses', 'Coordinate course syllabi and materials across sections', 'Assess and report student performance', 'Support the unit’s curriculum review'],
         qualifications: ['Master’s degree in the subject', 'At least 5 years of teaching experience', 'Experience developing course materials'],
+        requirements: [...standardRequirements, 'Certificate of teaching experience'],
     },
     t7: {
+        employmentType: 'Full-time',
+        location: satelliteCampus,
         description: 'Teaches introductory and general education courses and supports students in class.',
+        responsibilities: ['Teach introductory and general education courses', 'Prepare lesson plans, activities, and assessments', 'Keep class records and submit grades on time', 'Hold consultation hours for students'],
         qualifications: ['Master’s degree in the subject, or a bachelor’s degree with relevant experience', 'Classroom teaching experience', 'Clear and engaging presentation skills'],
+        requirements: [...standardRequirements, 'Professional license, if applicable'],
     },
     t8: {
+        employmentType: 'Contractual',
+        location: mainCampus,
         description: 'Teaches for a limited term and brings outside expertise into the program.',
+        responsibilities: ['Teach assigned courses for the contract term', 'Give public lectures and seminars', 'Collaborate with faculty on research or industry projects'],
         qualifications: ['Doctoral degree or equivalent professional standing', 'An established teaching or industry record', 'Availability for a fixed term'],
+        requirements: [...standardRequirements, 'Proposed course outline'],
     },
     t9: {
+        employmentType: 'Part-time',
+        location: satelliteCampus,
         description: 'Delivers lectures and assessments for assigned courses.',
+        responsibilities: ['Deliver lectures for assigned courses', 'Prepare and check assessments', 'Submit grades and class records on time'],
         qualifications: ['Master’s degree in the subject', 'College-level teaching experience', 'Good communication skills'],
+        requirements: [...standardRequirements],
     },
     t10: {
+        employmentType: 'Contractual',
+        location: mainCampus,
         description: 'Supports research projects by collecting and analyzing data and writing up findings.',
+        responsibilities: ['Collect and clean research data', 'Run statistical analyses and summarize results', 'Draft reports and manuscripts with the research team', 'Keep project records organized'],
         qualifications: ['Master’s degree in a relevant field', 'Experience with research methods and data analysis', 'Attention to detail and good writing'],
+        requirements: [...standardRequirements, 'Sample of written research work'],
+    },
+    t12: {
+        employmentType: 'Full-time',
+        location: mainCampus,
+        summary: 'Runs the hiring process from job posting and screening to interview scheduling and offers.',
+        description: 'Owns the recruitment cycle for faculty and staff positions. You will work with hiring departments to define what each role needs, source and screen candidates, schedule screenings and interviews, and keep applicants informed at every stage.',
+        responsibilities: ['Draft and publish job postings with hiring managers', 'Screen applications and conduct initial screenings', 'Schedule interviews and coordinate with department panels', 'Prepare offer documents and background checks', 'Keep the recruitment pipeline updated and report on hiring progress'],
+        qualifications: ['Bachelor’s degree in Psychology, Human Resource Management, or a related field', 'At least 2 years of recruitment or talent acquisition experience', 'Strong interviewing and communication skills', 'Familiarity with applicant tracking and labor regulations'],
+        requirements: [...standardRequirements, 'Certificate of employment showing recruitment experience'],
+    },
+    t13: {
+        employmentType: 'Full-time',
+        location: mainCampus,
+        summary: 'Provides office support: correspondence, scheduling, filing, and coordination for an administrative unit.',
+        description: 'Keeps an administrative unit organized and responsive. You will handle correspondence, manage calendars and meetings, prepare documents, and coordinate with other offices so that the unit’s work moves without delays.',
+        responsibilities: ['Prepare, proofread, and route letters, memos, and reports', 'Manage the unit head’s calendar, meetings, and travel arrangements', 'Receive visitors and handle calls and emails', 'Maintain filing systems and office supplies', 'Take meeting minutes and follow up on action items'],
+        qualifications: ['Associate or bachelor’s degree in Office Administration or a related field', 'At least 1 year of administrative support experience', 'Proficiency in word processing, spreadsheets, and email', 'Clear written and spoken English and Filipino'],
+        requirements: [...standardRequirements, 'NBI clearance'],
+    },
+    t15: {
+        employmentType: 'Full-time',
+        location: mainCampus,
+        summary: 'First-line technical support for staff and faculty: computers, accounts, printers, and networks.',
+        description: 'Keeps staff and faculty productive by resolving hardware, software, and account problems quickly. You will staff the help desk, set up and maintain computers and peripherals, and document fixes so that common problems are solved faster the next time.',
+        responsibilities: ['Respond to help desk requests and track them to resolution', 'Install, configure, and repair computers, printers, and peripherals', 'Create and manage user accounts and access', 'Support classroom and meeting-room equipment', 'Document solutions and keep the equipment inventory current'],
+        qualifications: ['Bachelor’s degree in Information Technology, Computer Science, or a related field', 'At least 1 year of IT support experience', 'Knowledge of Windows, common office software, and basic networking', 'Patient and clear when helping non-technical users'],
+        requirements: [...standardRequirements, 'IT certification (for example CompTIA A+), if any'],
+    },
+    t16: {
+        employmentType: 'Full-time',
+        location: satelliteCampus,
+        summary: 'Builds and maintains the university’s internal web applications alongside a small development team.',
+        description: 'Joins the IT team that builds and maintains the university’s internal systems. You will write and test features, fix bugs, and review code with senior developers while learning the team’s tools and practices.',
+        responsibilities: ['Develop and test features for internal web applications', 'Fix bugs and improve the performance of existing code', 'Write clear documentation and automated tests', 'Take part in code reviews and sprint planning', 'Work with users to understand and refine requirements'],
+        qualifications: ['Bachelor’s degree in Computer Science, Information Technology, or a related field', 'Working knowledge of PHP or another server-side language, plus HTML, CSS, and JavaScript', 'Familiarity with relational databases and Git', 'Fresh graduates with strong projects are welcome'],
+        requirements: [...standardRequirements, 'Portfolio or link to sample projects'],
+    },
+    t19: {
+        employmentType: 'Full-time',
+        location: mainCampus,
+        summary: 'Prepares financial records and reports, reconciliations, and tax filings for the university.',
+        description: 'Maintains the accuracy of the university’s books. You will record and reconcile transactions, prepare monthly financial statements and tax filings, support audits, and recommend improvements to financial controls.',
+        responsibilities: ['Record and reconcile financial transactions and accounts', 'Prepare monthly and annual financial statements', 'Compute and file taxes and statutory remittances', 'Support internal and external audits', 'Review vouchers and supporting documents for completeness'],
+        qualifications: ['Bachelor’s degree in Accountancy', 'Certified Public Accountant (CPA) license', 'At least 2 years of accounting experience', 'Knowledge of accounting software and government accounting rules is an advantage'],
+        requirements: [...standardRequirements, 'PRC license (CPA)', 'Certificate of employment showing accounting experience'],
+    },
+    t21: {
+        employmentType: 'Full-time',
+        location: mainCampus,
+        summary: 'Plans and carries out campaigns that promote the university’s programs and events.',
+        description: 'Helps the university reach prospective students and partners. You will plan and carry out campaigns, write promotional content, coordinate events and admissions drives, and report on what worked.',
+        responsibilities: ['Plan and carry out marketing campaigns and admissions drives', 'Write copy for brochures, emails, and web pages', 'Coordinate events, fairs, and school visits', 'Track campaign results and report on them', 'Work with designers and the social media team on materials'],
+        qualifications: ['Bachelor’s degree in Marketing, Communication, or a related field', 'At least 1 year of marketing or communications experience', 'Strong writing and presentation skills', 'Creative and comfortable working with deadlines'],
+        requirements: [...standardRequirements, 'Writing or campaign samples'],
+    },
+    t23: {
+        employmentType: 'Full-time',
+        location: mainCampus,
+        summary: 'Helps students, parents, and visitors by phone, email, and in person.',
+        description: 'The friendly first contact for students, parents, and visitors. You will answer inquiries about admissions, enrollment, and services, resolve concerns, and pass issues to the right office with clear notes.',
+        responsibilities: ['Answer inquiries by phone, email, chat, and in person', 'Explain admissions, enrollment, and payment procedures', 'Log concerns and follow up until they are resolved', 'Route cases to the right office with clear notes', 'Keep an up-to-date list of frequently asked questions'],
+        qualifications: ['At least 2 years of college; a bachelor’s degree is preferred', 'At least 6 months of customer service experience is an advantage', 'Clear, polite communication in English and Filipino', 'Patient and calm under pressure'],
+        requirements: [...standardRequirements, 'Barangay clearance'],
     },
 };
 
@@ -97,7 +206,22 @@ const seedDepartments = [
     { id: 'd6', name: 'Engineering' },
     { id: 'd7', name: 'Allied Health Sciences' },
     { id: 'd8', name: 'Languages & Literature' },
+    // The offices behind the non-teaching openings (d9 on; saved data from before they existed gets them added).
+    { id: 'd9', name: 'Human Resources' },
+    { id: 'd10', name: 'Information Technology' },
+    { id: 'd11', name: 'Finance & Accounting' },
+    { id: 'd12', name: 'Marketing & Communications' },
+    { id: 'd13', name: 'Administration & Operations' },
+    { id: 'd14', name: 'Sales & Customer Service' },
 ];
+
+// How many departments and job titles the earlier versions of the sample data had (the openings added later follow).
+const firstOpeningsDepartment = 8;
+const firstOpeningsJobTitle = 10;
+
+// Openings that version 14 added and version 15 took out again to keep the open positions at 15. A saved one that an
+// application or employee already uses is closed instead of removed.
+const retiredOpeningIds = ['t11', 't14', 't17', 't18', 't20', 't22', 't24', 't25', 't26', 't27', 't28'];
 
 // `openings` is the number of open vacancies for the position.
 const seedJobTitles = [
@@ -111,6 +235,14 @@ const seedJobTitles = [
     { id: 't8', name: 'Visiting Professor', departmentId: 'd7', salary: 65000, benefits: benefitNames.slice(0, 5), openings: 0 },
     { id: 't9', name: 'Lecturer', departmentId: 'd8', salary: 40000, benefits: benefitNames.slice(0, 5), openings: 1 },
     { id: 't10', name: 'Research Associate', departmentId: 'd2', salary: 45000, benefits: benefitNames.slice(0, 6), openings: 2 },
+    // Non-teaching openings (t12 on), all open for applications.
+    { id: 't12', name: 'Recruitment Specialist', departmentId: 'd9', salary: 38000, benefits: benefitNames.slice(0, 7), openings: 1 },
+    { id: 't13', name: 'Administrative Assistant', departmentId: 'd13', salary: 26000, benefits: benefitNames.slice(0, 6), openings: 2 },
+    { id: 't15', name: 'IT Support Specialist', departmentId: 'd10', salary: 30000, benefits: benefitNames.slice(0, 6), openings: 2 },
+    { id: 't16', name: 'Junior Software Developer', departmentId: 'd10', salary: 40000, benefits: benefitNames.slice(0, 7), openings: 2 },
+    { id: 't19', name: 'Accountant', departmentId: 'd11', salary: 45000, benefits: benefitNames.slice(0, 7), openings: 1 },
+    { id: 't21', name: 'Marketing Associate', departmentId: 'd12', salary: 32000, benefits: benefitNames.slice(0, 6), openings: 1 },
+    { id: 't23', name: 'Customer Service Representative', departmentId: 'd14', salary: 24000, benefits: benefitNames.slice(0, 6), openings: 3 },
 ];
 
 // Every action an activity (audit log) entry can record.
@@ -309,7 +441,50 @@ function seedApplicationState() {
             application.activities.push({ id: `a${application.activities.length + 1}`, type, date: addDaysIso(today, days), time, status: 'Scheduled' });
         });
 
-    return { applications, nextApplicationNumber: applications.length + 1 };
+    return { applications, nextApplicationNumber: applications.length + 1, ...seedApplicantAccountState(applications) };
+}
+
+// The 201 file details an applicant gives on the job application form. They use the employee record's field names,
+// so they carry over to the employee record when the applicant is hired. Applications HR adds by hand, and the sample
+// ones, have none of them (they read as blank).
+const applicantDetailFields = ['birthdate', 'sex', 'civilStatus', 'address', 'sssNumber', 'philhealthNumber', 'pagibigNumber', 'tin', 'birNumber'];
+
+// The 201 file documents that apply at the application stage (the others belong to employment).
+const applicantDocumentKeys = ['hiringRequirements', 'education', 'workHistory'];
+
+// The password on every sample applicant account (mock accounts only; nothing signs in with it yet).
+const sampleApplicantPassword = 'Applicant123';
+
+/**
+ * Mock applicant accounts for applications that have none: one per email address (any case), named and filled in
+ * from that address's first application, with the sample password. Each application is linked to its account by
+ * `accountId`. Used for the sample data and for applications saved before accounts existed (12 and earlier).
+ */
+function seedApplicantAccountState(applications, accounts = [], nextNumber = 1) {
+    let next = nextNumber;
+
+    applications.filter((application) => !application.accountId).forEach((application) => {
+        const email = application.email.toLowerCase();
+        let account = accounts.find((candidate) => candidate.email.toLowerCase() === email);
+
+        if (!account) {
+            account = {
+                id: `u${next++}`,
+                name: application.name,
+                email: application.email,
+                password: sampleApplicantPassword,
+                phone: application.phone ?? '',
+                ...Object.fromEntries(applicantDetailFields.map((field) => [field, String(application[field] ?? '')])),
+                documents: Object.fromEntries(applicantDocumentKeys.map((key) => [key, (application.documents?.[key] ?? []).map((file) => ({ ...file }))])),
+                createdOn: application.appliedOn,
+            };
+            accounts.push(account);
+        }
+
+        application.accountId = account.id;
+    });
+
+    return { applicantAccounts: accounts, nextApplicantAccountNumber: next };
 }
 
 /**
@@ -476,6 +651,56 @@ function createInitialState() {
     };
 }
 
+/**
+ * Adds the non-teaching openings (version 13 and earlier did not have them) to saved departments and job titles. A
+ * department that already exists by name is reused; a job title whose ID is already taken by one HR added is skipped.
+ */
+function withSeededOpenings({ departments, jobTitles, nextDepartmentNumber, nextJobTitleNumber }) {
+    const allDepartments = [...departments];
+    const departmentIds = {};
+    let nextDepartment = Math.max(nextDepartmentNumber ?? 0, departments.length + 1);
+
+    seedDepartments.slice(firstOpeningsDepartment).forEach((seed) => {
+        let department = allDepartments.find((candidate) => candidate.name.toLowerCase() === seed.name.toLowerCase());
+
+        if (!department) {
+            department = { id: `d${nextDepartment}`, name: seed.name };
+            nextDepartment += 1;
+            allDepartments.push(department);
+        }
+
+        departmentIds[seed.id] = department.id;
+    });
+
+    const allJobTitles = [...jobTitles];
+
+    seedJobTitles.slice(firstOpeningsJobTitle).forEach((seed) => {
+        if (!allJobTitles.some((candidate) => candidate.id === seed.id)) {
+            allJobTitles.push({ ...seed, departmentId: departmentIds[seed.departmentId] ?? seed.departmentId, benefits: [...seed.benefits] });
+        }
+    });
+
+    return {
+        departments: allDepartments,
+        jobTitles: allJobTitles,
+        nextDepartmentNumber: nextDepartment,
+        nextJobTitleNumber: Math.max(nextJobTitleNumber ?? 0, seedJobTitles.length + 1),
+    };
+}
+
+/**
+ * Takes the retired openings (version 14 and earlier) out of the saved job titles. One that an application or an employee
+ * uses stays, with no openings, so those records keep their position.
+ */
+function withoutRetiredOpenings(jobTitles, applications, employees) {
+    const isUsed = (id) => applications.some((application) => application.jobTitleId === id)
+        || employees.some((employee) => employee.jobTitleId === id);
+
+    return jobTitles
+        .filter((jobTitle) => !retiredOpeningIds.includes(jobTitle.id) || isUsed(jobTitle.id))
+        .map((jobTitle) => (retiredOpeningIds.includes(jobTitle.id) ? { ...jobTitle, openings: 0 } : jobTitle));
+}
+
 function saveState() {
     try {
         localStorage.setItem(storageKey, JSON.stringify(state));
@@ -523,25 +748,37 @@ function loadState() {
                 ? { ...employee, documents: portalDocuments() }
                 : employee));
 
+        // The non-teaching openings (13 and earlier) are added to the saved departments and job titles.
+        const seeded = saved.version < 14 ? withSeededOpenings(migrated) : {};
+
         // Saved leave (9 and earlier) gets the signed-in employee's sample leave added once.
         const savedLeave = Array.isArray(migrated.leaveRequests) ? migrated.leaveRequests : null;
         const nextLeaveNumber = Math.max(migrated.nextLeaveNumber ?? 0, (savedLeave?.length ?? 0) + 1);
         const addsPortalLeave = saved.version < 10 && savedLeave && employees.some((employee) => employee.id === portalEmployeeId);
         const portalLeave = addsPortalLeave ? portalLeaveRequests(nextLeaveNumber, today) : [];
 
+        // Applications saved before the workflow (6 and earlier) get milestones that match their status.
+        const applications = migrated.applications.map((application) => (
+            Array.isArray(application.milestones) ? application : progressForStatus(application, today)
+        ));
+
         return {
             ...migrated,
+            ...seeded,
             employees,
             // Leave requests (7 and earlier) start from the sample, covering whoever was on leave.
             ...(savedLeave ? {} : seedLeaveState(employees, today)),
             ...(addsPortalLeave ? { leaveRequests: [...savedLeave, ...portalLeave], nextLeaveNumber: nextLeaveNumber + portalLeave.length } : {}),
-            jobTitles: migrated.jobTitles.map((jobTitle) => (jobTitle.openings === undefined
+            jobTitles: (saved.version < 15
+                ? withoutRetiredOpenings(seeded.jobTitles ?? migrated.jobTitles, applications, employees)
+                : seeded.jobTitles ?? migrated.jobTitles).map((jobTitle) => (jobTitle.openings === undefined
                 ? { ...jobTitle, openings: findById(seedJobTitles, jobTitle.id)?.openings ?? 0 }
                 : jobTitle)),
-            // Applications saved before the workflow (6 and earlier) get milestones that match their status.
-            applications: migrated.applications.map((application) => (
-                Array.isArray(application.milestones) ? application : progressForStatus(application, today)
-            )),
+            applications,
+            // Applicant accounts (12 and earlier): every saved application gets one, by email address.
+            ...(Array.isArray(migrated.applicantAccounts)
+                ? {}
+                : seedApplicantAccountState(applications)),
         };
     } catch {
         // Missing, unreadable, or blocked storage falls through to fresh sample data.
@@ -695,7 +932,7 @@ export function getShellData() {
 
 // The kind of update an activity entry is, from the record it is about; entries about the session or the
 // account itself are not a kind the settings can turn off.
-const notificationKinds = { Leave: 'leave', Candidate: 'recruitment', Employee: 'employees', Department: 'employees', 'Job Title': 'employees' };
+const notificationKinds = { Leave: 'leave', Candidate: 'recruitment', 'Applicant Account': 'recruitment', Employee: 'employees', Department: 'employees', 'Job Title': 'employees' };
 
 function isNotificationShown(entry, shown) {
     const kind = notificationKinds[entry.entity.split(' · ')[0]];
@@ -1188,6 +1425,16 @@ function withDepartmentName(jobTitle) {
 }
 
 /**
+ * The benefits the open positions offer, in display order, with what each one is, for the public Careers website.
+ * Empty when no position is open.
+ */
+export function getOpenPositionBenefits() {
+    const offered = new Set(state.jobTitles.filter((jobTitle) => Number(jobTitle.openings || 0) > 0).flatMap((jobTitle) => jobTitle.benefits));
+
+    return benefitNames.filter((name) => offered.has(name)).map((name) => ({ name, description: benefitDescriptions[name] ?? '' }));
+}
+
+/**
  * The benefit names a job title can offer, in display order.
  */
 export function getBenefitNames() {
@@ -1418,8 +1665,9 @@ export function listOpenPositions() {
 }
 
 /**
- * Every position for the Applicant interface's Open Positions page, open (at least one opening) and closed
- * (none), by department then name. Pay is not included.
+ * Every position for the Applicant interface and the public Careers website, open (at least one opening, as HR's Job
+ * Titles set) and closed (none), by department then name, with what each involves and asks for. `baseSalary` is the
+ * job title's monthly base salary, the same figure HR manages; benefits are listed separately.
  */
 export function listPositions() {
     return state.jobTitles
@@ -1430,143 +1678,314 @@ export function listPositions() {
             department: findById(state.departments, jobTitle.departmentId)?.name ?? '—',
             openings: Number(jobTitle.openings || 0),
             isOpen: Number(jobTitle.openings || 0) > 0,
+            employmentType: positionDetails[jobTitle.id]?.employmentType ?? '',
+            location: positionDetails[jobTitle.id]?.location ?? '',
+            baseSalary: Number(jobTitle.salary || 0),
+            summary: positionDetails[jobTitle.id]?.summary ?? positionDetails[jobTitle.id]?.description ?? '',
             description: positionDetails[jobTitle.id]?.description ?? '',
+            responsibilities: [...(positionDetails[jobTitle.id]?.responsibilities ?? [])],
             qualifications: [...(positionDetails[jobTitle.id]?.qualifications ?? [])],
+            requirements: [...(positionDetails[jobTitle.id]?.requirements ?? [])],
             benefits: [...jobTitle.benefits],
         }))
         .sort((first, second) => first.department.localeCompare(second.department) || first.name.localeCompare(second.name));
 }
 
 /**
- * What the Applicant interface shows for one application: the applicant's own details, where it stands,
- * and their screening and interview schedule, or undefined when it does not exist. Recruitment's
- * internal fields (such as the offer response or a linked employee record) are not passed on.
+ * One position as the Applicant interface shows it (see listPositions), open or closed, or undefined.
  */
-export function getApplicantApplication(id) {
-    const application = findApplication(id ?? '');
+export function findPosition(id) {
+    return listPositions().find((position) => position.id === id);
+}
 
-    if (!application) {
+function findAccount(accountId) {
+    return findById(state.applicantAccounts, accountId ?? '');
+}
+
+function normalizedEmail(email) {
+    return String(email).trim().toLowerCase();
+}
+
+/**
+ * The applicant's own account as the Applicant interface shows it, without the password, or undefined when there
+ * is no such account.
+ */
+export function getApplicantAccount(accountId) {
+    const account = findAccount(accountId);
+
+    if (!account) {
         return undefined;
     }
 
     return {
-        id: application.id,
-        name: application.name,
-        email: application.email,
-        phone: application.phone,
-        jobTitle: application.jobTitle,
-        department: application.department,
-        appliedOn: application.appliedOn,
-        status: application.status,
-        ...submittedDetails(application),
-        milestones: application.milestones.map(({ key, at }) => ({ key, at })),
-        activities: application.activities.map(({ id: activityId, type, date, time, status, completedOn }) => ({ id: activityId, type, date, time, status, completedOn })),
+        id: account.id,
+        name: account.name,
+        email: account.email,
+        phone: account.phone ?? '',
+        createdOn: account.createdOn,
+        ...submittedDetails(account),
     };
 }
 
 /**
- * All of one applicant's applications. There are no accounts, so an applicant is the email address on the
- * application they came in with: every application from that address (any case) is theirs.
+ * Whether another applicant account already uses this email address (ignoring case and surrounding spaces).
  */
-function applicationsOfApplicant(application) {
-    const email = application.email.toLowerCase();
+export function isApplicantAccountEmailTaken(email, exceptAccountId = null) {
+    const normalized = normalizedEmail(email);
 
-    return state.applications.filter((candidate) => candidate.email.toLowerCase() === email);
+    return state.applicantAccounts.some((account) => account.id !== exceptAccountId && account.email.toLowerCase() === normalized);
 }
 
 /**
- * The applicant's applications for the Applicant interface's Applications page, newest first: where each
- * stands and the next screening or interview HR has scheduled. `found` is false when the application the
- * applicant came in with no longer exists. Recruitment's internal fields are not passed on.
+ * Creates a mock applicant account. The password is kept only in this frontend mock data, never sent anywhere.
+ *
+ * @param {{ name: string, email: string, password: string }} details
+ * @returns {{ ok: true, account: object } | { ok: false, error: string, errors: object }}
  */
-export function listApplicantApplications(id) {
-    const current = findById(state.applications, id ?? '');
+export function registerApplicant({ name, email, password }) {
+    if (isApplicantAccountEmailTaken(email)) {
+        const error = 'An account with this email address already exists. Log in instead.';
 
-    if (!current) {
-        return { found: false, applications: [] };
+        return { ok: false, error, errors: { email: error } };
     }
 
-    return {
-        found: true,
-        applications: applicationsOfApplicant(current)
-            .map(withApplicationNames)
-            .map((application) => {
-                const next = application.activities
-                    .filter((activity) => activity.status === 'Scheduled')
-                    .sort((first, second) => `${first.date} ${first.time}`.localeCompare(`${second.date} ${second.time}`))[0];
-
-                return {
-                    id: application.id,
-                    jobTitle: application.jobTitle,
-                    jobTitleId: application.jobTitleId,
-                    department: application.department,
-                    appliedOn: application.appliedOn,
-                    status: application.status,
-                    next: next ? { type: next.type, date: next.date, time: next.time } : null,
-                };
-            })
-            .sort((first, second) => second.appliedOn.localeCompare(first.appliedOn) || second.id.localeCompare(first.id, undefined, { numeric: true })),
+    const account = {
+        id: `u${state.nextApplicantAccountNumber}`,
+        name: String(name).trim(),
+        email: String(email).trim(),
+        password: String(password),
+        phone: '',
+        ...Object.fromEntries(applicantDetailFields.map((field) => [field, ''])),
+        documents: applicantDocuments({}),
+        createdOn: todayIso(),
     };
+
+    state.nextApplicantAccountNumber += 1;
+    state.applicantAccounts.push(account);
+    logActivity('Created', `Applicant Account · ${account.name}`, 'Applicant account created', account.name);
+    commitChange();
+
+    return { ok: true, account: getApplicantAccount(account.id) };
 }
 
 /**
- * Whether the applicant's own email address would clash with another applicant's application for a position
- * they have applied to (one application per email per position). The applicant's own applications do not count.
+ * Checks an email and password against the mock accounts (this is not real authentication: the passwords are sample
+ * data in this browser). The email is matched ignoring case and surrounding spaces.
+ *
+ * @returns {{ ok: true, account: object } | { ok: false, error: string }}
  */
-export function isApplicantEmailTaken(id, email) {
-    const application = findById(state.applications, id ?? '');
+export function authenticateApplicant(email, password) {
+    const normalized = normalizedEmail(email);
+    const account = state.applicantAccounts.find((candidate) => candidate.email.toLowerCase() === normalized);
 
-    if (!application) {
-        return false;
+    if (!account) {
+        return { ok: false, error: 'No account was found for this email address.' };
     }
 
-    const own = applicationsOfApplicant(application);
-    const ownIds = new Set(own.map((candidate) => candidate.id));
-    const jobTitleIds = new Set(own.map((candidate) => candidate.jobTitleId));
-    const normalized = email.trim().toLowerCase();
+    return account.password === password
+        ? { ok: true, account: getApplicantAccount(account.id) }
+        : { ok: false, error: 'The email or password is incorrect.' };
+}
 
-    return state.applications.some((candidate) => (
-        !ownIds.has(candidate.id) && jobTitleIds.has(candidate.jobTitleId) && candidate.email.toLowerCase() === normalized
+function applicationsOfAccount(accountId) {
+    return state.applications.filter((application) => application.accountId === accountId);
+}
+
+/**
+ * Whether the email address would clash with an application from someone else for a position this applicant has
+ * applied to (one application per email per position). The applicant's own applications do not count.
+ */
+function isEmailUsedOnOthersApplications(accountId, email) {
+    const own = applicationsOfAccount(accountId);
+    const jobTitleIds = new Set(own.map((application) => application.jobTitleId));
+    const normalized = normalizedEmail(email);
+
+    return state.applications.some((application) => (
+        application.accountId !== accountId && jobTitleIds.has(application.jobTitleId) && application.email.toLowerCase() === normalized
     ));
 }
 
 /**
- * Saves the applicant's own edits. Only the email and phone number are accepted: the name, position, department,
- * application date, and status stay as HR has them. They are the applicant's contact details, so they change on all
- * of their applications and stay together. Each is logged under the applicant's name, and nothing is logged when
- * nothing changed.
+ * Field errors for the applicant's own email address (empty when it can be used): it must not belong to another
+ * account or clash with someone else's application for a position they applied to.
  *
- * @returns the applicant's updated view (see getApplicantApplication), or undefined if the application is gone
+ * @returns {{ email?: string }}
  */
-export function updateApplicantProfile(id, { email, phone }) {
-    const application = findById(state.applications, id ?? '');
-
-    if (!application) {
-        return undefined;
+export function validateApplicantEmail(accountId, email) {
+    if (isApplicantAccountEmailTaken(email, accountId)) {
+        return { email: 'Another account already uses this email address.' };
     }
 
-    const changes = { email: String(email).trim(), phone: String(phone).trim() };
-    const changed = applicationsOfApplicant(application)
-        .filter((candidate) => changes.email !== candidate.email || changes.phone !== candidate.phone);
-
-    if (changed.length) {
-        changed.forEach((candidate) => {
-            Object.assign(candidate, changes);
-            logActivity('Updated', applicationEntity(candidate), 'Contact details updated by the applicant', candidate.name);
-        });
-        commitChange();
+    if (isEmailUsedOnOthersApplications(accountId, email)) {
+        return { email: 'An application from this email address already exists for a position you applied to.' };
     }
 
-    return getApplicantApplication(id);
+    return {};
 }
 
-// The 201 file details an applicant gives on the job application form. They use the employee record's field names,
-// so they carry over to the employee record when the applicant is hired. Applications HR adds by hand, and the sample
-// ones, have none of them (they read as blank).
-const applicantDetailFields = ['birthdate', 'sex', 'civilStatus', 'address', 'sssNumber', 'philhealthNumber', 'pagibigNumber', 'tin', 'birNumber'];
+/**
+ * Saves the applicant's edits to their own profile. The name stays as it was registered. The email address and
+ * phone number are how HR reaches them, so they also change on all of their applications; the other 201 file
+ * details apply to their next application (submitted applications keep what was sent). Nothing is logged when
+ * nothing changed.
+ *
+ * @returns {{ ok: true, account: object } | { ok: false, error: string, errors: object }}
+ */
+export function updateApplicantAccount(accountId, details) {
+    const account = findAccount(accountId);
 
-// The 201 file documents that apply at the application stage (the others belong to employment).
-const applicantDocumentKeys = ['hiringRequirements', 'education', 'workHistory'];
+    if (!account) {
+        return { ok: false, error: 'Your account no longer exists.', errors: {} };
+    }
+
+    const errors = validateApplicantEmail(accountId, details.email);
+
+    if (Object.keys(errors).length) {
+        return { ok: false, error: errors.email, errors };
+    }
+
+    const changes = {
+        email: String(details.email).trim(),
+        phone: String(details.phone).trim(),
+        ...Object.fromEntries(applicantDetailFields.map((field) => [field, String(details[field] ?? '').trim()])),
+    };
+    const hasChanges = Object.entries(changes).some(([field, value]) => String(account[field] ?? '') !== value);
+
+    if (!hasChanges) {
+        return { ok: true, account: getApplicantAccount(accountId) };
+    }
+
+    Object.assign(account, changes);
+    logActivity('Updated', `Applicant Account · ${account.name}`, 'Profile updated by the applicant', account.name);
+
+    applicationsOfAccount(accountId)
+        .filter((application) => application.email !== changes.email || application.phone !== changes.phone)
+        .forEach((application) => {
+            Object.assign(application, { email: changes.email, phone: changes.phone });
+            logActivity('Updated', applicationEntity(application), 'Contact details updated by the applicant', account.name);
+        });
+
+    commitChange();
+
+    return { ok: true, account: getApplicantAccount(accountId) };
+}
+
+function scheduledActivitiesOf(application) {
+    return application.activities
+        .filter((activity) => activity.status === 'Scheduled')
+        .sort((first, second) => `${first.date} ${first.time}`.localeCompare(`${second.date} ${second.time}`));
+}
+
+/**
+ * One application as the Applicant interface shows it: what was submitted, the position, where it stands, and the
+ * screening and interview schedule HR set. Recruitment's internal fields (such as the offer response or a linked
+ * employee record) are not passed on.
+ */
+function applicantView(application) {
+    const named = withApplicationNames(application);
+    const position = positionDetails[application.jobTitleId] ?? {};
+    const next = scheduledActivitiesOf(application)[0];
+
+    return {
+        id: named.id,
+        name: named.name,
+        email: named.email,
+        phone: named.phone,
+        jobTitleId: named.jobTitleId,
+        jobTitle: named.jobTitle,
+        department: named.department,
+        employmentType: position.employmentType ?? '',
+        location: position.location ?? '',
+        appliedOn: named.appliedOn,
+        status: named.status,
+        ...submittedDetails(named),
+        milestones: named.milestones.map(({ key, at }) => ({ key, at })),
+        activities: named.activities.map(({ id: activityId, type, date, time, status, completedOn }) => ({ id: activityId, type, date, time, status, completedOn })),
+        next: next ? { type: next.type, date: next.date, time: next.time } : null,
+    };
+}
+
+/**
+ * The applicant's applications, newest first (see applicantView). Empty when the account does not exist.
+ */
+export function listApplicantApplications(accountId) {
+    return applicationsOfAccount(accountId ?? '')
+        .map(applicantView)
+        .sort((first, second) => second.appliedOn.localeCompare(first.appliedOn) || second.id.localeCompare(first.id, undefined, { numeric: true }));
+}
+
+/**
+ * One of the applicant's own applications (see applicantView), or undefined when it does not exist or belongs to
+ * someone else.
+ */
+export function getApplicantApplication(accountId, applicationId) {
+    const application = findById(state.applications, applicationId ?? '');
+
+    return application && application.accountId === (accountId ?? '') ? applicantView(application) : undefined;
+}
+
+/**
+ * Whether this applicant can apply for the position: it must be open, and they (or someone using their email
+ * address) must not have applied for it already. Returns an error message, or '' when they can.
+ */
+export function applicationBlockFor(accountId, jobTitleId) {
+    const account = findAccount(accountId);
+    const jobTitle = findById(state.jobTitles, jobTitleId ?? '');
+
+    if (!account) {
+        return 'Your account no longer exists.';
+    }
+
+    if (!jobTitle || Number(jobTitle.openings || 0) <= 0) {
+        return 'This position is closed and is not accepting applications.';
+    }
+
+    if (applicationsOfAccount(accountId).some((application) => application.jobTitleId === jobTitleId)) {
+        return 'You have already applied for this position.';
+    }
+
+    return isDuplicateApplication(account.email, jobTitleId)
+        ? 'An application from your email address already exists for this position.'
+        : '';
+}
+
+/**
+ * Submits the signed-in applicant's job application: a new Recruitment application (status Applied) linked to their
+ * account and the position, with their name and email from the account. The 201 file details and documents they
+ * give are kept on the application and become their profile's details, so the next application starts from them.
+ *
+ * @param {{ jobTitleId: string, phone: string, documents: object }} details plus the 201 file detail fields
+ * @returns {{ ok: true, application: object } | { ok: false, error: string }}
+ */
+export function submitApplication(accountId, details) {
+    const error = applicationBlockFor(accountId, details.jobTitleId);
+
+    if (error) {
+        return { ok: false, error };
+    }
+
+    const account = findAccount(accountId);
+    const jobTitle = findById(state.jobTitles, details.jobTitleId);
+    const given = {
+        phone: String(details.phone).trim(),
+        ...Object.fromEntries(applicantDetailFields.map((field) => [field, String(details[field] ?? '').trim()])),
+        documents: applicantDocuments(details.documents),
+    };
+
+    Object.assign(account, given, { documents: applicantDocuments(given.documents) });
+
+    const application = addApplication({
+        ...given,
+        accountId,
+        name: account.name,
+        email: account.email,
+        jobTitleId: jobTitle.id,
+        departmentId: jobTitle.departmentId,
+        appliedOn: todayIso(),
+    }, account.name);
+
+    return { ok: true, application: applicantView(application) };
+}
 
 /**
  * An applicant's submitted documents: their lists of file records (name, size, date added), copied, with every
@@ -1588,12 +2007,13 @@ function submittedDetails(source) {
 
 /**
  * New applications always start as Applied. `loggedBy` names who made the entry in the audit log (the
- * HR user when omitted; an applicant's own name when they apply themselves).
+ * HR user when omitted; an applicant's own name when they apply themselves). `accountId` links an application an
+ * applicant submitted to their account; applications HR adds by hand have none.
  *
- * @param {{ name: string, email: string, phone: string, jobTitleId: string, departmentId: string, appliedOn: string }} details
+ * @param {{ name: string, email: string, phone: string, jobTitleId: string, departmentId: string, appliedOn: string, accountId?: string }} details
  */
 export function addApplication(details, loggedBy = undefined) {
-    const { name, email, phone, jobTitleId, departmentId, appliedOn } = details;
+    const { name, email, phone, jobTitleId, departmentId, appliedOn, accountId = '' } = details;
     const application = progressForStatus(
         {
             id: `c${state.nextApplicationNumber}`,
@@ -1604,6 +2024,7 @@ export function addApplication(details, loggedBy = undefined) {
             departmentId,
             appliedOn,
             status: 'Applied',
+            accountId,
             ...submittedDetails(details),
         },
         todayIso(),

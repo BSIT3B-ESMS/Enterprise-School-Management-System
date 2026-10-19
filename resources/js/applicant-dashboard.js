@@ -1,10 +1,8 @@
 import $ from './jquery.js';
 import { formatDate, formatTime, greetingForHour } from './format.js';
-import { nextStepHints, reference, renderSteps, statusMessages } from './applicant-portal.js';
-import { getApplicantApplication, onMockDataChange } from './mock-data.js';
-import { statusClass } from './recruitment-workflow.js';
-
-const plural = (count, word) => `${count} ${word}${count === 1 ? '' : 's'}`;
+import { accountId, isSignedIn, nextStepHints, plural } from './applicant-portal.js';
+import { applicationBlockFor, findPosition, getApplicantAccount, listApplicantApplications, onMockDataChange } from './mock-data.js';
+import { finalStatuses, statusClass } from './recruitment-workflow.js';
 
 function todayIso() {
     const date = new Date();
@@ -20,22 +18,6 @@ function daysUntil(isoDate, fromIsoDate) {
     return Math.round(toDay(isoDate) - toDay(fromIsoDate));
 }
 
-function ago(isoDate) {
-    const days = -daysUntil(isoDate, todayIso());
-
-    if (days <= 0) {
-        return 'today';
-    }
-
-    return days === 1 ? 'yesterday' : `${days} days ago`;
-}
-
-function scheduledActivities(application) {
-    return application.activities
-        .filter((activity) => activity.status === 'Scheduled')
-        .sort((first, second) => `${first.date} ${first.time}`.localeCompare(`${second.date} ${second.time}`));
-}
-
 function whenText(activity) {
     const days = daysUntil(activity.date, todayIso());
 
@@ -46,15 +28,27 @@ function whenText(activity) {
     return days === 0 ? 'Today' : `In ${plural(days, 'day')}`;
 }
 
-function renderKpis($root, application, upcoming) {
+// Every scheduled screening and interview across the applicant's applications, soonest first.
+function upcomingActivities(applications) {
+    return applications
+        .flatMap((application) => application.activities
+            .filter((activity) => activity.status === 'Scheduled')
+            .map((activity) => ({ ...activity, application })))
+        .sort((first, second) => `${first.date} ${first.time}`.localeCompare(`${second.date} ${second.time}`));
+}
+
+function renderKpis($root, applications, upcoming) {
+    const active = applications.filter((application) => !finalStatuses.includes(application.status));
     const next = upcoming[0];
     const kpis = [
-        { label: 'Status', value: application.status, caption: `for ${application.jobTitle}` },
-        { label: 'Applied', value: formatDate(application.appliedOn), caption: ago(application.appliedOn) },
+        { label: 'Applications', value: applications.length, caption: applications.length ? `${active.length} in progress` : 'None submitted yet' },
+        { label: 'Latest Status', value: applications[0]?.status ?? 'None', caption: applications[0] ? `for ${applications[0].jobTitle}` : 'Apply to get started' },
         {
             label: 'Next Step',
             value: next ? next.type : 'None yet',
-            caption: next ? `${formatDate(next.date)} at ${formatTime(next.time)}` : nextStepHints[application.status] ?? '',
+            caption: next
+                ? `${formatDate(next.date)} at ${formatTime(next.time)}`
+                : (applications[0] && nextStepHints[applications[0].status]) || 'Nothing scheduled',
         },
     ];
 
@@ -67,12 +61,29 @@ function renderKpis($root, application, upcoming) {
     )));
 }
 
+function renderApplications($root, applications) {
+    $root.find('[data-applicant-no-applications]').toggleClass('d-none', applications.length > 0);
+    $root.find('[data-applicant-application-list]').empty().append(...applications.slice(0, 5).map((application) => (
+        $('<li>', { class: 'list-group-item d-flex justify-content-between align-items-center gap-3' }).append(
+            $('<div>', { class: 'min-w-0' }).append(
+                $('<a>', {
+                    class: 'fw-medium text-reset d-block text-truncate',
+                    href: `${$root.attr('data-application-url')}/${encodeURIComponent(application.id)}`,
+                    text: application.jobTitle,
+                }),
+                $('<small>', { class: 'text-body-secondary', text: `${application.department} · Applied ${formatDate(application.appliedOn)}` }),
+            ),
+            $('<span>', { class: `status-pill ${statusClass(application.status)}`, text: application.status }),
+        )
+    )));
+}
+
 function renderUpcoming($root, upcoming) {
     $root.find('[data-applicant-upcoming-empty]').toggleClass('d-none', upcoming.length > 0);
     $root.find('[data-applicant-upcoming]').empty().append(...upcoming.map((activity) => (
         $('<li>', { class: 'list-group-item d-flex justify-content-between align-items-center gap-3' }).append(
             $('<div>', { class: 'min-w-0' }).append(
-                $('<div>', { class: 'fw-medium', text: activity.type }),
+                $('<div>', { class: 'fw-medium', text: `${activity.type} · ${activity.application.jobTitle}` }),
                 $('<small>', { class: 'text-body-secondary', text: `${formatDate(activity.date)} at ${formatTime(activity.time)}` }),
             ),
             $('<span>', { class: 'ems-chip', text: whenText(activity) }),
@@ -80,44 +91,41 @@ function renderUpcoming($root, upcoming) {
     )));
 }
 
+// The position chosen on Open Positions (?position=), offered while it can still be applied for.
+function renderPendingPosition($root) {
+    const id = new URLSearchParams(window.location.search).get('position') ?? '';
+    const position = id ? findPosition(id) : undefined;
+    const canApply = Boolean(position) && !applicationBlockFor(accountId, id);
+
+    $root.find('[data-applicant-pending-position]').toggleClass('d-none', !canApply).toggleClass('d-flex', canApply);
+
+    if (canApply) {
+        $root.find('[data-applicant-pending-name]').text(`${position.name} · ${position.department}`);
+        $root.find('[data-applicant-pending-apply]').attr('href', `${$root.attr('data-apply-url')}?position=${encodeURIComponent(id)}`);
+    }
+}
+
 function renderDashboard($root) {
-    const application = getApplicantApplication(reference);
+    const account = getApplicantAccount(accountId);
 
-    // No reference, or the application was deleted (for example, by HR in another tab).
-    $root.find('[data-applicant-missing]').toggleClass('d-none', Boolean(application));
-    $root.find('[data-applicant-content]').toggleClass('d-none', !application);
-
-    if (!application) {
-        $root.find('[data-applicant-greeting]').text('Welcome');
-
+    if (!account) {
         return;
     }
 
-    const upcoming = scheduledActivities(application);
-    const values = {
-        role: `${application.jobTitle} · ${application.department}`,
-        jobTitle: application.jobTitle,
-        department: application.department,
-        appliedOn: formatDate(application.appliedOn),
-        phone: application.phone,
-        email: application.email,
-    };
+    const applications = listApplicantApplications(accountId);
+    const upcoming = upcomingActivities(applications);
 
-    $root.find('[data-applicant-greeting]').text(`${greetingForHour(new Date().getHours())}, ${application.name.split(/\s+/)[0]}`);
-    Object.entries(values).forEach(([field, value]) => {
-        $root.find(`[data-applicant-field="${field}"]`).text(value);
-    });
-    $root.find('[data-applicant-status-pill]').attr('class', `status-pill ${statusClass(application.status)}`).text(application.status);
-    $root.find('[data-applicant-status-message]').text(statusMessages[application.status] ?? '');
-    renderKpis($root, application, upcoming);
-    renderSteps($root, application);
+    $root.find('[data-applicant-greeting]').text(`${greetingForHour(new Date().getHours())}, ${account.name.split(/\s+/)[0]}`);
+    renderPendingPosition($root);
+    renderKpis($root, applications, upcoming);
+    renderApplications($root, applications);
     renderUpcoming($root, upcoming);
 }
 
 $(function () {
     const $dashboard = $('[data-page="applicant-dashboard"]');
 
-    if (!$dashboard.length) {
+    if (!$dashboard.length || !isSignedIn()) {
         return;
     }
 
