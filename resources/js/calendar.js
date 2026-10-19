@@ -12,13 +12,14 @@ import {
 import { formatDate, formatTime } from './format.js';
 import {
     approveLeave,
-    getApplicantApplication,
     getPortalLeave,
+    listApplicantApplications,
     listApplications,
     listLeaveRequests,
     onMockDataChange,
 } from './mock-data.js';
 import { showToast } from './toast.js';
+import { accountId, isSignedIn } from './applicant-portal.js';
 
 const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const weekdayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -70,14 +71,13 @@ function eventSummary(event, labels) {
  * With data-calendar-scope="own" (the Employee interface) it shows only the signed-in employee's own leave,
  * named by leave type, with no actions: nothing on it changes a request's status.
  *
- * With data-calendar-scope="applicant" (the Applicant interface) it shows only that applicant's own screenings and
- * interviews (the application is found by the ?ref= in the address), named by type, with no actions: only HR's
- * Recruitment page schedules or completes them, and nothing here changes the application's status.
+ * With data-calendar-scope="applicant" (the Applicant interface) it shows only the signed-in applicant's own
+ * screenings and interviews, across all of their applications, named by type and position, with no actions: only
+ * HR's Recruitment page schedules, reschedules, or completes them, and nothing here changes an application's status.
  */
 function initCalendar($root) {
     const isOwn = $root.attr('data-calendar-scope') === 'own';
     const isApplicant = $root.attr('data-calendar-scope') === 'applicant';
-    const applicantReference = new URLSearchParams(window.location.search).get('ref') ?? '';
     const labels = (isOwn && { ...eventTypes, leave: 'My Leave' })
         || (isApplicant && { ...eventTypes, screening: 'Screening', interview: 'Interview' })
         || eventTypes;
@@ -116,11 +116,8 @@ function initCalendar($root) {
 
     function allEvents() {
         if (isApplicant) {
-            const application = getApplicantApplication(applicantReference);
-
-            return application
-                ? buildCalendarEvents({ leaveRequests: [], applications: [application] }).map((event) => ({ ...event, name: labels[event.type] }))
-                : [];
+            return buildCalendarEvents({ leaveRequests: [], applications: listApplicantApplications(accountId) })
+                .map((event) => ({ ...event, name: `${labels[event.type]} · ${event.detail.application.jobTitle}` }));
         }
 
         if (isOwn) {
@@ -380,14 +377,6 @@ function initCalendar($root) {
             const events = allEvents();
             const shown = filterEvents(events, activeFilters);
 
-            // No application for this reference (or HR deleted it): show that instead of an empty calendar.
-            if (isApplicant) {
-                const hasApplication = Boolean(getApplicantApplication(applicantReference));
-
-                $root.find('[data-applicant-missing]').toggleClass('d-none', hasApplication);
-                $root.find('[data-applicant-content]').toggleClass('d-none', !hasApplication);
-            }
-
             if (state.selectedEventId && !shown.some((event) => event.id === state.selectedEventId)) {
                 state.selectedEventId = null;
             }
@@ -480,7 +469,8 @@ function initCalendar($root) {
 $(function () {
     const $calendar = $('[data-page="calendar"]');
 
-    if ($calendar.length) {
+    // The Applicant interface's calendar draws nothing until the applicant is signed in (see applicant-portal.js).
+    if ($calendar.length && ($calendar.attr('data-calendar-scope') !== 'applicant' || isSignedIn())) {
         initCalendar($calendar);
     }
 });

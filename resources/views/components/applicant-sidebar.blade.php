@@ -1,11 +1,12 @@
 @php
-    // The profile is reached from the account menu in the header, not from here. Links keep the application
-    // reference (resources/js/applicant-portal.js).
+    // The Applicant interface's five pages. A position's details and the application form belong to Open Positions;
+    // an application's details belong to Applications.
     $items = [
         ['icon' => 'dashboard', 'label' => 'Dashboard', 'route' => 'applicant.dashboard'],
+        ['icon' => 'user', 'label' => 'Profile', 'route' => 'applicant.profile'],
         ['icon' => 'calendar', 'label' => 'Calendar', 'route' => 'applicant.calendar'],
-        ['icon' => 'job-titles', 'label' => 'Open Positions', 'route' => 'applicant.positions'],
-        ['icon' => 'recruitment', 'label' => 'Applications', 'route' => 'applicant.applications', 'pattern' => 'applicant.application*'],
+        ['icon' => 'job-titles', 'label' => 'Open Positions', 'route' => 'applicant.positions', 'patterns' => ['applicant.positions*', 'applicant.apply']],
+        ['icon' => 'recruitment', 'label' => 'Applications', 'route' => 'applicant.applications', 'patterns' => ['applicant.applications*']],
     ];
 @endphp
 
@@ -24,11 +25,10 @@
             <nav aria-label="Main">
                 <ul class="nav nav-pills flex-column gap-1 app-nav">
                     @foreach ($items as $item)
-                        @php($isCurrent = request()->routeIs($item['pattern'] ?? $item['route']))
+                        @php($isCurrent = request()->routeIs(...($item['patterns'] ?? [$item['route']])))
                         <li class="nav-item">
                             <a class="nav-link{{ $isCurrent ? ' active' : '' }}"
-                                aria-current="{{ $isCurrent ? 'page' : 'false' }}" href="{{ route($item['route']) }}"
-                                data-applicant-link>
+                                aria-current="{{ $isCurrent ? 'page' : 'false' }}" href="{{ route($item['route']) }}">
                                 <x-icon :name="$item['icon']" />
                                 {{ $item['label'] }}
                             </a>
@@ -38,9 +38,9 @@
             </nav>
 
             <div class="app-sidebar-footer">
-                <a class="app-sidebar-logout" href="{{ route('login') }}">
+                <a class="app-sidebar-logout" href="{{ route('login') }}" data-applicant-logout>
                     <x-icon name="logout" />
-                    Exit to Sign In
+                    Log Out
                 </a>
             </div>
         </div>

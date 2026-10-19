@@ -4,13 +4,20 @@ it('organizes the job application form into the 201 file sections', function () 
     $this->get(route('applicant.apply'))
         ->assertSeeInOrder([
             'data-apply-form',
-            'Personal Information', 'name="name"', 'name="birthdate"', 'name="sex"', 'name="civilStatus"',
-            'Contact Information', 'name="email"', 'name="phone"', 'name="address"',
+            'Personal Information', 'data-apply-account="name"', 'name="birthdate"', 'name="sex"', 'name="civilStatus"',
+            'Position Applied For', 'name="jobTitleId"', 'data-apply-position-summary', 'data-document-field="hiringRequirements"',
+            'Contact Information', 'data-apply-account="email"', 'name="phone"', 'name="address"',
             'Government and Tax', 'name="sssNumber"', 'name="philhealthNumber"', 'name="pagibigNumber"', 'name="tin"', 'name="birNumber"',
-            'Documents', 'data-document-field="education"', 'data-document-field="workHistory"', 'data-document-field="hiringRequirements"',
-            'Position', 'name="jobTitleId"',
+            'Education and Work History', 'data-document-field="education"', 'data-document-field="workHistory"',
             'Submit Application',
         ], escape: false);
+});
+
+it('takes the name and email from the applicant\'s account', function () {
+    expect($this->get(route('applicant.apply'))->getContent())
+        ->toContain('id="apply-name" readonly', 'id="apply-email" readonly')
+        ->not->toContain('name="name"')
+        ->not->toContain('name="email"');
 });
 
 it('uses the employee form\'s labels, dropdown options, and input types', function () {
@@ -21,7 +28,7 @@ it('uses the employee form\'s labels, dropdown options, and input types', functi
         ], escape: false)
         ->assertSee('type="date" class="form-control" id="apply-birthdate"', escape: false)
         ->assertSeeInOrder(['SSS Number', 'PhilHealth Number', 'Pag-IBIG (HDMF) Number', 'Tax Identification Number (TIN)', 'BIR Number'])
-        ->assertSeeInOrder(['Education Transcripts or Diplomas', 'Work History', 'Hiring Requirements']);
+        ->assertSeeInOrder(['Hiring Requirements', 'Education Transcripts or Diplomas', 'Work History']);
 });
 
 it('uses the existing file field for documents, without asking for employment-stage records', function () {
@@ -57,21 +64,19 @@ it('shows the submitted information on the HR applicant record', function () {
         ], escape: false);
 });
 
-it('shows the submitted information on the applicant\'s own profile', function () {
-    $this->get(route('applicant.profile'))
+it('shows the submitted information on the applicant\'s own profile and application', function (string $route) {
+    $this->get(route($route, ['application' => 'c1']))
         ->assertSeeInOrder([
-            'Personal Information', 'Contact Information', 'Government and Tax', 'Documents', 'Application',
             'data-applicant-field="birthdate"', 'data-applicant-field="sex"', 'data-applicant-field="civilStatus"',
             'data-applicant-field="address"',
-            'data-applicant-field="sssNumber"', 'data-applicant-field="birNumber"',
-            'data-applicant-documents="education"', 'data-applicant-documents="workHistory"', 'data-applicant-documents="hiringRequirements"',
+            'data-applicant-documents="hiringRequirements"', 'data-applicant-documents="education"', 'data-applicant-documents="workHistory"',
         ], escape: false);
-});
+})->with(['applicant.profile', 'applicant.applications.show']);
 
-it('keeps the applicant profile edit form limited to email and phone', function () {
+it('keeps documents out of the applicant profile edit form, since they are added when applying', function () {
     $html = $this->get(route('applicant.profile'))->getContent();
     $form = substr($html, strpos($html, 'data-applicant-form'));
 
-    expect($form)->toContain('name="email"', 'name="phone"')
-        ->and($form)->not->toContain('name="birthdate"', 'name="address"', 'name="sssNumber"', 'name="civilStatus"', 'type="file"');
+    expect($form)->toContain('name="email"', 'name="phone"', 'name="birthdate"')
+        ->and($form)->not->toContain('type="file"', 'data-document-field');
 });

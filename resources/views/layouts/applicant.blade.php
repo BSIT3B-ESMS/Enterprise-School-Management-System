@@ -12,8 +12,12 @@
         @stack('styles')
     </head>
     <body>
-        {{-- The Applicant interface: the same shell as the HR and Employee layouts, with its own header and sidebar. --}}
-        <div class="app-shell" data-app-shell>
+        {{--
+            The Applicant interface: the same shell as the HR and Employee layouts, with its own header and sidebar.
+            Only a signed-in applicant can stay on these pages; anyone else is sent to the shared Login page
+            (resources/js/applicant-portal.js).
+        --}}
+        <div class="app-shell" data-app-shell data-applicant-shell data-login-url="{{ route('login') }}">
             <x-applicant-header />
 
             <x-applicant-sidebar />

@@ -1,14 +1,28 @@
 import $ from './jquery.js';
 import { formatDate, formatTime, initialsOf } from './format.js';
-import { getApplicantApplication, onMockDataChange } from './mock-data.js';
-import { progressSteps, statusClass } from './recruitment-workflow.js';
+import { getApplicantAccount, onMockDataChange } from './mock-data.js';
+import { currentAccountId, signOut } from './applicant-session.js';
+import { progressSteps } from './recruitment-workflow.js';
 
-// The applicant is identified by the application reference in the address; there are no accounts.
-export const reference = new URLSearchParams(window.location.search).get('ref') ?? '';
+const $shell = $('[data-app-shell][data-applicant-shell]');
+
+/**
+ * The signed-in applicant's account ID on an Applicant interface page ('' anywhere else). Pages show only this
+ * account's applications, schedules, and profile.
+ */
+export const accountId = $shell.length ? currentAccountId() : '';
+
+/**
+ * Whether someone is signed in (this tab's session) with an account that still exists. When not,
+ * the page sends them to the shared Login page and the page scripts draw nothing.
+ */
+export function isSignedIn() {
+    return Boolean(accountId) && Boolean(getApplicantAccount(accountId));
+}
 
 const stepText = { done: 'completed', current: 'current stage', pending: 'not reached yet' };
 
-// Where the application stands, in the applicant's terms (each status follows what HR has completed).
+// Where an application stands, in the applicant's terms (each status follows what HR has completed).
 export const statusMessages = {
     Applied: 'Your application has been received. HR will schedule your screening.',
     Screening: 'Your screening is done. HR will schedule your interview.',
@@ -28,20 +42,7 @@ export const nextStepHints = {
     Rejected: 'There are no further steps',
 };
 
-function renderHeader($shell, application) {
-    $shell.find('[data-applicant-initials]').text(application ? initialsOf(application.name) : '');
-    $shell.find('[data-applicant-name]').text(application?.name ?? 'Applicant');
-    $shell.find('[data-applicant-email]').text(application?.email ?? '');
-}
-
-// The brand and sidebar links keep the reference, so the applicant stays on their own application.
-function renderLinks($shell) {
-    $shell.find('[data-applicant-link]').each(function () {
-        const base = String($(this).attr('href')).split('?')[0];
-
-        $(this).attr('href', reference ? `${base}?ref=${encodeURIComponent(reference)}` : base);
-    });
-}
+export const plural = (count, word) => `${count} ${word}${count === 1 ? '' : 's'}`;
 
 export function renderSteps($root, application) {
     const items = progressSteps(application).map(({ stage, state }) => (
@@ -58,12 +59,15 @@ export function renderSteps($root, application) {
     $root.find('[data-applicant-steps]').empty().append(...items);
 }
 
-function activityItem(activity) {
+/**
+ * One screening or interview as a list row: its type (and position, when given), date, time, and status.
+ */
+export function activityItem(activity, jobTitle = '') {
     const isCompleted = activity.status === 'Completed';
 
     return $('<li>', { class: 'list-group-item d-flex justify-content-between align-items-center gap-3 flex-wrap' }).append(
         $('<div>', { class: 'min-w-0' }).append(
-            $('<div>', { class: 'fw-medium', text: activity.type }),
+            $('<div>', { class: 'fw-medium', text: jobTitle ? `${activity.type} · ${jobTitle}` : activity.type }),
             $('<small>', { class: 'text-body-secondary', text: `${formatDate(activity.date)} at ${formatTime(activity.time)}` }),
         ),
         $('<span>', {
@@ -73,59 +77,35 @@ function activityItem(activity) {
     );
 }
 
-function renderApplication($root, application) {
-    const values = {
-        initials: initialsOf(application.name),
-        name: application.name,
-        role: `${application.jobTitle} · ${application.department}`,
-        jobTitle: application.jobTitle,
-        department: application.department,
-        appliedOn: formatDate(application.appliedOn),
-        phone: application.phone,
-        email: application.email,
-    };
-    const activities = [...application.activities].sort((first, second) => (
-        `${second.date} ${second.time}`.localeCompare(`${first.date} ${first.time}`)
-    ));
+function renderHeader() {
+    const account = getApplicantAccount(accountId);
 
-    Object.entries(values).forEach(([field, value]) => {
-        $root.find(`[data-applicant-field="${field}"]`).text(value);
-    });
-    $root.find('[data-applicant-status-pill]').attr('class', `status-pill ${statusClass(application.status)}`).text(application.status);
-    $root.find('[data-applicant-status-message]').text(statusMessages[application.status] ?? '');
-    renderSteps($root, application);
-    $root.find('[data-applicant-activities-empty]').toggleClass('d-none', activities.length > 0);
-    $root.find('[data-applicant-activities]').empty().append(...activities.map(activityItem));
+    $shell.find('[data-applicant-initials]').text(account ? initialsOf(account.name) : '');
+    $shell.find('[data-applicant-name]').text(account?.name ?? 'Applicant');
+    $shell.find('[data-applicant-email]').text(account?.email ?? '');
 }
 
-function render($shell, $page) {
-    const application = getApplicantApplication(reference);
-
-    renderHeader($shell, application);
-
-    if (!$page.length) {
-        return;
-    }
-
-    // No reference, or the application was deleted (for example, by HR in another tab).
-    $page.find('[data-applicant-missing]').toggleClass('d-none', Boolean(application));
-    $page.find('[data-applicant-content]').toggleClass('d-none', !application);
-
-    if (application) {
-        renderApplication($page, application);
-    }
+function sendToLogIn() {
+    signOut();
+    window.location.replace($shell.attr('data-login-url'));
 }
 
 $(function () {
-    const $shell = $('[data-app-shell]');
-
-    if (!$shell.find('[data-applicant-name]').length) {
+    if (!$shell.length) {
         return;
     }
 
-    const $page = $('[data-page="applicant-application"]');
+    if (!isSignedIn()) {
+        sendToLogIn();
 
-    renderLinks($shell);
-    render($shell, $page);
-    onMockDataChange(() => render($shell, $page));
+        return;
+    }
+
+    renderHeader();
+
+    // The account can disappear while the page is open (for example, the mock data was reset in another tab).
+    onMockDataChange(() => (isSignedIn() ? renderHeader() : sendToLogIn()));
+
+    // Log Out ends this tab's session; the link then opens the shared Login page.
+    $shell.on('click', '[data-applicant-logout]', () => signOut());
 });

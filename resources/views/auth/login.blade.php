@@ -4,23 +4,18 @@
 
 @section('content')
     <div class="row g-0 min-vh-100" data-page="login">
-        <section class="col-md-6 login-brand d-flex flex-column align-items-center justify-content-center text-center text-white">
-            <div class="login-brand-logo">
-                <x-brand-logo />
-            </div>
-
-            <h1 class="login-brand-title">Employee Management System</h1>
-
-            <p class="login-brand-tagline">Secure access for HR, managers, and employees.</p>
-        </section>
+        <x-login-brand />
 
         <section class="col-md-6 d-flex align-items-center justify-content-center px-3 py-5">
-            <form class="login-form w-100 d-grid gap-3" method="post" novalidate data-login-form>
+            <form class="login-form w-100 d-grid gap-3" method="post" novalidate data-login-form
+                data-applicant-dashboard-url="{{ route('applicant.dashboard') }}">
                 @csrf
 
                 <h2 class="login-form-title mb-1">Welcome Back</h2>
 
                 <x-flash-messages />
+
+                <div class="alert alert-danger mb-0 d-none" role="alert" data-login-error></div>
 
                 <div>
                     <label for="email" class="form-label">Email</label>
@@ -56,12 +51,13 @@
                     <button type="button" class="btn btn-link p-0" data-forgot-password>Forgot Password?</button>
                 </div>
 
-                <button type="submit" class="btn btn-primary login-submit">Sign In</button>
+                <button type="submit" class="btn btn-primary login-submit">Login</button>
 
-                <div class="d-grid gap-2 border-top pt-3 text-center">
+                {{-- Applicants start on the public Careers website, where they can browse without an account. --}}
+                <div class="d-grid gap-2 border-top pt-3 text-center" data-applicant-entry>
                     <span class="text-body-secondary">Looking for a job?</span>
                     <a class="btn btn-outline-primary login-submit d-inline-flex align-items-center justify-content-center"
-                        href="{{ route('applicant.apply') }}">Apply for a Position</a>
+                        href="{{ route('careers.index') }}">Apply for a Job</a>
                 </div>
             </form>
         </section>

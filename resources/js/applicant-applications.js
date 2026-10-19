@@ -1,14 +1,12 @@
 import $ from './jquery.js';
 import { formatDate, formatTime } from './format.js';
-import { nextStepHints, reference } from './applicant-portal.js';
+import { accountId, isSignedIn, nextStepHints, plural } from './applicant-portal.js';
 import { listApplicantApplications, onMockDataChange } from './mock-data.js';
 import { statusClass } from './recruitment-workflow.js';
 
-const plural = (count, word) => `${count} ${word}${count === 1 ? '' : 's'}`;
-
-// An application's details page. The reference in the address says which application is in focus.
+// An application's details page.
 function detailsUrl($root, applicationId) {
-    return `${$root.attr('data-details-url')}?ref=${encodeURIComponent(applicationId)}`;
+    return `${$root.attr('data-details-url')}/${encodeURIComponent(applicationId)}`;
 }
 
 function nextCell(application) {
@@ -42,20 +40,7 @@ function rowFor($root, application) {
 }
 
 function renderApplications($root) {
-    const { found, applications } = listApplicantApplications(reference);
-
-    // No reference, or the application the applicant came in with was deleted (for example, by HR in another tab).
-    $root.find('[data-applicant-missing]').toggleClass('d-none', found);
-    $root.find('[data-applicant-content]').toggleClass('d-none', !found);
-
-    // Applying again keeps the applicant's reference, so the form can fill in their details.
-    const applyUrl = `${$root.attr('data-apply-url')}${reference ? `?ref=${encodeURIComponent(reference)}` : ''}`;
-
-    $root.find('[data-applications-apply]').attr('href', applyUrl);
-
-    if (!found) {
-        return;
-    }
+    const applications = listApplicantApplications(accountId);
 
     $root.find('[data-applications-rows]').empty().append(...applications.map((application) => rowFor($root, application)));
     $root.find('[data-applications-empty]').toggleClass('d-none', applications.length > 0);
@@ -65,7 +50,7 @@ function renderApplications($root) {
 $(function () {
     const $applications = $('[data-page="applicant-applications"]');
 
-    if (!$applications.length) {
+    if (!$applications.length || !isSignedIn()) {
         return;
     }
 

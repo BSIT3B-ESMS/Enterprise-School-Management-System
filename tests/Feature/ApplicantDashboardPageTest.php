@@ -7,39 +7,43 @@ it('serves the applicant dashboard with Dashboard current in the applicant sideb
         ->assertSee('aria-current="page" href="'.route('applicant.dashboard').'"', escape: false);
 });
 
-it('has a sidebar with Dashboard, Calendar, Open Positions, and Applications in order', function () {
+it('has a sidebar with exactly Dashboard, Profile, Calendar, Open Positions, and Applications in order', function () {
+    $html = $this->get(route('applicant.dashboard'))->getContent();
+    $sidebar = substr($html, strpos($html, '<aside class="app-sidebar">'), strpos($html, '</aside>') - strpos($html, '<aside class="app-sidebar">'));
+
     $this->get(route('applicant.dashboard'))
         ->assertSeeInOrder([
+            '<aside class="app-sidebar">',
             'href="'.route('applicant.dashboard').'"', 'Dashboard',
+            'href="'.route('applicant.profile').'"', 'Profile',
             'href="'.route('applicant.calendar').'"', 'Calendar',
             'href="'.route('applicant.positions').'"', 'Open Positions',
             'href="'.route('applicant.applications').'"', 'Applications',
-            'Exit to Sign In',
+            'Log Out',
         ], escape: false)
         ->assertDontSee('data-coming-soon', escape: false);
+
+    expect(substr_count($sidebar, 'class="nav-link'))->toBe(5);
 });
 
-it('keeps Profile out of the sidebar because it is in the account menu', function () {
+it('keeps My Profile in the account menu as well', function () {
     $html = $this->get(route('applicant.dashboard'))->getContent();
-    $sidebar = substr($html, strpos($html, '<aside class="app-sidebar">'), strpos($html, '</aside>') - strpos($html, '<aside class="app-sidebar">'));
     $header = substr($html, strpos($html, '<header'), strpos($html, '</header>') - strpos($html, '<header'));
 
-    expect($sidebar)->not->toContain(route('applicant.profile'))->not->toContain('Profile')
-        ->and($header)->toContain(route('applicant.profile'), 'My Profile');
+    expect($header)->toContain(route('applicant.profile'), 'My Profile');
 });
 
-it('renders the welcome, summary, status, schedule, and quick link sections in order', function () {
+it('renders the welcome, applications, upcoming schedule, and quick link sections in order', function () {
     $this->get(route('applicant.dashboard'))
         ->assertSeeInOrder([
             'data-applicant-greeting',
-            'data-applicant-missing', 'No application found',
             'data-applicant-kpis',
-            'Recruitment status', 'data-applicant-status-pill', 'data-applicant-status-message', 'data-applicant-steps',
-            'Application summary', 'data-applicant-field="jobTitle"', 'data-applicant-field="department"',
-            'data-applicant-field="appliedOn"', 'data-applicant-field="email"',
-            'Upcoming screening and interview', 'data-applicant-upcoming', 'No screening or interview is scheduled yet.',
+            'Your applications', 'data-applicant-application-list',
+            'data-applicant-no-applications', 'You have not applied for a position yet.', 'href="'.route('applicant.positions').'"',
+            'Upcoming screenings and interviews', 'data-applicant-upcoming', 'No screening or interview is scheduled yet.',
             'Quick links',
-        ], escape: false);
+        ], escape: false)
+        ->assertSee('data-application-url="'.route('applicant.applications').'"', escape: false);
 });
 
 it('offers a quick link to every applicant module', function () {
@@ -53,7 +57,7 @@ it('offers a quick link to every applicant module', function () {
 });
 
 it('keeps applicant navigation separate from the HR and Employee interfaces', function (string $route) {
-    $this->get(route($route))
+    $this->get(route($route, ['application' => 'c1', 'position' => 't5']))
         ->assertDontSee('href="'.route('employees.index').'"', escape: false)
         ->assertDontSee('href="'.route('recruitment.index').'"', escape: false)
         ->assertDontSee('href="'.route('dashboard').'"', escape: false)
@@ -62,7 +66,7 @@ it('keeps applicant navigation separate from the HR and Employee interfaces', fu
         ->assertDontSee('href="'.route('employee.profile').'"', escape: false)
         ->assertDontSee('data-user-name', escape: false)
         ->assertDontSee('data-portal-', escape: false);
-})->with(['applicant.dashboard', 'applicant.profile', 'applicant.application', 'applicant.applications', 'applicant.calendar', 'applicant.positions']);
+})->with(['applicant.dashboard', 'applicant.profile', 'applicant.applications.show', 'applicant.applications', 'applicant.calendar', 'applicant.positions', 'applicant.positions.show', 'applicant.apply']);
 
 it('keeps the Employee interface free of the applicant dashboard and profile', function () {
     $this->get(route('employee.dashboard'))
@@ -70,8 +74,12 @@ it('keeps the Employee interface free of the applicant dashboard and profile', f
         ->assertDontSee(route('applicant.profile'), escape: false);
 });
 
-it('sends the application confirmation to the applicant dashboard', function () {
+it('links the application confirmation to the new application and the dashboard', function () {
     $this->get(route('applicant.apply'))
-        ->assertSee('data-portal-url="'.route('applicant.dashboard').'"', escape: false)
-        ->assertSee('data-apply-portal-link>Open My Dashboard', escape: false);
+        ->assertSee('data-application-url="'.route('applicant.applications').'"', escape: false)
+        ->assertSeeInOrder([
+            'data-apply-success',
+            'href="'.route('applicant.dashboard').'">Go to Dashboard',
+            'data-apply-application-link>View Application',
+        ], escape: false);
 });
