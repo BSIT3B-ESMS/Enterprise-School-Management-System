@@ -1,7 +1,7 @@
 import $ from './jquery.js';
-import { formatDate, formatTime, greetingForHour } from './format.js';
-import { accountId, isSignedIn, nextStepHints, plural } from './applicant-portal.js';
-import { applicationBlockFor, findPosition, getApplicantAccount, listApplicantApplications, onMockDataChange } from './mock-data.js';
+import { formatDate, formatDateTime, formatTime, greetingForHour } from './format.js';
+import { accountId, isSignedIn, nextStepHints, plural, statusMessages, stepsList } from './applicant-portal.js';
+import { applicationBlockFor, findPosition, getApplicantAccount, listApplicantApplications, listApplicantDrafts, onMockDataChange } from './mock-data.js';
 import { finalStatuses, statusClass } from './recruitment-workflow.js';
 
 function todayIso() {
@@ -61,19 +61,52 @@ function renderKpis($root, applications, upcoming) {
     )));
 }
 
+// Each application with its job title, application date, current status, and progress tracker, from the shared
+// Recruitment data, so what HR does there shows here.
 function renderApplications($root, applications) {
     $root.find('[data-applicant-no-applications]').toggleClass('d-none', applications.length > 0);
-    $root.find('[data-applicant-application-list]').empty().append(...applications.slice(0, 5).map((application) => (
-        $('<li>', { class: 'list-group-item d-flex justify-content-between align-items-center gap-3' }).append(
-            $('<div>', { class: 'min-w-0' }).append(
-                $('<a>', {
-                    class: 'fw-medium text-reset d-block text-truncate',
-                    href: `${$root.attr('data-application-url')}/${encodeURIComponent(application.id)}`,
-                    text: application.jobTitle,
-                }),
-                $('<small>', { class: 'text-body-secondary', text: `${application.department} · Applied ${formatDate(application.appliedOn)}` }),
+    $root.find('[data-applicant-application-list]').empty().append(...applications.map((application) => (
+        $('<li>', { class: 'list-group-item d-grid gap-2', 'data-applicant-application-item': application.id }).append(
+            $('<div>', { class: 'd-flex justify-content-between align-items-start gap-3' }).append(
+                $('<div>', { class: 'min-w-0' }).append(
+                    $('<a>', {
+                        class: 'fw-medium text-reset d-block text-truncate',
+                        href: `${$root.attr('data-application-url')}/${encodeURIComponent(application.id)}`,
+                        text: application.jobTitle,
+                    }),
+                    $('<small>', { class: 'text-body-secondary', text: `${application.department} · Applied ${formatDate(application.appliedOn)}` }),
+                ),
+                $('<span>', { class: `status-pill ${statusClass(application.status)}`, text: application.status }),
             ),
-            $('<span>', { class: `status-pill ${statusClass(application.status)}`, text: application.status }),
+            $('<small>', { class: 'text-body-secondary', text: statusMessages[application.status] ?? '' }),
+            stepsList(application),
+        )
+    )));
+}
+
+// Applications saved but not submitted: no status or progress, and a way to reopen and edit each one.
+function renderDrafts($root) {
+    const drafts = listApplicantDrafts(accountId);
+
+    $root.find('[data-applicant-drafts-panel]').toggleClass('d-none', drafts.length === 0);
+    $root.find('[data-applicant-drafts]').empty().append(...drafts.map((draft) => (
+        $('<li>', { class: 'list-group-item d-flex justify-content-between align-items-center gap-3 flex-wrap', 'data-applicant-draft-item': draft.id }).append(
+            $('<div>', { class: 'min-w-0' }).append(
+                $('<div>', { class: 'fw-medium text-truncate', text: draft.jobTitle || 'No position chosen yet' }),
+                $('<small>', {
+                    class: 'text-body-secondary',
+                    text: `${draft.department ? `${draft.department} · ` : ''}Saved ${formatDateTime(new Date(draft.savedAt))} · Not submitted`,
+                }),
+            ),
+            $('<div>', { class: 'd-flex align-items-center gap-2' }).append(
+                $('<span>', { class: 'ems-chip', text: 'Draft' }),
+                $('<a>', {
+                    class: 'btn btn-sm btn-primary',
+                    href: `${$root.attr('data-apply-url')}?draft=${encodeURIComponent(draft.id)}`,
+                    text: 'Continue',
+                    'aria-label': `Continue your draft${draft.jobTitle ? ` for ${draft.jobTitle}` : ''}`,
+                }),
+            ),
         )
     )));
 }
@@ -117,6 +150,7 @@ function renderDashboard($root) {
 
     $root.find('[data-applicant-greeting]').text(`${greetingForHour(new Date().getHours())}, ${account.name.split(/\s+/)[0]}`);
     renderPendingPosition($root);
+    renderDrafts($root);
     renderKpis($root, applications, upcoming);
     renderApplications($root, applications);
     renderUpcoming($root, upcoming);

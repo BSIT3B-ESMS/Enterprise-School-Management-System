@@ -44,7 +44,11 @@ export const nextStepHints = {
 
 export const plural = (count, word) => `${count} ${word}${count === 1 ? '' : 's'}`;
 
-export function renderSteps($root, application) {
+/**
+ * The progress tracker for one application: its stages, with those reached marked done, the current one marked, and
+ * Rejected added when HR rejected it. It follows the application's status in the shared mock data.
+ */
+export function stepsList(application) {
     const items = progressSteps(application).map(({ stage, state }) => (
         $('<li>', { class: `is-${state}`, 'aria-current': state === 'current' ? 'step' : null }).append(
             document.createTextNode(stage),
@@ -56,7 +60,11 @@ export function renderSteps($root, application) {
         items.push($('<li>', { class: 'is-rejected', text: 'Rejected' }));
     }
 
-    $root.find('[data-applicant-steps]').empty().append(...items);
+    return $('<ol>', { class: 'recruitment-steps mb-0', 'aria-label': `Progress of your application for ${application.jobTitle}` }).append(...items);
+}
+
+export function renderSteps($root, application) {
+    $root.find('[data-applicant-steps]').empty().append(...stepsList(application).children());
 }
 
 /**

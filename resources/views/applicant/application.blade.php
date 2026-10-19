@@ -104,6 +104,9 @@
                     <div class="col"><dt>Sex</dt><dd class="mb-0" data-applicant-field="sex"></dd></div>
                     <div class="col"><dt>Civil Status</dt><dd class="mb-0" data-applicant-field="civilStatus"></dd></div>
                     <div class="col-12"><dt>Address</dt><dd class="mb-0" data-applicant-field="address"></dd></div>
+                    <div class="col"><dt>Emergency Contact</dt><dd class="mb-0" data-applicant-field="emergencyContactName"></dd></div>
+                    <div class="col"><dt>Emergency Contact Number</dt><dd class="mb-0" data-applicant-field="emergencyContactNumber"></dd></div>
+                    <div class="col"><dt>Relationship</dt><dd class="mb-0" data-applicant-field="emergencyContactRelationship"></dd></div>
                 </dl>
 
                 <div class="row row-cols-1 row-cols-md-3 g-3">

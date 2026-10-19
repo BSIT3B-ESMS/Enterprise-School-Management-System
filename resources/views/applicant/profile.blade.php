@@ -12,11 +12,12 @@
 
     // The 201 file's government and tax fields, with the same names, labels, and rules as the HR employee form.
     $governmentFields = [
-        'sssNumber' => ['sss-number', 'SSS Number'],
-        'philhealthNumber' => ['philhealth-number', 'PhilHealth Number'],
-        'pagibigNumber' => ['pagibig-number', 'Pag-IBIG (HDMF) Number'],
-        'tin' => ['tin', 'Tax Identification Number (TIN)'],
-        'birNumber' => ['bir-number', 'BIR Number'],
+        // name => [id, label, mask, example, format hint]: the format each number is checked against (the BIR number has no fixed one).
+        'sssNumber' => ['sss-number', 'SSS Number', 'sss', '00-1234567-8', 'Format: 00-1234567-8 (10 digits)'],
+        'philhealthNumber' => ['philhealth-number', 'PhilHealth Number', 'philhealth', '12-123456789-0', 'Format: 12-123456789-0 (12 digits)'],
+        'pagibigNumber' => ['pagibig-number', 'Pag-IBIG (HDMF) Number', 'pagibig', '1234-5678-9012', 'Pag-IBIG MID. Format: 1234-5678-9012 (12 digits)'],
+        'tin' => ['tin', 'Tax Identification Number (TIN)', 'tin', '123-456-789', 'Format: 123-456-789 (9 digits), or 123-456-789-000 with a branch code'],
+        'birNumber' => ['bir-number', 'BIR Number', null, null, null],
     ];
 
     // The documents from the applicant's latest application (file names only).
@@ -156,16 +157,17 @@
 
                 <div class="row g-3">
                     <div class="col-md-6">
-                        <label for="applicant-email" class="form-label">Email</label>
+                        <label for="applicant-email" class="form-label is-required">Email</label>
                         <input type="email" class="form-control" id="applicant-email" name="email" autocomplete="email"
                             aria-describedby="applicant-email-error" required>
                         <div class="invalid-feedback" id="applicant-email-error"></div>
                     </div>
 
                     <div class="col-md-6">
-                        <label for="applicant-phone" class="form-label">Phone</label>
-                        <input type="tel" class="form-control" id="applicant-phone" name="phone" autocomplete="tel"
-                            placeholder="+63 9XX XXX XXXX" aria-describedby="applicant-phone-error" required>
+                        <label for="applicant-phone" class="form-label is-required">Phone</label>
+                        <input type="tel" class="form-control" id="applicant-phone" name="phone" autocomplete="tel" inputmode="tel"
+                            placeholder="09171234567" data-mask="phone" aria-describedby="applicant-phone-hint applicant-phone-error" required>
+                        <div class="form-text" id="applicant-phone-hint">Mobile number: 09XXXXXXXXX or +639XXXXXXXXX</div>
                         <div class="invalid-feedback" id="applicant-phone-error"></div>
                     </div>
 
@@ -180,16 +182,25 @@
                 <h2 class="employee-form-section">Government and Tax</h2>
 
                 <div class="row g-3">
-                    @foreach ($governmentFields as $name => [$id, $label])
+                        @foreach ($governmentFields as $name => [$id, $label, $mask, $example, $hint])
                         <div class="col-md-6">
                             <label for="applicant-{{ $id }}" class="form-label">{{ $label }}</label>
                             <input type="text" class="form-control tabular-nums" id="applicant-{{ $id }}" name="{{ $name }}"
-                                inputmode="numeric" autocomplete="off" aria-describedby="applicant-{{ $id }}-error">
+                                inputmode="numeric" autocomplete="off"
+                                @if ($mask) data-mask="{{ $mask }}" placeholder="{{ $example }}" @endif
+                                aria-describedby="{{ $hint ? 'applicant-'.$id.'-hint ' : '' }}applicant-{{ $id }}-error">
+                            @if ($hint)
+                                <div class="form-text" id="applicant-{{ $id }}-hint">{{ $hint }}</div>
+                            @endif
                             <div class="invalid-feedback" id="applicant-{{ $id }}-error"></div>
                         </div>
                     @endforeach
                 </div>
             </section>
+
+            <p class="small text-body-secondary mb-2">
+                <span class="text-danger fw-semibold" aria-hidden="true">*</span> Required field
+            </p>
 
             <p class="small text-body-secondary">
                 Your email and phone number also change on the applications you have submitted, so HR can reach you.

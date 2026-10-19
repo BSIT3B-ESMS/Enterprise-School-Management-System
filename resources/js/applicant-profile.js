@@ -4,7 +4,8 @@ import { formatDate, initialsOf } from './format.js';
 import { fillDocuments, fillFields } from './applicant-application.js';
 import { accountId, isSignedIn } from './applicant-portal.js';
 import { getApplicantAccount, onMockDataChange, updateApplicantAccount, validateApplicantEmail } from './mock-data.js';
-import { emailRule, idNumberRule, phoneRule } from './validation-rules.js';
+import { bindMasks, maskedForDisplay } from './input-masks.js';
+import { emailRule, idNumberRule, pagibigRule, philhealthRule, phoneRule, sssRule, tinRule } from './validation-rules.js';
 import { showToast } from './toast.js';
 
 // The profile details the form edits (the 201 file's field names); the name is not one of them.
@@ -13,12 +14,12 @@ const editableFields = ['email', 'phone', 'address', 'birthdate', 'sex', 'civilS
 // Each rule returns an error message, or '' when the value is valid (the same rules as the job application form).
 const validationRules = {
     birthdate: (value) => (value && value > todayIsoDate() ? 'The birthdate cannot be in the future.' : ''),
-    email: (value) => emailRule(value) || validateApplicantEmail(accountId, value).email || '',
+    email: (value) => (value.trim() ? emailRule(value) || validateApplicantEmail(accountId, value).email || '' : 'Enter your email address.'),
     phone: phoneRule,
-    sssNumber: idNumberRule,
-    philhealthNumber: idNumberRule,
-    pagibigNumber: idNumberRule,
-    tin: idNumberRule,
+    sssNumber: sssRule,
+    philhealthNumber: philhealthRule,
+    pagibigNumber: pagibigRule,
+    tin: tinRule,
     birNumber: idNumberRule,
 };
 
@@ -49,7 +50,7 @@ function renderProfile($root) {
 }
 
 function setFieldError($field, message) {
-    $(`#${$field.attr('aria-describedby')}`).text(message);
+    $(`#${$field.attr('aria-describedby').split(' ').find((id) => id.endsWith('-error'))}`).text(message);
 
     if (message) {
         $field.addClass('is-invalid').attr('aria-invalid', 'true');
@@ -78,6 +79,7 @@ function initEdit($root) {
     }
 
     field('birthdate').attr('max', todayIsoDate());
+    bindMasks($form);
 
     $editButton.on('click', function () {
         const account = getApplicantAccount(accountId);
@@ -85,7 +87,7 @@ function initEdit($root) {
         $form.find('.is-invalid').removeClass('is-invalid').removeAttr('aria-invalid');
         $form.find('.invalid-feedback').text('');
         $form.find('[data-applicant-input="name"]').val(account.name);
-        editableFields.forEach((name) => field(name).val(account[name] ?? ''));
+        editableFields.forEach((name) => field(name).val(maskedForDisplay(field(name).attr('data-mask'), account[name] ?? '')));
         setEditing(true);
         field('birthdate').trigger('focus');
     });

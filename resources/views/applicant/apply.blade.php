@@ -5,11 +5,12 @@
 @php
     // The 201 file's government and tax fields, with the same names, labels, and rules as the HR employee form.
     $governmentFields = [
-        'sssNumber' => ['sss-number', 'SSS Number'],
-        'philhealthNumber' => ['philhealth-number', 'PhilHealth Number'],
-        'pagibigNumber' => ['pagibig-number', 'Pag-IBIG (HDMF) Number'],
-        'tin' => ['tin', 'Tax Identification Number (TIN)'],
-        'birNumber' => ['bir-number', 'BIR Number'],
+        // name => [id, label, mask, example, format hint]: the format each number is checked against (the BIR number has no fixed one).
+        'sssNumber' => ['sss-number', 'SSS Number', 'sss', '00-1234567-8', 'Format: 00-1234567-8 (10 digits)'],
+        'philhealthNumber' => ['philhealth-number', 'PhilHealth Number', 'philhealth', '12-123456789-0', 'Format: 12-123456789-0 (12 digits)'],
+        'pagibigNumber' => ['pagibig-number', 'Pag-IBIG (HDMF) Number', 'pagibig', '1234-5678-9012', 'Pag-IBIG MID. Format: 1234-5678-9012 (12 digits)'],
+        'tin' => ['tin', 'Tax Identification Number (TIN)', 'tin', '123-456-789', 'Format: 123-456-789 (9 digits), or 123-456-789-000 with a branch code'],
+        'birNumber' => ['bir-number', 'BIR Number', null, null, null],
     ];
 @endphp
 
@@ -47,14 +48,16 @@
 
         <div class="alert alert-warning mb-0 d-none" role="status" data-apply-position-notice></div>
 
+        <div class="alert alert-info mb-0 d-none" role="status" data-apply-draft-notice></div>
+
         <form class="card employee-form-card" novalidate data-apply-form>
             <section class="mb-4">
                 <h2 class="employee-form-section">Personal Information</h2>
 
                 <div class="row g-3">
                     <div class="col-md-6">
-                        <label for="apply-name" class="form-label">Full Name</label>
-                        <input type="text" class="form-control" id="apply-name" readonly aria-describedby="apply-name-hint"
+                        <label for="apply-name" class="form-label is-required">Full Name</label>
+                        <input type="text" class="form-control" id="apply-name" readonly aria-required="true" aria-describedby="apply-name-hint"
                             data-apply-account="name">
                         <div class="form-text" id="apply-name-hint">From your account.</div>
                     </div>
@@ -92,7 +95,7 @@
 
                 <div class="row g-3">
                     <div class="col-12">
-                        <label for="apply-job-title" class="form-label">Position</label>
+                        <label for="apply-job-title" class="form-label is-required">Position</label>
                         <select class="form-select" id="apply-job-title" name="jobTitleId"
                             aria-describedby="apply-job-title-summary apply-job-title-error" required data-apply-positions></select>
                         <div class="form-text" id="apply-job-title-summary" data-apply-position-summary></div>
@@ -108,16 +111,17 @@
 
                 <div class="row g-3">
                     <div class="col-md-6">
-                        <label for="apply-email" class="form-label">Email</label>
-                        <input type="email" class="form-control" id="apply-email" readonly aria-describedby="apply-email-hint"
+                        <label for="apply-email" class="form-label is-required">Email</label>
+                        <input type="email" class="form-control" id="apply-email" readonly aria-required="true" aria-describedby="apply-email-hint"
                             data-apply-account="email">
                         <div class="form-text" id="apply-email-hint">From your account. Change it in your profile.</div>
                     </div>
 
                     <div class="col-md-6">
-                        <label for="apply-phone" class="form-label">Phone</label>
-                        <input type="tel" class="form-control" id="apply-phone" name="phone" autocomplete="tel"
-                            placeholder="+63 9XX XXX XXXX" aria-describedby="apply-phone-error" required>
+                        <label for="apply-phone" class="form-label is-required">Phone</label>
+                        <input type="tel" class="form-control" id="apply-phone" name="phone" autocomplete="tel" inputmode="tel"
+                            placeholder="09171234567" data-mask="phone" aria-describedby="apply-phone-hint apply-phone-error" required>
+                        <div class="form-text" id="apply-phone-hint">Mobile number: 09XXXXXXXXX or +639XXXXXXXXX</div>
                         <div class="invalid-feedback" id="apply-phone-error"></div>
                     </div>
 
@@ -129,14 +133,53 @@
             </section>
 
             <section class="mb-4">
+                <h2 class="employee-form-section">Emergency Contact</h2>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label for="apply-emergency-name" class="form-label is-required">Emergency Contact Name</label>
+                        <input type="text" class="form-control" id="apply-emergency-name" name="emergencyContactName" maxlength="120"
+                            autocomplete="off" placeholder="e.g. Maria Dela Cruz" aria-describedby="apply-emergency-name-error" required>
+                        <div class="invalid-feedback" id="apply-emergency-name-error"></div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label for="apply-emergency-number" class="form-label is-required">Emergency Contact Number</label>
+                        <input type="tel" class="form-control" id="apply-emergency-number" name="emergencyContactNumber" autocomplete="off"
+                            inputmode="tel" placeholder="09171234567" data-mask="phone"
+                            aria-describedby="apply-emergency-number-hint apply-emergency-number-error" required>
+                        <div class="form-text" id="apply-emergency-number-hint">Mobile number: 09XXXXXXXXX or +639XXXXXXXXX</div>
+                        <div class="invalid-feedback" id="apply-emergency-number-error"></div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label for="apply-emergency-relationship" class="form-label is-required">Relationship to Applicant</label>
+                        <select class="form-select" id="apply-emergency-relationship" name="emergencyContactRelationship"
+                            aria-describedby="apply-emergency-relationship-error" required>
+                            <option value="">Select relationship</option>
+                            @foreach (['Parent', 'Spouse', 'Child', 'Sibling', 'Relative', 'Guardian', 'Friend', 'Other'] as $relationship)
+                                <option>{{ $relationship }}</option>
+                            @endforeach
+                        </select>
+                        <div class="invalid-feedback" id="apply-emergency-relationship-error"></div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-4">
                 <h2 class="employee-form-section">Government and Tax</h2>
 
                 <div class="row g-3">
-                    @foreach ($governmentFields as $name => [$id, $label])
+                    @foreach ($governmentFields as $name => [$id, $label, $mask, $example, $hint])
                         <div class="col-md-6">
                             <label for="apply-{{ $id }}" class="form-label">{{ $label }}</label>
                             <input type="text" class="form-control tabular-nums" id="apply-{{ $id }}" name="{{ $name }}"
-                                inputmode="numeric" autocomplete="off" aria-describedby="apply-{{ $id }}-error">
+                                inputmode="numeric" autocomplete="off"
+                                @if ($mask) data-mask="{{ $mask }}" placeholder="{{ $example }}" @endif
+                                aria-describedby="{{ $hint ? 'apply-'.$id.'-hint ' : '' }}apply-{{ $id }}-error">
+                            @if ($hint)
+                                <div class="form-text" id="apply-{{ $id }}-hint">{{ $hint }}</div>
+                            @endif
                             <div class="invalid-feedback" id="apply-{{ $id }}-error"></div>
                         </div>
                     @endforeach
@@ -156,8 +199,13 @@
                 Documents are listed by file name only; files are not uploaded in this demo.
             </p>
 
+            <p class="small text-body-secondary mb-0" data-required-note>
+                <span class="text-danger fw-semibold" aria-hidden="true">*</span> Required field. The other fields are optional.
+            </p>
+
             <div class="d-flex justify-content-end flex-wrap gap-2 mt-2">
                 <a class="btn btn-outline-secondary" href="{{ route('applicant.positions') }}">Cancel</a>
+                <button type="button" class="btn btn-outline-primary" data-apply-save>Save Draft</button>
                 <button type="submit" class="btn btn-primary">Submit Application</button>
             </div>
         </form>
