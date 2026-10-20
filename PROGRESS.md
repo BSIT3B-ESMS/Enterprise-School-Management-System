@@ -260,3 +260,26 @@ If the system ever goes past demo size, the fix is paging the office screens (R3
 | R9 | Load test | ✅ Done once (see Performance); not needed further for a demo |
 | R10 | UAT with the admission office on the existing screens | To do |
 | R11 | Production deployment (EC2, RDS, Nginx, TLS, mail credentials) | To do |
+
+## Health check (2026-10-20, `health-check` branch)
+
+A separate review session checked the system for performance, optimization and gaps, while another session kept developing on `backend`. Full report with file references and fixes: [docs/HEALTH_CHECK.md](docs/HEALTH_CHECK.md). Everything is on the `health-check` branch (pushed); nothing was changed in the `backend` working tree.
+
+**Done**
+- The report: 14 findings ranked by severity.
+- Finding 4 (failing tests) was fixed by the developing session (68/68 passing at the time of the check).
+- Finding 5: migration `2026_10_20_900000_add_query_indexes.php` adds the missing indexes on SQLite (audit log by application, applications by period, slot counts, sessions/schedules by period) and `applications(status, acceptance_deadline)` everywhere. Tested on SQLite: the office data queries use the indexes; rollback works.
+- Finding 10: `after_commit => true` on every queue connection in `config/queue.php`.
+
+**To do** (left alone on purpose: each touches files the developing session had uncommitted changes in)
+1. Slot counts per admission period: `Program::filledCounts`, `OfferService::accept` (High).
+2. Offer acceptance and forfeit: re-load and lock the application inside the transaction (High).
+3. Concurrent uploads: lock the application in `DocumentService::upload` (High).
+4. Office audit list: limit it and add a paginated endpoint (`OfficeStatePresenter`).
+5. Bulk result release: eager loading, chunked transactions, one batched presenter call.
+6. DMS upload retries (`DmsDocumentStore`) and outbox delivery (ordering, retry cap, `ShouldBeUnique`).
+7. Low: N+1s, the duplicate check's `LOWER()`, retention/pruning, config validation, login timing.
+
+**Next steps**
+- Merge `health-check` into `backend` once the developing session has committed its work (the branch changes only a new migration, `config/queue.php`, `docs/HEALTH_CHECK.md` and this section at the end of PROGRESS.md; if PROGRESS.md conflicts, keep both sides). Then run `php artisan migrate`.
+- Then work through the to-do list above, top first, with a test for each.

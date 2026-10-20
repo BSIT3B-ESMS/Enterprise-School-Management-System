@@ -6,22 +6,22 @@
 
 ## Summary
 
-| # | Finding | Area | Severity |
-|---|---|---|---|
-| 1 | Slot counts are not limited to the admission period | Correctness | **High** |
-| 2 | Accepting an offer re-checks nothing under the lock (race with double click and with forfeit) | Correctness | **High** |
-| 3 | Two uploads at the same time can leave two "current" versions of a document | Correctness | **High** |
-| 4 | Test suite: 20 of 58 tests fail on the working tree | Quality | **High** |
-| 5 | SQLite (now the demo default) has no index on foreign keys: the office data scans the whole audit log | Performance | Medium |
-| 6 | Office data sends the entire office audit log, which grows forever | Performance | Medium |
-| 7 | Bulk result release runs about 10 queries per applicant in one long transaction | Performance | Medium |
-| 8 | DMS file upload: blocking retries, a consumed stream on retry, retries on 4xx | Performance / correctness | Medium |
-| 9 | DMS outbox: no ordering per applicant, endless hourly retries, possible duplicate jobs | Integration | Medium |
-| 10 | Queued notifications are dispatched inside transactions with `after_commit` off | Integration | Medium (Low on the database queue) |
-| 11 | Smaller N+1 queries and repeated lookups | Performance | Low |
-| 12 | The duplicate-applicant check cannot use its index | Performance | Low |
-| 13 | Data retention: nothing prunes the outbox, notifications, devices or orphaned files | Operations | Low |
-| 14 | Missing config validation (DMS URL), login timing, minor robustness | Robustness | Low |
+| # | Finding | Area | Severity | Status |
+|---|---|---|---|---|
+| 1 | Slot counts are not limited to the admission period | Correctness | **High** | Open |
+| 2 | Accepting an offer re-checks nothing under the lock (race with double click and with forfeit) | Correctness | **High** | Open |
+| 3 | Two uploads at the same time can leave two "current" versions of a document | Correctness | **High** | Open |
+| 4 | Test suite: 20 of 58 tests fail on the working tree | Quality | **High** | ✅ Fixed by the developing session |
+| 5 | SQLite (now the demo default) has no index on foreign keys: the office data scans the whole audit log | Performance | Medium | ✅ Fixed (this branch) |
+| 6 | Office data sends the entire office audit log, which grows forever | Performance | Medium | Open |
+| 7 | Bulk result release runs about 10 queries per applicant in one long transaction | Performance | Medium | Open |
+| 8 | DMS file upload: blocking retries, a consumed stream on retry, retries on 4xx | Performance / correctness | Medium | Open |
+| 9 | DMS outbox: no ordering per applicant, endless hourly retries, possible duplicate jobs | Integration | Medium | Open |
+| 10 | Queued notifications are dispatched inside transactions with `after_commit` off | Integration | Medium (Low on the database queue) | ✅ Fixed (this branch) |
+| 11 | Smaller N+1 queries and repeated lookups | Performance | Low | Open |
+| 12 | The duplicate-applicant check cannot use its index | Performance | Low | Open |
+| 13 | Data retention: nothing prunes the outbox, notifications, devices or orphaned files | Operations | Low | Open |
+| 14 | Missing config validation (DMS URL), login timing, minor robustness | Robustness | Low | Open |
 
 The system's base is solid: status changes go through one service, history and audit tables are append-only (triggers on MySQL and SQLite), the outbox keeps DMS outages from blocking staff, exam seats and program slots are taken under row locks, office data is streamed in batches, and rate limits cover sign-in, registration and uploads. Most findings are edge cases (concurrency, the second admission period, growth over time) rather than everyday failures.
 
@@ -52,6 +52,8 @@ The system's base is solid: status changes go through one service, history and a
 
 ### 4. Test suite: 20 of 58 tests fail on the working tree
 
+> **Status (later on 2026-10-20): fixed by the developing session.** The suite passed 68/68 on the working tree; it has since grown to 86 tests while that session continues.
+
 `php vendor/bin/phpunit`: **37 passed, 20 failed** (58 tests). Every failure comes from the work in progress, not from a regression in finished code:
 
 | Cause | Tests affected |
@@ -67,6 +69,8 @@ The system's base is solid: status changes go through one service, history and a
 ## Medium
 
 ### 5. SQLite: foreign keys have no index, so the office data scans the audit log
+
+> **Status: fixed on this branch** by [2026_10_20_900000_add_query_indexes.php](../database/migrations/2026_10_20_900000_add_query_indexes.php). After migrating, both queries below use an index (`SEARCH … USING INDEX`) instead of `SCAN`; rollback and re-migrate were tested on SQLite. Indexes that start with a foreign key column are skipped on MySQL/MariaDB, which already indexes foreign keys; there the migration adds only `applications(status, acceptance_deadline)`. Missing tables or columns are skipped, so the migration runs on any schema.
 
 Laravel's `foreignId()->constrained()` creates an index automatically on MySQL (InnoDB requires one) but **not on SQLite**. Since commit `5c42834`, SQLite is the demo default. The query plan on `database/database.sqlite`:
 
@@ -111,6 +115,8 @@ SELECT id FROM applications WHERE admission_period_id = ? AND deleted_at IS NULL
 
 ### 10. Notifications queued inside transactions
 
+> **Status: fixed on this branch.** `after_commit` is `true` on the database, beanstalkd, SQS and Redis connections in [config/queue.php](../config/queue.php). The sync queue used by the tests is unaffected.
+
 `ApplicationStatusChanged` is dispatched inside `transition()`, which usually runs inside a `DB::transaction`. The listener queues `AdmissionNotice` (`ShouldQueue`), and [config/queue.php](../config/queue.php#L44) has `after_commit => false`. On the **database** queue this happens to be safe, because the job row is inserted in the same transaction and rolls back with it. On **Redis or SQS** (a likely AWS move), an applicant could receive "Application received" for a submission that rolled back, or the job could run before the data is committed.
 
 **Fix:** set `'after_commit' => true` on the queue connections (the outbox job already uses `->afterCommit()`), or add `public $afterCommit = true;` to the queued notifications.
@@ -149,7 +155,7 @@ D10 (retention policy) is still open in PROGRESS.md. Once it's decided, add `mod
 
 ## Not done in this session (on purpose)
 
-- **No application code changed.** Every finding touches files the other session currently has open with uncommitted changes. Editing them here would cause merge conflicts.
+- **Only findings 5 and 10 were fixed here**, because they need only a new migration and `config/queue.php`, which the developing session hasn't modified. Every other open finding touches files the other session currently has open with uncommitted changes. Editing them here would cause merge conflicts.
 - **Laravel Boost** (CLAUDE.md asks for `boost:install`): `laravel/boost` is already in `require-dev` in the uncommitted `composer.json`. Running the installer here would rewrite files in that working tree, so it's left for that session.
 - **No load test** was run. The PROGRESS.md figures (2026-10-17) are still the latest measurements. After fixes 5–7, re-run `php artisan db:seed --class=LoadTestSeeder` and compare office sign-in time.
 
