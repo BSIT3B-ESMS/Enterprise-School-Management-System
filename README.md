@@ -47,4 +47,4 @@ Load order matters: the layout loads `core.js` first, then each page pushes its 
 
 Both sides now run on a Laravel JSON API (`routes/api.php`) with JWT sign-in, roles (applicant, admission, clinic, sysadmin), MySQL, an append-only audit log, in-app and email notifications, and private document storage. Still browser-only, on hold until the team settles the mapping: the applicant portal's document cards and its "Submit" button.
 
-Progress, decisions, open questions and performance numbers: [PROGRESS.md](PROGRESS.md). Screen-by-screen wiring: [docs/UI_BACKEND_MATRIX.md](docs/UI_BACKEND_MATRIX.md).
+Progress, decisions, open questions and performance numbers: [PROGRESS.md](PROGRESS.md). Screen-by-screen wiring: [docs/UI_BACKEND_MATRIX.md](docs/UI_BACKEND_MATRIX.md). Endpoints: [docs/API.md](docs/API.md). Server operations: [docs/RUNBOOK.md](docs/RUNBOOK.md). Deploying to AWS: [docs/DEPLOYMENT_AWS.md](docs/DEPLOYMENT_AWS.md).

@@ -4,6 +4,7 @@ on:
   push:
     branches: [backend, main]
   pull_request:
+  workflow_call:        # deploy.yml runs these first
 
 jobs:
   phpunit:

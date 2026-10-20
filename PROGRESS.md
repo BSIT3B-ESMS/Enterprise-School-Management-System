@@ -36,7 +36,7 @@ That's it: no settings to edit. It uses SQLite (a single file, no database serve
 3. **When is an applicant "Admitted" for Enrollment?** Built as: after medical clearance (admission complete). Confirm, or name another point (e.g. offer accepted, fee paid).
 
 **Needed from other teams**
-4. **Enrollment API contract.** The integration is built and switched off (`ENROLLMENT_ENABLED=false`); the endpoint (`POST /admitted`), payload and callback (`POST /api/integrations/enrollment/student-number`) are assumed. Needs the real contract and API keys.
+4. **Enrollment and the student number (D12).** Per the updated paper the OAS never calls Enrollment: it marks applicants *Admitted* in the DMS, and Enrollment reads them there. Does Enrollment send the student number back? The callback (`POST /api/integrations/enrollment/student-number`) is built and off (`ENROLLMENT_CALLBACK_ENABLED=false`).
 5. **Document Management API contract.** The DMS driver is built (`DOCUMENT_STORE=dms`) on an assumed API. Needs the real contract and API key.
 6. **The clinic's real medical requirement list.** The seeded one (medical certificate, chest X-ray, CBC/urinalysis) is a placeholder.
 
@@ -216,6 +216,18 @@ Legend: ✅ done · 🔄 in progress · ⬜ to do · ⏸ deferred
   - Setup: `composer setup` → `php artisan app:install` (keys, database check with clear messages, MySQL trigger-setting check, migrations, seeding only when empty). `php artisan app:start` runs the web server, queue worker and scheduler together. Verified from a fresh clone (SQLite and MySQL error paths).
   - Tests: 58 passing.
 
+- **Updated plan (2026-10-20)**, from the updated Solution Design Document; see "What changed" at the top of [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md). One migration (`2026_10_20_000100_create_updated_plan_tables`) adds colleges, interview schedules/assignments, trusted devices, API clients and the DMS outbox, and the new columns (QR token, offer deadline, falsification flag, student number, privacy acceptance, …).
+  - **Roles:** five (applicant, admission, college_dean, clinic, sysadmin). Colleges own programs; a dean sees only their college.
+  - **DMS (INT-01):** every record change goes into `dms_outbox` and is sent by a queued job with an Idempotency-Key; a DMS outage never blocks staff work. `fake` and `http` drivers (`DMS_DRIVER`). `dms:outbox` shows/retries/resyncs; retries hourly.
+  - **Enrollment (D12):** the direct handoff (`SendToEnrollment`, `enrollment_handoffs`, `enrollment:retry`) is removed; the Admitted flag goes to the DMS. The student-number callback stays, off.
+  - **Exam (FR-06, FR-07):** permit PDF with a signed QR code, QR check-in (exam day only), printable application form, reminder the day before, optional self-scheduling (`EXAM_SELF_SCHEDULE`).
+  - **Offer (FR-09):** releasing a pass issues the acceptance letter (PDF) with a deadline; accepting takes the slot in a locked transaction and opens medical; unaccepted offers are forfeited by the scheduler (`admission:deadlines`).
+  - **Interview (FR-17):** personnel schedule and assign; the dean records grade (never shown to the applicant) and Passed/Failed; programs flagged `requires_interview`.
+  - **Security (NFR-04, NFR-05):** email verification before submitting, privacy-notice acceptance, possible-duplicate flag, TOTP 2FA for staff and email codes for applicants on new devices/slot acceptance (both behind switches until the UI has a code screen), API clients with IP allowlist, medical file openings audited. `user:create`, `user:2fa`, `api-client:create`.
+  - **Reports (FR-13):** 8 role-scoped reports as JSON, Excel or PDF; exports audited.
+  - **Ops (Phase 14):** Pulse and Log Viewer (sysadmin only), `/up`, encrypted backups with an off-server copy (`BACKUP_REMOTE_DISK`), ClamAV upload scan (`MALWARE_SCANNER`), [AWS deployment guide](docs/DEPLOYMENT_AWS.md), manual GitHub Actions deploy (`deploy.yml`: the full test suite on SQLite and MySQL, then SSH deploy of the tested commit, migrations as the migration user), [sysadmin runbook](docs/RUNBOOK.md), [API reference](docs/API.md).
+  - Tests: 89 passing.
+
 ## Performance (measured 2026-10-17, local Windows machine, demo data)
 
 You said this is a demo system, so the goal is that it runs smoothly at demo size, not a capacity test.
@@ -253,10 +265,11 @@ If the system ever goes past demo size, the fix is paging the office screens (R3
 | R2 | Run on MySQL | ✅ Locally (MySQL 8.0.46, CI too). Still to do on RDS |
 | R3 | Server-side paging for the office screens | Not needed at demo size (see Performance). Needs view changes if the system grows |
 | R4 | DMS driver against the real API | Waiting on open question 5 |
-| R5 | Enrollment integration | ✅ Built, switched off. Waiting on open questions 3–4 to switch on |
+| R5 | Enrollment integration | ✅ Via the DMS (D12). Student-number callback built, off: waiting on open question 4 |
 | R6 | DB least privilege | ✅ `php artisan app:db-privileges` (apply in production) |
 | R7 | Backups | ✅ `php artisan app:backup`, nightly. Also keep RDS automated backups on |
 | R8 | Pulse dashboard access in production | Waiting on open question 12 |
 | R9 | Load test | ✅ Done once (see Performance); not needed further for a demo |
 | R10 | UAT with the admission office on the existing screens | To do |
-| R11 | Production deployment (EC2, RDS, Nginx, TLS, mail credentials) | To do |
+| R11 | Production deployment (EC2, RDS, Nginx, TLS, mail credentials) | Guide, Nginx config and deploy workflow ready ([docs/DEPLOYMENT_AWS.md](docs/DEPLOYMENT_AWS.md)). To do: create the server, add the GitHub secrets, restore drill |
+| R12 | Turn on 2FA (`STAFF_2FA_REQUIRED`, `APPLICANT_EMAIL_2FA`) | Waiting on the UI code screen (open question 7) |
