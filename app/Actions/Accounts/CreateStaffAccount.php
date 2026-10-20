@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
 
 class CreateStaffAccount
 {
-    public function __construct(private AuditLogger $audit) {}
+    public function __construct(private AuditLogger $audit, private EnsureHrEmployment $ensureHrEmployment) {}
 
     /**
      * Creates the login for an employee: their official email, and their employee number as the first password. The
@@ -29,6 +29,10 @@ class CreateStaffAccount
         }
 
         return DB::transaction(function () use ($actor, $employee, $role): array {
+            if ($role->isHr()) {
+                $this->ensureHrEmployment->handle($actor, $employee);
+            }
+
             $temporaryPassword = $employee->employee_no;
 
             $user = new User(['name' => $employee->full_name, 'email' => $employee->official_email, 'password' => $temporaryPassword]);

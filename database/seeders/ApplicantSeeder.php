@@ -19,6 +19,8 @@ use App\Models\Interview;
 use App\Models\JobTitle;
 use App\Models\User;
 use App\Services\ApplicationTimeline;
+use App\Services\InterviewConflicts;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
 
@@ -141,7 +143,7 @@ class ApplicantSeeder extends Seeder
             case 'demo_upcoming':
             case 'demo_upcoming_requested':
                 $start = now()->addDays($scenario === 'demo_upcoming' ? 4 : 7)->setTime(10 + ($index % 3), 0);
-                $interview = $this->schedule($application, $admin, $interviewer, $start);
+                $interview = $this->schedule($application, $admin, $this->freeInterviewer($application, $start), $start);
 
                 if ($scenario === 'demo_upcoming_requested') {
                     $interview->forceFill([
@@ -153,7 +155,8 @@ class ApplicantSeeder extends Seeder
                 break;
 
             case 'demo_soon':
-                $this->schedule($application, $admin, $interviewer, now()->hour < 15 && now()->hour >= 8 ? now()->setTime(16, 0) : now()->addDay()->setTime(8, 0));
+                $start = now()->hour < 15 && now()->hour >= 8 ? now()->setTime(16, 0) : now()->addDay()->setTime(8, 0);
+                $this->schedule($application, $admin, $this->freeInterviewer($application, $start), $start);
                 break;
 
             case 'demo_done':
@@ -197,8 +200,18 @@ class ApplicantSeeder extends Seeder
             'HR Office, Administration Building',
             null,
             null,
-            true,
         );
+    }
+
+    /**
+     * An active HR account with no interview or approved leave at that time. Seeding used to override conflicts; the
+     * action now refuses them, so the sample data picks someone free instead.
+     */
+    private function freeInterviewer(Application $application, CarbonInterface $start): User
+    {
+        return app(InterviewConflicts::class)
+            ->freeInterviewers($application, $start, $start->copy()->addHour())
+            ->firstOrFail();
     }
 
     private function completedInterview(Application $application, User $admin, User $interviewer): void

@@ -156,15 +156,30 @@ describe('proposing a change of assignment', function () {
 
     it('applies the new employment type and contract end when a part-time change is signed', function () {
         [$employee, $user] = employeeWithAccount(['first_name' => 'Maria', 'last_name' => 'Santos']);
-        $this->actingAs(hrAdmin())->post(route('employees.transfer', $employee), changeInput($employee->jobTitle, ['employment_type' => 'part_time', 'weekly_hours' => 18, 'end_date' => now()->addMonths(5)->toDateString()]));
+        $this->actingAs(hrAdmin())->post(route('employees.transfer', $employee), changeInput($employee->jobTitle, ['employment_type' => 'part_time', 'weekly_hours' => 18, 'contract_term' => 'second_semester', 'academic_year' => 2026]))->assertSessionHas('success');
         $this->actingAs($user)->post(route('employee.offers.accept', Offer::query()->sole()), ['signed_name' => 'Maria Santos', 'agree' => '1']);
 
         $fresh = $employee->fresh();
 
         expect($fresh->employment_type)->toBe(EmploymentType::PartTime)
             ->and($fresh->weekly_hours)->toBe(18)
-            ->and($fresh->contract_ends_on->toDateString())->toBe(now()->addMonths(5)->toDateString())
+            ->and($fresh->contract_ends_on->toDateString())->toBe('2027-03-31')
             ->and($fresh->transfers()->count())->toBe(0);
+    });
+
+    it('refuses a part-time agreement when the employee has an HR account', function () {
+        $employee = Employee::factory()->create();
+        User::factory()->hrStaff()->create(['employee_id' => $employee->id]);
+
+        $this->actingAs(hrAdmin())->post(route('employees.transfer', $employee), changeInput($employee->jobTitle, [
+            'employment_type' => 'part_time',
+            'weekly_hours' => 18,
+            'contract_term' => 'second_semester',
+            'academic_year' => 2026,
+        ]))->assertSessionHas('error');
+
+        expect(Offer::query()->count())->toBe(0)
+            ->and($employee->fresh()->employment_type)->toBe(EmploymentType::FullTime);
     });
 
     it('moves office staff into a title in another office, keeping an extra college, once they sign', function () {

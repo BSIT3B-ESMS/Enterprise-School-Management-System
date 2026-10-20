@@ -56,6 +56,10 @@ class ProposeAgreement
 
         $employee->loadMissing('jobTitle', 'college', 'office', 'user');
 
+        if ($type === EmploymentType::PartTime && $employee->hasHrAccount()) {
+            throw new EmployeeActionException('HR Admin and HR Staff employees must stay full-time. A part-time agreement cannot be sent.');
+        }
+
         if ($employee->offers()->pending()->exists()) {
             throw new EmployeeActionException('This employee already has an offer waiting for an answer. Wait for it, or withdraw it first.');
         }

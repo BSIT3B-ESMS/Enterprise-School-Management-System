@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\EmploymentType;
 use App\Enums\LeaveStatus;
 use App\Models\Employee;
 use App\Models\LeaveRequest;
@@ -22,6 +23,24 @@ it('lets HR Staff and HR Admin file their own leave from the HR sidebar', functi
 
     expect(LeaveRequest::query()->sole()->employee_id)->toBe($employee->id);
 })->with(['hrStaff', 'hrAdmin']);
+
+it('gives an employee promoted to HR Staff the full-time leave types', function () {
+    $employee = Employee::factory()->partTime()->create([
+        'hired_on' => '2025-03-02',
+        'weekly_hours' => 18,
+        'contract_ends_on' => now()->addMonths(3)->toDateString(),
+    ]);
+    $user = User::factory()->create(['employee_id' => $employee->id]);
+
+    $this->actingAs(hrAdmin())->put(route('accounts.role', $user), ['role' => 'hr_staff'])->assertSessionHas('success');
+
+    $this->actingAs($user->fresh())->get(route('my-leave'))
+        ->assertOk()
+        ->assertSee('Special Privilege Leave')
+        ->assertDontSee('% of the full-time vacation and sick leave');
+
+    expect($employee->fresh()->employment_type)->toBe(EmploymentType::FullTime);
+});
 
 it('cancels a pending request of their own but not someone else\'s', function () {
     $employee = Employee::factory()->create();

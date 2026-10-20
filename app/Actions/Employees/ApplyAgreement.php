@@ -29,7 +29,7 @@ class ApplyAgreement
         }
 
         DB::transaction(function () use ($offer, $actor): void {
-            $employee = $offer->employee()->with('jobTitle')->firstOrFail();
+            $employee = $offer->employee()->with(['jobTitle', 'user'])->firstOrFail();
 
             if ($offer->kind === OfferKind::Change && $this->assignmentDiffers($offer, $employee)) {
                 $this->transfer->handle(
@@ -44,17 +44,26 @@ class ApplyAgreement
                 $employee->refresh();
             }
 
+            $isHr = $employee->hasHrAccount();
+            $type = $isHr ? EmploymentType::FullTime : $offer->employment_type;
+
             $employee->forceFill([
-                'employment_type' => $offer->employment_type,
-                'weekly_hours' => $offer->employment_type === EmploymentType::PartTime ? $offer->weekly_hours : 40,
-                'contract_ends_on' => $offer->employment_type === EmploymentType::PartTime ? $offer->end_date : null,
+                'employment_type' => $type,
+                'weekly_hours' => $type === EmploymentType::PartTime ? $offer->weekly_hours : Employee::FULL_TIME_HOURS,
+                'contract_ends_on' => $type === EmploymentType::PartTime ? $offer->end_date : null,
             ]);
             $changes = $this->audit->changesFor($employee);
             $employee->save();
 
             $offer->forceFill(['applied_at' => now()])->save();
 
-            $this->audit->log(AuditAction::Update, $employee, ['event' => 'agreement_applied', 'offer_id' => $offer->id, ...$changes], $actor ?? $offer->issuer);
+            $payload = ['event' => 'agreement_applied', 'offer_id' => $offer->id, ...$changes];
+
+            if ($isHr && $offer->employment_type === EmploymentType::PartTime) {
+                $payload['hr_full_time_override'] = true;
+            }
+
+            $this->audit->log(AuditAction::Update, $employee, $payload, $actor ?? $offer->issuer);
             $this->notifier->notify($employee->user, 'Your new terms are in effect', "{$offer->kind->label()}: {$offer->summary['position']} starting {$offer->start_date->format('M j, Y')}.", route('employee.dashboard'));
         });
     }

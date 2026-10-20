@@ -8,8 +8,9 @@ use App\Models\JobTitle;
 use App\Models\Office;
 
 /**
- * Five fictional non-teaching staff, one or two per office, so the office side of the system has people. Unlike the
- * faculty roster these names are invented.
+ * Seven fictional non-teaching staff, one or two per office, so the office side of the system has people. Unlike the
+ * faculty roster these names are invented. The two HR Admins used for local development are here too, so their accounts
+ * have full-time employee records and full-time leave.
  */
 class OfficeStaffSeeder
 {
@@ -24,6 +25,8 @@ class OfficeStaffSeeder
         ['first' => 'Corazon', 'last' => 'Ilagan', 'office' => 'FIN', 'title' => 'Accountant I', 'teachesIn' => 'CBA'],
         ['first' => 'Emmanuel', 'last' => 'Dumalagan', 'office' => 'SSO', 'title' => 'Administrative Officer I', 'teachesIn' => null],
         ['first' => 'Perla', 'last' => 'Bagtas', 'office' => 'SSO', 'title' => 'Administrative Assistant I', 'teachesIn' => null],
+        ['first' => 'Niccolo Franco', 'last' => 'Yumul', 'office' => 'HR', 'title' => 'Human Resource Management Officer I', 'teachesIn' => null],
+        ['first' => 'Prespurt James', 'last' => 'Bellen', 'office' => 'HR', 'title' => 'Human Resource Management Assistant', 'teachesIn' => null],
     ];
 
     /**

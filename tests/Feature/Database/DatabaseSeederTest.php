@@ -1,5 +1,7 @@
 <?php
 
+use App\Enums\EmploymentType;
+use App\Enums\Role;
 use App\Models\Application;
 use App\Models\College;
 use App\Models\CollegeDean;
@@ -62,14 +64,27 @@ it('seeds the faculty roster the owner supplied', function () {
         ->and(Employee::query()->faculty()->whereNotIn('employees.id', Application::query()->whereNotNull('employee_id')->select('employee_id'))->count())->toBe(92);
 });
 
-it('seeds the five college secretaries and five office staff as non-teaching staff', function () {
+it('seeds the five college secretaries and seven office staff as non-teaching staff', function () {
     $this->seed();
 
     $secretaries = Employee::query()->whereHas('jobTitle', fn ($titles) => $titles->where('title', 'College Secretary'))->get();
 
     expect($secretaries->pluck('last_name')->sort()->values()->all())->toBe(['Cruz', 'Diosa', 'Nanez', 'Quiogue', 'San Jose'])
-        ->and(Employee::query()->nonTeaching()->count())->toBe(10)
-        ->and(Employee::query()->count())->toBe(103);
+        ->and(Employee::query()->nonTeaching()->count())->toBe(12)
+        ->and(Employee::query()->count())->toBe(105);
+});
+
+it('links the development HR Admins to full-time employees with full-time leave', function () {
+    $this->seed();
+
+    $admins = User::query()->where('role', Role::HrAdmin)->with('employee')->get();
+
+    expect($admins)->toHaveCount(2)
+        ->and($admins->every(fn (User $user): bool => $user->employee !== null
+            && $user->employee->employment_type === EmploymentType::FullTime
+            && $user->employee->weekly_hours === Employee::FULL_TIME_HOURS
+            && $user->employee->contract_ends_on === null))->toBeTrue()
+        ->and(User::query()->where('email', 'manansala_lourdes@plpasig.edu.ph')->value('role'))->toBe(Role::HrStaff);
 });
 
 it('makes each college dean the person marked (Dean) in the list', function () {
@@ -149,9 +164,9 @@ it('numbers employees YY-00000 by hire year, counting from 1 each year in hire o
 
     $employees = Employee::query()->orderBy('hired_on')->orderBy('id')->get();
 
-    expect($employees)->toHaveCount(103)
-        ->and($employees->pluck('employee_no')->unique())->toHaveCount(103)
-        ->and($employees->pluck('official_email')->unique())->toHaveCount(103)
+    expect($employees)->toHaveCount(105)
+        ->and($employees->pluck('employee_no')->unique())->toHaveCount(105)
+        ->and($employees->pluck('official_email')->unique())->toHaveCount(105)
         ->and($employees->every(fn (Employee $employee) => str_ends_with($employee->official_email, '@plpasig.edu.ph')))->toBeTrue();
 
     foreach ($employees->groupBy(fn (Employee $employee) => $employee->hired_on->format('y')) as $year => $hired) {
@@ -236,7 +251,7 @@ it('gives every employee a login with the employee number as password, past firs
             && Hash::check($user->employee->employee_no, $user->password)
             && ! $user->must_change_password
             && $user->onboarding_completed_at !== null))->toBeTrue()
-        ->and(User::query()->whereNull('employee_id')->where('role', '!=', 'applicant')->pluck('role')->unique()->map->value->values()->all())->toBe(['hr_admin']);
+        ->and(User::query()->whereNull('employee_id')->where('role', '!=', 'applicant')->count())->toBe(0);
 });
 
 it('does not create the development HR Admin accounts in production', function () {

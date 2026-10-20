@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\AuditAction;
+use App\Enums\EmploymentType;
 use App\Enums\Role;
 use App\Models\AuditLog;
 use App\Models\Employee;
@@ -60,6 +61,38 @@ describe('creating an account', function () {
         expect($entry->user_id)->toBe($head->id)
             ->and($entry->changes)->toEqual(['role' => 'employee', 'email' => $employee->official_email])
             ->and(json_encode($entry->changes))->not->toContain(session('issued_password')['password']);
+    });
+
+    it('makes a part-time employee full-time when the new account has an HR role', function () {
+        $employee = Employee::factory()->partTime()->create([
+            'weekly_hours' => 18,
+            'contract_ends_on' => now()->addMonths(3)->toDateString(),
+        ]);
+
+        $this->actingAs(hrAdmin())
+            ->post(route('accounts.store'), ['employee_id' => $employee->id, 'role' => 'hr_staff'])
+            ->assertSessionHas('success');
+
+        $fresh = $employee->fresh();
+
+        expect($fresh->employment_type)->toBe(EmploymentType::FullTime)
+            ->and($fresh->weekly_hours)->toBe(Employee::FULL_TIME_HOURS)
+            ->and($fresh->contract_ends_on)->toBeNull();
+    });
+
+    it('leaves a part-time employee part-time when the new account is not an HR role', function () {
+        $end = now()->addMonths(3)->toDateString();
+        $employee = Employee::factory()->partTime()->create(['weekly_hours' => 18, 'contract_ends_on' => $end]);
+
+        $this->actingAs(hrAdmin())
+            ->post(route('accounts.store'), ['employee_id' => $employee->id, 'role' => 'employee'])
+            ->assertSessionHas('success');
+
+        $fresh = $employee->fresh();
+
+        expect($fresh->employment_type)->toBe(EmploymentType::PartTime)
+            ->and($fresh->weekly_hours)->toBe(18)
+            ->and($fresh->contract_ends_on->toDateString())->toBe($end);
     });
 
     it('refuses a second account for the same employee', function () {
@@ -182,6 +215,22 @@ describe('changing a role', function () {
         expect($target->fresh()->role)->toBe(Role::HrStaff)
             ->and(AuditLog::query()->where('entity_id', $target->id)->latest('id')->first()->changes)
             ->toEqual(['role' => ['old' => 'employee', 'new' => 'hr_staff']]);
+    });
+
+    it('makes the employee full-time when their role becomes HR Staff', function () {
+        $employee = Employee::factory()->partTime()->create([
+            'weekly_hours' => 18,
+            'contract_ends_on' => now()->addMonths(3)->toDateString(),
+        ]);
+        $target = User::factory()->create(['employee_id' => $employee->id]);
+
+        $this->actingAs(hrAdmin())->put(route('accounts.role', $target), ['role' => 'hr_staff'])->assertSessionHas('success');
+
+        $fresh = $employee->fresh();
+
+        expect($fresh->employment_type)->toBe(EmploymentType::FullTime)
+            ->and($fresh->weekly_hours)->toBe(Employee::FULL_TIME_HOURS)
+            ->and($fresh->contract_ends_on)->toBeNull();
     });
 
     it('refuses to change your own role', function () {

@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\DB;
 
 class ChangeStaffRole
 {
-    public function __construct(private AuditLogger $audit, private HrAdminFloor $floor) {}
+    public function __construct(private AuditLogger $audit, private HrAdminFloor $floor, private EnsureHrEmployment $ensureHrEmployment) {}
 
     /**
      * Only an HR Admin changes roles. Nobody changes their own role, and the last HR Admins cannot be demoted.
@@ -34,6 +34,10 @@ class ChangeStaffRole
 
             $target->forceFill(['role' => $role])->save();
             $this->audit->log(AuditAction::Update, $target, ['role' => ['old' => $old->value, 'new' => $role->value]], $actor);
+
+            if ($role->isHr() && $target->employee !== null) {
+                $this->ensureHrEmployment->handle($actor, $target->employee);
+            }
         });
     }
 }

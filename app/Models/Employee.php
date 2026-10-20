@@ -287,6 +287,15 @@ class Employee extends Model
     public const FULL_TIME_HOURS = 40;
 
     /**
+     * Whether the employee's login has an HR role. An HR account must stay full-time, because the leave rules key off
+     * employment_type.
+     */
+    public function hasHrAccount(): bool
+    {
+        return $this->user?->role->isHr() ?? false;
+    }
+
+    /**
      * The share of full leave credits this employee earns: 1 for full-time, weekly hours over 40 for part-time.
      */
     public function leaveCreditShare(): float
