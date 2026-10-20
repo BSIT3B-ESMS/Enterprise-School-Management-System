@@ -4,7 +4,7 @@
 
 {{-- Figures, charts, and lists are filled in by resources/js/dashboard.js from resources/js/mock-data.js. --}}
 @section('content')
-    <div class="d-grid gap-4" data-page="dashboard" data-employees-url="{{ url('/employees') }}">
+    <div class="d-grid gap-4" data-page="dashboard" data-first-name="{{ strtok(auth()->user()->name, ' ') }}" data-employees-url="{{ url('/employees') }}">
         <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
             <div>
                 <h1 class="page-title" data-greeting>Welcome</h1>
@@ -67,9 +67,11 @@
 
             <ul class="list-group list-group-flush dashboard-list" data-dashboard-activity></ul>
 
-            <div class="mt-2">
-                <a class="btn btn-link p-0" href="{{ route('audit.index') }}">View all audit logs</a>
-            </div>
+            @if (auth()->user()->isHrHead())
+                <div class="mt-2">
+                    <a class="btn btn-link p-0" href="{{ route('audit.index') }}">View all audit logs</a>
+                </div>
+            @endif
         </section>
     </div>
 @endsection

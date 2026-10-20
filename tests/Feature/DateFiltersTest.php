@@ -1,5 +1,7 @@
 <?php
 
+beforeEach(fn () => $this->actingAs(hrHead()));
+
 it('filters audit logs by a single date picker with no start or end date fields', function () {
     $this->get(route('audit.index'))
         ->assertSeeInOrder([

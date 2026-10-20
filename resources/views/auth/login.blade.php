@@ -15,12 +15,12 @@
 
                 <x-flash-messages />
 
-                <div class="alert alert-danger mb-0 d-none" role="alert" data-login-error></div>
+                <div class="alert alert-danger mb-0{{ $errors->any() ? '' : ' d-none' }}" role="alert" data-login-error>{{ $errors->first() }}</div>
 
                 <div>
                     <label for="email" class="form-label">Email</label>
                     <input type="email" class="form-control" id="email" name="email" autocomplete="username"
-                        placeholder="name@company.com" aria-describedby="email-error" required>
+                        placeholder="name@company.com" value="{{ old('email') }}" aria-describedby="email-error" required>
                     <div class="invalid-feedback" id="email-error"></div>
                 </div>
 

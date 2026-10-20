@@ -308,6 +308,10 @@ $app-sidebar-width: 16.25rem;
 }
 
 .app-sidebar-logout {
+    width: 100%;
+    border: 0;
+    background: transparent;
+    text-align: left;
     display: flex;
     gap: 0.5rem;
     align-items: center;

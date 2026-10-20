@@ -1,0 +1,209 @@
+<?php
+
+use App\Enums\AuditAction;
+use App\Enums\Role;
+use App\Models\AuditLog;
+use App\Models\Employee;
+use App\Models\User;
+use Illuminate\Support\Facades\Hash;
+
+it('shows the accounts page to the HR Head only', function () {
+    $this->actingAs(hrHead())->get(route('accounts.index'))->assertOk()->assertSee('Create an account');
+
+    $this->actingAs(hrStaff())->get(route('accounts.index'))->assertForbidden();
+    $this->actingAs(employeeUser())->get(route('accounts.index'))->assertForbidden();
+});
+
+describe('creating an account', function () {
+    it('issues a login with a one-time temporary password that expires in 72 hours', function () {
+        $head = hrHead();
+        $employee = Employee::factory()->create();
+
+        $response = $this->actingAs($head)->post(route('accounts.store'), ['employee_id' => $employee->id, 'role' => 'employee']);
+
+        $user = User::query()->where('email', $employee->official_email)->sole();
+        $issued = session('issued_password');
+
+        $response->assertRedirect()->assertSessionHas('success');
+        expect($user->employee_id)->toBe($employee->id)
+            ->and($user->role)->toBe(Role::Employee)
+            ->and($user->must_change_password)->toBeTrue()
+            ->and($user->name)->toBe($employee->full_name)
+            ->and($user->temp_password_expires_at->diffInHours(now(), absolute: true))->toBeBetween(71, 72)
+            ->and($issued['password'])->toHaveLength(16)
+            ->and(Hash::check($issued['password'], $user->password))->toBeTrue()
+            ->and($user->password)->not->toContain($issued['password']);
+    });
+
+    it('lets the issued password sign in and then forces a change', function () {
+        $employee = Employee::factory()->create();
+        $this->actingAs(hrHead())->post(route('accounts.store'), ['employee_id' => $employee->id, 'role' => 'hr_staff']);
+        $password = session('issued_password')['password'];
+        auth()->logout();
+
+        $this->post(route('login.store'), ['email' => $employee->official_email, 'password' => $password])
+            ->assertRedirect();
+
+        $this->assertAuthenticated();
+        $this->get(route('dashboard'))->assertRedirect(route('password.change'));
+    });
+
+    it('audits the new account without recording the password', function () {
+        $head = hrHead();
+        $employee = Employee::factory()->create();
+
+        $this->actingAs($head)->post(route('accounts.store'), ['employee_id' => $employee->id, 'role' => 'employee']);
+
+        $entry = AuditLog::query()->where('action', AuditAction::Create)->where('entity_type', (new User)->getMorphClass())->latest('id')->first();
+
+        expect($entry->user_id)->toBe($head->id)
+            ->and($entry->changes)->toEqual(['role' => 'employee', 'email' => $employee->official_email])
+            ->and(json_encode($entry->changes))->not->toContain(session('issued_password')['password']);
+    });
+
+    it('refuses a second account for the same employee', function () {
+        $employee = Employee::factory()->create();
+        User::factory()->create(['employee_id' => $employee->id, 'email' => $employee->official_email]);
+
+        $this->actingAs(hrHead())
+            ->post(route('accounts.store'), ['employee_id' => $employee->id, 'role' => 'employee'])
+            ->assertSessionHas('error');
+
+        expect(User::query()->where('employee_id', $employee->id)->count())->toBe(1);
+    });
+
+    it('rejects an unknown employee or role', function () {
+        $this->actingAs(hrHead())
+            ->post(route('accounts.store'), ['employee_id' => 999999, 'role' => 'superuser'])
+            ->assertSessionHasErrors(['employee_id', 'role']);
+    });
+
+    it('forbids HR Staff and employees', function (Closure $makeUser) {
+        $employee = Employee::factory()->create();
+
+        $this->actingAs($makeUser())
+            ->post(route('accounts.store'), ['employee_id' => $employee->id, 'role' => 'employee'])
+            ->assertForbidden();
+
+        expect(User::query()->where('employee_id', $employee->id)->exists())->toBeFalse();
+    })->with([
+        'hr staff' => [fn () => hrStaff()],
+        'employee' => [fn () => employeeUser()],
+    ]);
+});
+
+describe('resetting a password', function () {
+    it('issues a new temporary password, ends the old one, and requires a change', function () {
+        $target = User::factory()->state(['password' => 'old-password-long-enough'])->create();
+        $target->forceFill(['remember_token' => 'old-token'])->save();
+
+        $this->actingAs(hrHead())->post(route('accounts.reset-password', $target))->assertSessionHas('issued_password');
+
+        $target->refresh();
+        $new = session('issued_password')['password'];
+
+        expect(Hash::check('old-password-long-enough', $target->password))->toBeFalse()
+            ->and(Hash::check($new, $target->password))->toBeTrue()
+            ->and($target->must_change_password)->toBeTrue()
+            ->and($target->temp_password_expires_at)->not->toBeNull()
+            ->and($target->remember_token)->not->toBe('old-token');
+    });
+
+    it('lets one HR Head reset another HR Head, but nobody reset their own account here', function () {
+        $first = hrHead();
+        $second = hrHead();
+
+        $this->actingAs($first)->post(route('accounts.reset-password', $second))->assertSessionHas('issued_password');
+        $this->actingAs($first)->post(route('accounts.reset-password', $first))->assertForbidden();
+    });
+
+    it('is forbidden to HR Staff and employees', function (Closure $makeUser) {
+        $this->actingAs($makeUser())->post(route('accounts.reset-password', User::factory()->create()))->assertForbidden();
+    })->with([
+        'hr staff' => [fn () => hrStaff()],
+        'employee' => [fn () => employeeUser()],
+    ]);
+});
+
+describe('deactivating an account', function () {
+    it('blocks sign-in, audits it, and can be undone', function () {
+        $head = hrHead();
+        $target = User::factory()->state(['password' => 'correct-horse-battery'])->create();
+
+        $this->actingAs($head)->post(route('accounts.deactivate', $target))->assertSessionHas('success');
+
+        expect($target->fresh()->is_active)->toBeFalse()
+            ->and(AuditLog::query()->where('entity_id', $target->id)->where('user_id', $head->id)->latest('id')->first()->changes)
+            ->toEqual(['is_active' => ['old' => true, 'new' => false]]);
+
+        $this->post(route('accounts.reactivate', $target));
+
+        expect($target->fresh()->is_active)->toBeTrue();
+    });
+
+    it('refuses to deactivate your own account', function () {
+        $head = hrHead();
+
+        $this->actingAs($head)->post(route('accounts.deactivate', $head))->assertForbidden();
+    });
+
+    it('refuses to leave fewer than two active HR Heads', function () {
+        $first = hrHead();
+        $second = hrHead();
+
+        $this->actingAs($first)->post(route('accounts.deactivate', $second))->assertSessionHas('error');
+
+        expect($second->fresh()->is_active)->toBeTrue();
+    });
+
+    it('allows deactivating an HR Head when two others remain', function () {
+        $first = hrHead();
+        hrHead();
+        $third = hrHead();
+
+        $this->actingAs($first)->post(route('accounts.deactivate', $third))->assertSessionHas('success');
+
+        expect($third->fresh()->is_active)->toBeFalse();
+    });
+
+    it('is forbidden to HR Staff', function () {
+        $this->actingAs(hrStaff())->post(route('accounts.deactivate', User::factory()->create()))->assertForbidden();
+    });
+});
+
+describe('changing a role', function () {
+    it('lets the HR Head change a role and audits the old and new role', function () {
+        $head = hrHead();
+        $target = User::factory()->create();
+
+        $this->actingAs($head)->put(route('accounts.role', $target), ['role' => 'hr_staff'])->assertSessionHas('success');
+
+        expect($target->fresh()->role)->toBe(Role::HrStaff)
+            ->and(AuditLog::query()->where('entity_id', $target->id)->latest('id')->first()->changes)
+            ->toEqual(['role' => ['old' => 'employee', 'new' => 'hr_staff']]);
+    });
+
+    it('refuses to change your own role', function () {
+        $head = hrHead();
+
+        $this->actingAs($head)->put(route('accounts.role', $head), ['role' => 'employee'])->assertForbidden();
+    });
+
+    it('refuses to demote an HR Head when that leaves fewer than two', function () {
+        $first = hrHead();
+        $second = hrHead();
+
+        $this->actingAs($first)->put(route('accounts.role', $second), ['role' => 'hr_staff'])->assertSessionHas('error');
+
+        expect($second->fresh()->role)->toBe(Role::HrHead);
+    });
+
+    it('rejects an unknown role', function () {
+        $this->actingAs(hrHead())->put(route('accounts.role', User::factory()->create()), ['role' => 'owner'])
+            ->assertSessionHasErrors('role');
+    });
+
+    it('is forbidden to HR Staff', function () {
+        $this->actingAs(hrStaff())->put(route('accounts.role', User::factory()->create()), ['role' => 'hr_head'])->assertForbidden();
+    });
+});

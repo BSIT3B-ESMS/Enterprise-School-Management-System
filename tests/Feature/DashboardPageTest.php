@@ -1,5 +1,7 @@
 <?php
 
+beforeEach(fn () => $this->actingAs(hrHead()));
+
 it('renders the dashboard sections in order', function () {
     $this->get(route('dashboard'))
         ->assertOk()

@@ -1,5 +1,7 @@
 <?php
 
+beforeEach(fn () => $this->actingAs(hrHead()));
+
 it('adds calendar to the main navigation and marks it current on its page', function () {
     $this->get(route('dashboard'))
         ->assertSee('href="'.route('calendar.index').'"', escape: false);

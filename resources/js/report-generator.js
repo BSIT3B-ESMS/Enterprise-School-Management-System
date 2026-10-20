@@ -69,6 +69,7 @@ const printStyles = (orientation) => `
  *     defaultFieldKeys: string[],
  *     rows: () => Array<object>,
  *     summary: () => { filters: string[], sort: string },
+ *     beforeExport?: (details: { format: string, count: number, fields: string[] }) => Promise<void>,
  * }} config
  * @returns {{ refresh: () => void, clearError: () => void }}
  */
@@ -315,8 +316,11 @@ export function initReportGenerator($root, config) {
         setGenerating(true);
 
         // Let the spinner paint before the work (and the print dialog, which blocks) starts.
-        setTimeout(() => {
+        setTimeout(async () => {
             try {
+                // The export is recorded first; if that fails, no file is made.
+                await config.beforeExport?.({ format, count: rows.length, fields: fields.map((field) => field.key) });
+
                 if (format === 'pdf') {
                     printReport(fields, rows, config.summary());
                     setGenerating(false);

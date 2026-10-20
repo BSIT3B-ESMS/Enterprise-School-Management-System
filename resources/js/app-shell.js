@@ -7,10 +7,13 @@ import { showQueuedToast, showToast } from './toast.js';
 const desktopQuery = window.matchMedia('(min-width: 992px)');
 
 function renderHeader($shell, { currentUser, pendingCandidates, notifications }) {
-    $shell.find('[data-user-initials]').text(currentUser.initials);
-    $shell.find('[data-user-name]').text(currentUser.name);
-    $shell.find('[data-user-role]').text(currentUser.role);
-    $shell.find('[data-user-email]').text(currentUser.email);
+    // HR pages print the signed-in user on the server; the other interfaces still fill it from the sample data.
+    if (!$shell.is('[data-server-user]')) {
+        $shell.find('[data-user-initials]').text(currentUser.initials);
+        $shell.find('[data-user-name]').text(currentUser.name);
+        $shell.find('[data-user-role]').text(currentUser.role);
+        $shell.find('[data-user-email]').text(currentUser.email);
+    }
 
     const $pendingIndicators = $shell.find('[data-notification-dot], [data-pending-candidates]');
 

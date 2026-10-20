@@ -1,5 +1,7 @@
 <?php
 
+beforeEach(fn () => $this->actingAs(hrHead()));
+
 it('adds Open Job Positions to the HR sidebar, after Recruitment, and marks it current', function () {
     $this->get(route('job-positions.index'))
         ->assertOk()

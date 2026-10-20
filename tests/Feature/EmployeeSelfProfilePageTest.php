@@ -1,5 +1,9 @@
 <?php
 
+use App\Models\Employee;
+
+beforeEach(fn () => $this->actingAs(employeeUser()));
+
 it('serves the employee profile, reached from the account menu rather than the sidebar', function () {
     $this->get(route('employee.profile'))
         ->assertOk()
@@ -77,6 +81,7 @@ it('links Security from the employee header menu', function () {
 });
 
 it('keeps the HR security section the same, without the employee account marker', function () {
+    $this->actingAs(hrHead());
     $this->get(route('profile.show'))
         ->assertSee('id="security"', escape: false)
         ->assertSee('<form novalidate data-password-form>', escape: false)
@@ -90,10 +95,12 @@ it('keeps the employee profile free of HR pages and controls', function () {
         ->assertDontSee('data-profile-edit-start', escape: false);
 });
 
-it('leaves the HR employee profile with its full edit form', function () {
-    $this->get(route('employees.show', 'EMP-1002'))
-        ->assertSee('data-profile-edit-form', escape: false)
-        ->assertSee('name="name"', escape: false)
-        ->assertSee('name="salary"', escape: false)
-        ->assertSee('name="sssNumber"', escape: false);
+it('leaves the HR employee profile with its edit link and the HR sections', function () {
+    $employee = Employee::factory()->create();
+
+    $this->actingAs(hrHead());
+    $this->get(route('employees.show', $employee))
+        ->assertSee(route('employees.edit', $employee), escape: false)
+        ->assertSee('Government IDs')
+        ->assertSee('Emergency Contacts');
 });

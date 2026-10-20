@@ -60,10 +60,13 @@
                     <span class="theme-when-light">Dark mode</span>
                 </button>
 
-                <a class="dropdown-item d-flex align-items-center gap-2 py-2" href="{{ route('login') }}">
-                    <x-icon name="logout" />
-                    Log Out
-                </a>
+                <form method="post" action="{{ route('logout') }}">
+                    @csrf
+                    <button type="submit" class="dropdown-item d-flex align-items-center gap-2 py-2">
+                        <x-icon name="logout" />
+                        Log Out
+                    </button>
+                </form>
             </div>
         </div>
     </div>

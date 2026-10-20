@@ -1,5 +1,7 @@
 <?php
 
+beforeEach(fn () => $this->actingAs(employeeUser()));
+
 it('serves the employee dashboard and sends /employee to it', function () {
     $this->get(route('employee.dashboard'))->assertOk();
     $this->get('/employee')->assertRedirect('/employee/dashboard');

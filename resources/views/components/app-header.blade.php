@@ -38,29 +38,31 @@
 
                 <div data-notifications></div>
 
-                <a class="dropdown-item link-primary border-top py-2" href="{{ route('audit.index') }}">
-                    View all activity
-                </a>
+                @if (auth()->user()->isHrHead())
+                    <a class="dropdown-item link-primary border-top py-2" href="{{ route('audit.index') }}">
+                        View all activity
+                    </a>
+                @endif
             </div>
         </div>
 
         <div class="dropdown">
             <button type="button" class="app-user" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false">
-                <span class="app-avatar" data-user-initials></span>
+                <span class="app-avatar" data-user-initials>{{ auth()->user()->initials() }}</span>
                 <span class="d-none d-lg-block">
-                    <span class="app-user-name" data-user-name></span>
-                    <span class="app-user-role" data-user-role></span>
+                    <span class="app-user-name" data-user-name>{{ auth()->user()->name }}</span>
+                    <span class="app-user-role" data-user-role>{{ auth()->user()->roleLabel() }}</span>
                 </span>
                 <span class="visually-hidden d-lg-none">Account menu</span>
             </button>
 
             <div class="dropdown-menu dropdown-menu-end app-menu app-menu-account">
                 <div class="app-menu-profile">
-                    <span class="app-avatar app-avatar-lg" data-user-initials></span>
+                    <span class="app-avatar app-avatar-lg" data-user-initials>{{ auth()->user()->initials() }}</span>
                     <div class="min-w-0">
-                        <strong class="d-block text-truncate" data-user-name></strong>
-                        <small class="d-block text-truncate" data-user-email></small>
-                        <span class="ems-chip d-inline-block mt-1" data-user-role></span>
+                        <strong class="d-block text-truncate" data-user-name>{{ auth()->user()->name }}</strong>
+                        <small class="d-block text-truncate" data-user-email>{{ auth()->user()->email }}</small>
+                        <span class="ems-chip d-inline-block mt-1" data-user-role>{{ auth()->user()->roleLabel() }}</span>
                     </div>
                 </div>
 
@@ -93,10 +95,13 @@
                     <span class="theme-when-light">Dark mode</span>
                 </button>
 
-                <a class="dropdown-item d-flex align-items-center gap-2 py-2" href="{{ route('login') }}" data-logout>
-                    <x-icon name="logout" />
-                    Log Out
-                </a>
+                <form method="post" action="{{ route('logout') }}">
+                    @csrf
+                    <button type="submit" class="dropdown-item d-flex align-items-center gap-2 py-2" data-logout>
+                        <x-icon name="logout" />
+                        Log Out
+                    </button>
+                </form>
             </div>
         </div>
     </div>

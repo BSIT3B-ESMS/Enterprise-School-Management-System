@@ -12,7 +12,8 @@
         @stack('styles')
     </head>
     <body>
-        <div class="app-shell" data-app-shell>
+        {{-- data-server-user: the signed-in user is printed by the server, so the script must not overwrite it with sample data. --}}
+        <div class="app-shell" data-app-shell data-server-user>
             <x-app-header />
 
             <x-app-sidebar />

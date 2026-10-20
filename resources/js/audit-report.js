@@ -1,6 +1,7 @@
 import $ from './jquery.js';
 import { splitEntity } from './audit-logs.js';
 import { localIsoDate } from './date-filter.js';
+import { exportLogger } from './export-log.js';
 import { formatDateTime } from './format.js';
 import { activityActions, listActivity, onMockDataChange } from './mock-data.js';
 import { initReportGenerator } from './report-generator.js';
@@ -80,6 +81,7 @@ function initAuditReport($root) {
     }
 
     const report = initReportGenerator($root, {
+        beforeExport: exportLogger($root, 'audit'),
         title: 'Audit Log Report',
         fileStem: 'audit-logs-report',
         sheetName: 'Audit Logs',

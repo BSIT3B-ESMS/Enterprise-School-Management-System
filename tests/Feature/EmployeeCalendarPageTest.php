@@ -1,5 +1,7 @@
 <?php
 
+beforeEach(fn () => $this->actingAs(employeeUser()));
+
 it('serves the employee calendar with the sidebar Calendar item current', function () {
     $this->get(route('employee.calendar'))
         ->assertOk()
@@ -58,6 +60,7 @@ it('lets the employee request leave from the calendar, as a filed request for HR
 });
 
 it('leaves the HR calendar with its event types, all five statuses, and approve action wiring', function () {
+    $this->actingAs(hrHead());
     $this->get(route('calendar.index'))
         ->assertSee('data-calendar-type-filter', escape: false)
         ->assertSee('value="Scheduled"', escape: false)

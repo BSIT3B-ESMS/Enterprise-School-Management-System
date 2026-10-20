@@ -23,6 +23,10 @@ it('does not make the dashboard or any other interface the landing page', functi
 });
 
 it('still serves the login page at /login, and every interface at its own address', function (string $route) {
+    if ($user = userFor($route)) {
+        $this->actingAs($user);
+    }
+
     $this->get(route($route))->assertOk();
 })->with(['login', 'dashboard', 'employee.dashboard', 'applicant.apply', 'applicant.dashboard', 'careers.index']);
 

@@ -9,7 +9,7 @@
     Recruitment page's filters (carried by the Generate Report link); none of it changes the Recruitment page's own filters.
 --}}
 @section('content')
-    <div class="d-grid gap-4" data-page="recruitment-report">
+    <div class="d-grid gap-4" data-page="recruitment-report" data-export-url="{{ route('exports.store') }}">
         <div class="d-flex align-items-center gap-3">
             <a class="page-back" href="{{ route('recruitment.index') }}" aria-label="Back to recruitment" data-report-back>
                 <x-icon name="back" />

@@ -1,5 +1,7 @@
 <?php
 
+beforeEach(fn () => $this->actingAs(employeeUser()));
+
 it('serves My Files with the sidebar My Files item current', function () {
     $this->get(route('employee.files'))
         ->assertOk()

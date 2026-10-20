@@ -1,5 +1,7 @@
 <?php
 
+beforeEach(fn () => $this->actingAs(hrHead()));
+
 it('shows the profile menu with the account details, My Profile, Account Settings, Security, and Log Out', function () {
     $this->get(route('dashboard'))
         ->assertSeeInOrder([

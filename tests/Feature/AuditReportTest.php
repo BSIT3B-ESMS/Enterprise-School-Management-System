@@ -1,5 +1,7 @@
 <?php
 
+beforeEach(fn () => $this->actingAs(hrHead()));
+
 it('links Generate Report from the Audit Logs page to its own page', function () {
     $this->get(route('audit.index'))
         ->assertSee('href="'.route('audit.report').'"', escape: false)

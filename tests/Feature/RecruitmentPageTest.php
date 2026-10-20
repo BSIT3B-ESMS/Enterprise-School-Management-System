@@ -1,5 +1,7 @@
 <?php
 
+beforeEach(fn () => $this->actingAs(hrHead()));
+
 it('renders the recruitment toolbar, pipeline, filters, and sortable table headers', function () {
     $this->get(route('recruitment.index'))
         ->assertSeeInOrder(['Recruitment', 'Track applicants from first application to hire.', 'Add Application', 'Recruitment pipeline'])

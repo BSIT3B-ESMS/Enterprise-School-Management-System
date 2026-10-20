@@ -1,4 +1,5 @@
 import $ from './jquery.js';
+import { exportLogger } from './export-log.js';
 import { formatDate } from './format.js';
 import { applicationStatuses, interviewTypeLabel, listApplications, listDepartments, listJobTitles, onMockDataChange } from './mock-data.js';
 import { initReportGenerator } from './report-generator.js';
@@ -118,6 +119,7 @@ function initRecruitmentReport($root) {
     }
 
     const report = initReportGenerator($root, {
+        beforeExport: exportLogger($root, 'recruitment'),
         title: 'Recruitment Report',
         fileStem: 'recruitment-report',
         sheetName: 'Recruitment',

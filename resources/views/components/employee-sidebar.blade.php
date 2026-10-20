@@ -36,10 +36,13 @@
             </nav>
 
             <div class="app-sidebar-footer">
-                <a class="app-sidebar-logout" href="{{ route('login') }}">
-                    <x-icon name="logout" />
-                    Logout
-                </a>
+                <form method="post" action="{{ route('logout') }}">
+                    @csrf
+                    <button type="submit" class="app-sidebar-logout">
+                        <x-icon name="logout" />
+                        Logout
+                    </button>
+                </form>
             </div>
         </div>
     </div>

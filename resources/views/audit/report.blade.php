@@ -10,7 +10,7 @@
     no such filter.
 --}}
 @section('content')
-    <div class="d-grid gap-4" data-page="audit-report">
+    <div class="d-grid gap-4" data-page="audit-report" data-export-url="{{ route('exports.store') }}">
         <div class="d-flex align-items-center gap-3">
             <a class="page-back" href="{{ route('audit.index') }}" aria-label="Back to audit logs" data-report-back>
                 <x-icon name="back" />

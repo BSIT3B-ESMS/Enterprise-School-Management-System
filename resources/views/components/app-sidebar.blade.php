@@ -2,13 +2,17 @@
     $pageItems = [
         ['route' => 'dashboard', 'pattern' => 'dashboard', 'icon' => 'dashboard', 'label' => 'Dashboard'],
         ['route' => 'employees.index', 'pattern' => 'employees.*', 'icon' => 'employees', 'label' => 'Employees'],
-        ['route' => 'departments.index', 'pattern' => 'departments.*', 'icon' => 'departments', 'label' => 'Departments'],
-        ['route' => 'job-titles.index', 'pattern' => 'job-titles.*', 'icon' => 'job-titles', 'label' => 'Job Titles'],
+        ['route' => 'colleges.index', 'pattern' => 'colleges.*', 'icon' => 'departments', 'label' => 'Colleges'],
+        ['route' => 'offices.index', 'pattern' => 'offices.*', 'icon' => 'employees', 'label' => 'Offices'],
+        ['route' => 'job-titles.index', 'pattern' => ['job-titles.*', 'rates.*'], 'icon' => 'job-titles', 'label' => 'Job Titles'],
         ['route' => 'recruitment.index', 'pattern' => 'recruitment.*', 'icon' => 'recruitment', 'label' => 'Recruitment'],
         ['route' => 'job-positions.index', 'pattern' => 'job-positions.*', 'icon' => 'positions', 'label' => 'Open Job Positions'],
         ['route' => 'calendar.index', 'pattern' => 'calendar.*', 'icon' => 'calendar', 'label' => 'Calendar'],
-        ['route' => 'audit.index', 'pattern' => 'audit.*', 'icon' => 'audit', 'label' => 'Audit Logs'],
+        ['route' => 'audit.index', 'pattern' => 'audit.*', 'icon' => 'audit', 'label' => 'Audit Logs', 'headOnly' => true],
+        ['route' => 'accounts.index', 'pattern' => 'accounts.*', 'icon' => 'lock', 'label' => 'Accounts', 'headOnly' => true],
     ];
+    // Audit Logs and Accounts belong to the HR Head; HR Staff do not see them.
+    $pageItems = array_filter($pageItems, fn (array $item): bool => empty($item['headOnly']) || auth()->user()?->isHrHead());
     $comingSoonItems = [];
 @endphp
 
@@ -27,7 +31,7 @@
             <nav aria-label="Main">
                 <ul class="nav nav-pills flex-column gap-1 app-nav">
                     @foreach ($pageItems as $item)
-                        @php($isCurrent = request()->routeIs($item['pattern']))
+                        @php($isCurrent = request()->routeIs(...(array) $item['pattern']))
                         <li class="nav-item">
                             <a class="nav-link{{ $isCurrent ? ' active' : '' }}"
                                 aria-current="{{ $isCurrent ? 'page' : 'false' }}" href="{{ route($item['route']) }}">
@@ -49,10 +53,13 @@
             </nav>
 
             <div class="app-sidebar-footer">
-                <a class="app-sidebar-logout" href="{{ route('login') }}" data-logout>
-                    <x-icon name="logout" />
-                    Logout
-                </a>
+                <form method="post" action="{{ route('logout') }}">
+                    @csrf
+                    <button type="submit" class="app-sidebar-logout" data-logout>
+                        <x-icon name="logout" />
+                        Logout
+                    </button>
+                </form>
             </div>
         </div>
     </div>

@@ -22,8 +22,8 @@ function countForStage(candidateStages, stage) {
 }
 
 // The greeting uses the viewer's local time, which the server does not know.
-function renderGreeting($root, currentUser) {
-    $root.find('[data-greeting]').text(`${greetingForHour(new Date().getHours())}, ${currentUser.firstName}`);
+function renderGreeting($root) {
+    $root.find('[data-greeting]').text(`${greetingForHour(new Date().getHours())}, ${$root.attr('data-first-name')}`);
 }
 
 function renderKpis($root, data) {
@@ -178,7 +178,7 @@ function renderRecentActivity($root, recentActivity) {
 function renderDashboard($dashboard) {
     const data = getDashboardData();
 
-    renderGreeting($dashboard, data.currentUser);
+    renderGreeting($dashboard);
     renderKpis($dashboard, data);
     renderHeadcounts($dashboard, data.departmentHeadcounts);
     renderPipeline($dashboard, data.candidateStages);

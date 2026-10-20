@@ -1,5 +1,7 @@
 <?php
 
+beforeEach(fn () => $this->actingAs(hrHead()));
+
 it('renders the audit log heading, search, filters, and sortable table headers', function () {
     $this->get(route('audit.index'))
         ->assertSeeInOrder(['Audit Logs', 'Every sign-in and data change, newest first.'])
@@ -39,6 +41,7 @@ it('links audit logs from the sidebar and the notifications menu with nothing le
 
 it('marks both logout links so the sign-out is recorded', function () {
     $this->get(route('dashboard'))
-        ->assertSee('href="'.route('login').'" data-logout>', escape: false)
-        ->assertSee('class="app-sidebar-logout" href="'.route('login').'" data-logout', escape: false);
+        ->assertSee('action="'.route('logout').'"', escape: false)
+        ->assertSee('class="dropdown-item d-flex align-items-center gap-2 py-2" data-logout>', escape: false)
+        ->assertSee('class="app-sidebar-logout" data-logout>', escape: false);
 });

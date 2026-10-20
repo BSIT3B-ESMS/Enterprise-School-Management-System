@@ -1,5 +1,7 @@
 <?php
 
+beforeEach(fn () => $this->actingAs(hrHead()));
+
 it('organizes the job application form into the 201 file sections', function () {
     $this->get(route('applicant.apply'))
         ->assertSeeInOrder([

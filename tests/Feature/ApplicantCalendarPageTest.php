@@ -1,5 +1,7 @@
 <?php
 
+beforeEach(fn () => $this->actingAs(hrHead()));
+
 it('serves the applicant calendar with Calendar current in the applicant sidebar', function () {
     $this->get(route('applicant.calendar'))
         ->assertOk()

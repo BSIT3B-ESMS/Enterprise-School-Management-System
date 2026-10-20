@@ -1,5 +1,7 @@
 <?php
 
+beforeEach(fn () => $this->actingAs(hrHead()));
+
 it('links Generate Report from the Recruitment page to its own page, beside Add Application', function () {
     $this->get(route('recruitment.index'))
         ->assertSeeInOrder([

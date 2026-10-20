@@ -1,5 +1,7 @@
 <?php
 
+beforeEach(fn () => $this->actingAs(hrHead()));
+
 it('opens Account Settings from the HR profile menu and marks it current on its page', function () {
     $this->get(route('dashboard'))
         ->assertSee('href="'.route('account.settings').'"', escape: false);

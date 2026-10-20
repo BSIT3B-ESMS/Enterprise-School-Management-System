@@ -1,5 +1,7 @@
 <?php
 
+beforeEach(fn () => $this->actingAs(employeeUser()));
+
 it('serves the benefits page with the sidebar Benefits item current', function () {
     $this->get(route('employee.benefits'))
         ->assertOk()

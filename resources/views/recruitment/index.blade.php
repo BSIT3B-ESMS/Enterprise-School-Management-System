@@ -26,11 +26,13 @@
             </div>
 
             <div class="d-flex gap-2 flex-wrap">
-                <a class="btn btn-outline-secondary d-inline-flex align-items-center gap-2" href="{{ route('recruitment.report') }}"
-                    data-report-link data-report-url="{{ route('recruitment.report') }}">
-                    <x-icon name="report" />
-                    Generate Report
-                </a>
+                @if (auth()->user()->isHrHead())
+                    <a class="btn btn-outline-secondary d-inline-flex align-items-center gap-2" href="{{ route('recruitment.report') }}"
+                        data-report-link data-report-url="{{ route('recruitment.report') }}">
+                        <x-icon name="report" />
+                        Generate Report
+                    </a>
+                @endif
                 <button type="button" class="btn btn-primary d-inline-flex align-items-center gap-2" data-bs-toggle="modal"
                     data-bs-target="#application-form-modal" data-application-add>
                     <x-icon name="plus" />

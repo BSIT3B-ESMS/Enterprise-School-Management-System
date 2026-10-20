@@ -1,18 +1,34 @@
 <?php
 
-it('links generate report to its own page instead of a modal', function () {
-    $this->get(route('employees.index'))
-        ->assertSee('href="'.route('employees.report').'"', escape: false)
-        ->assertSee('data-employee-report-link data-report-url="'.route('employees.report').'"', escape: false)
+use App\Enums\AuditAction;
+use App\Models\AuditLog;
+use App\Models\College;
+use App\Models\Employee;
+use App\Models\JobTitle;
+use App\Models\RateTier;
+
+beforeEach(fn () => $this->actingAs(hrHead()));
+
+function reportRows($response): array
+{
+    preg_match('/data-rows="([^"]*)"/', $response->getContent(), $match);
+
+    return json_decode(html_entity_decode($match[1]), true);
+}
+
+it('links Generate Report from the Employees page with the current filters', function () {
+    $this->get(route('employees.index', ['q' => 'Santos']))
+        ->assertSee('href="'.route('employees.report', ['q' => 'Santos']).'"', escape: false)
         ->assertDontSee('employee-report-modal', escape: false);
 });
 
-it('renders the report page with a title and a way back to employees', function () {
-    $this->get(route('employees.report'))
+it('renders the report page with a title and a way back that keeps the filters', function () {
+    $this->get(route('employees.report', ['q' => 'Santos']))
+        ->assertOk()
         ->assertSee('Generate Report')
         ->assertSee('aria-label="Back to employees"', escape: false)
         ->assertSee('Back to Employees</a>', escape: false)
-        ->assertSee('data-employees-url="'.route('employees.index').'"', escape: false);
+        ->assertSee('href="'.route('employees.index', ['q' => 'Santos']).'"', escape: false);
 });
 
 it('offers pdf, excel, and csv with pdf selected by default', function () {
@@ -25,28 +41,19 @@ it('offers pdf, excel, and csv with pdf selected by default', function () {
         ], escape: false);
 });
 
-it('stacks export format, then the preview, then the fields, then the actions', function () {
+it('stacks export format, college and job title choices, the preview, the fields, then the actions', function () {
     $this->get(route('employees.report'))
         ->assertSeeInOrder([
             'Export Format', 'value="pdf"', 'value="xlsx"', 'value="csv"',
-            'Report Preview', 'data-report-count', 'No employees match', 'data-report-preview',
-            'Fields to Include', 'data-report-select-all>Select All', 'data-report-deselect-all>Deselect All',
-            'data-report-fields', 'Select at least one field to include in the report.',
+            'Employees to Include', 'data-report-filter="college"', 'data-report-filter="office"', 'data-report-filter="jobTitle"',
+            'Report Preview', 'data-report-count', 'data-report-preview',
+            'Fields to Include', 'data-report-select-all>Select All', 'data-report-fields',
             'data-report-error', 'Back to Employees</a>', 'data-report-generate',
         ], escape: false);
 });
 
-it('lays the export formats out as one full-width row', function () {
-    $this->get(route('employees.report'))
-        ->assertSee('class="btn-group w-100 report-formats"', escape: false)
-        ->assertDontSee('col-lg-5', escape: false);
-});
-
-it('does not add its own filters, linking back to the employees filters instead', function () {
-    $this->get(route('employees.report'))
-        ->assertSee('change the search or filters on the Employees page', escape: false)
-        ->assertDontSee('data-employee-filter', escape: false)
-        ->assertDontSee('type="date"', escape: false);
+it('names the address the export is logged to', function () {
+    $this->get(route('employees.report'))->assertSee('data-export-url="'.route('exports.store').'"', escape: false);
 });
 
 it('keeps the employees sidebar link current on the report page', function () {
@@ -54,14 +61,74 @@ it('keeps the employees sidebar link current on the report page', function () {
         ->assertSee('aria-current="page" href="'.route('employees.index').'"', escape: false);
 });
 
-it('lets HR choose a department and job title for the report, separate from the Employees filters', function () {
-    $this->get(route('employees.report'))
-        ->assertSeeInOrder([
-            'Export Format',
-            'Employees to Include',
-            '<label for="report-department" class="form-label">Department</label>', 'data-report-filter="departmentId"',
-            '<label for="report-job-title" class="form-label">Job Title</label>', 'data-report-filter="jobTitleId"',
-            'Leave both on “All” to include every department and job title',
-            'Report Preview',
-        ], escape: false);
+describe('the rows', function () {
+    it('are the employees the Employees page would list for the same filters', function () {
+        $college = College::factory()->create();
+        Employee::factory()->for(JobTitle::factory()->state(['college_id' => $college->id]))->create(['last_name' => 'Inside']);
+        Employee::factory()->create(['last_name' => 'Outside']);
+        Employee::factory()->inactive()->create(['last_name' => 'Archived']);
+
+        $rows = reportRows($this->get(route('employees.report', ['college' => $college->id])));
+
+        expect(collect($rows)->pluck('name')->implode(' '))->toContain('Inside')->not->toContain('Outside')->not->toContain('Archived');
+    });
+
+    it('carry the base pay from the pay band and step, and only the last four digits of government IDs', function () {
+        foreach (range(1, 8) as $step) {
+            RateTier::factory()->create(['salary_grade' => 12, 'step' => $step, 'monthly_amount' => 30000 + $step * 100, 'effective_date' => '2020-01-01']);
+        }
+        $employee = Employee::factory()->create(['salary_step' => 3]);
+        $employee->forceFill(['government_ids' => null, 'government_id_hints' => null]);
+        $employee->setGovernmentIds(['tin' => '123-456-789-000']);
+        $employee->save();
+
+        $response = $this->get(route('employees.report'));
+        $row = reportRows($response)[0];
+
+        expect($row['basePay'])->toEqual(30300)
+            ->and($row['ids']['tin'])->toBe('•••• 9000')
+            ->and($row['ids']['sss'])->toBe('');
+        $response->assertDontSee('123-456-789-000');
+    });
+
+    it('say in words which filters were applied', function () {
+        $response = $this->get(route('employees.report', ['q' => 'Santos', 'employment_type' => 'part_time', 'sort' => 'hired', 'dir' => 'desc']));
+        preg_match('/data-summary="([^"]*)"/', $response->getContent(), $match);
+        $summary = json_decode(html_entity_decode($match[1]), true);
+
+        expect($summary['filters'])->toBe(['Faculty', 'Search: “Santos”', 'Part-time only'])
+            ->and($summary['sort'])->toBe('Sorted by Date Hired, descending');
+    });
+});
+
+describe('logging an export', function () {
+    it('writes the report, format, count, and fields to the audit log', function () {
+        $head = hrHead();
+
+        $this->actingAs($head)->postJson(route('exports.store'), ['report' => 'employees', 'format' => 'csv', 'count' => 12, 'fields' => ['id', 'name']])
+            ->assertNoContent();
+
+        $entry = AuditLog::query()->where('action', AuditAction::Export)->sole();
+
+        expect($entry->user_id)->toBe($head->id)
+            ->and($entry->changes)->toEqual(['report' => 'employees', 'format' => 'csv', 'count' => 12, 'fields' => ['id', 'name']]);
+    });
+
+    it('rejects an unknown report or format', function (array $override) {
+        $this->postJson(route('exports.store'), ['report' => 'employees', 'format' => 'csv', 'count' => 1, ...$override])->assertUnprocessable();
+
+        expect(AuditLog::query()->count())->toBe(0);
+    })->with([[['report' => 'payroll']], [['format' => 'docx']], [['count' => -1]]]);
+
+    it('is closed to HR Staff and to visitors', function () {
+        $payload = ['report' => 'employees', 'format' => 'csv', 'count' => 1];
+
+        $this->actingAs(hrStaff())->postJson(route('exports.store'), $payload)->assertForbidden();
+        auth()->logout();
+        $this->postJson(route('exports.store'), $payload)->assertUnauthorized();
+    });
+
+    it('is closed to HR Staff on the report page too', function () {
+        $this->actingAs(hrStaff())->get(route('employees.report'))->assertForbidden();
+    });
 });

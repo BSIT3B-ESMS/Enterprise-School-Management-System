@@ -1,5 +1,5 @@
 import { Toast } from 'bootstrap';
-import { authenticateApplicant } from './mock-data.js';
+import { authenticateApplicant, isApplicantAccountEmailTaken } from './mock-data.js';
 import { signIn } from './applicant-session.js';
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -70,8 +70,17 @@ function initLoginPage(root) {
             return;
         }
 
+        // An email that is not an applicant account belongs to staff (HR or Employee), whose sign-in is checked by the
+        // server: let the form post to it. Applicant accounts still use the mock sign-in below until the Recruitment phase
+        // gives them real accounts.
+        if (!isApplicantAccountEmailTaken(email.value)) {
+            form.submit();
+
+            return;
+        }
+
         // Mock sign-in: the email and password are checked against the applicant accounts in the shared mock data. A match
-        // opens that applicant's dashboard; anything else shows an error. (HR and Employee accounts are not checked here yet.)
+        // opens that applicant's dashboard; anything else shows an error.
         const result = authenticateApplicant(email.value, password.value);
         const $error = form.querySelector('[data-login-error]');
 

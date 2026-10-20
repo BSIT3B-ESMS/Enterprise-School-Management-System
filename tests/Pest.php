@@ -1,6 +1,7 @@
 <?php
 
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use App\Models\User;
+use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Tests\TestCase;
 
 /*
@@ -15,7 +16,7 @@ use Tests\TestCase;
 */
 
 pest()->extend(TestCase::class)
- // ->use(RefreshDatabase::class)
+    ->use(LazilyRefreshDatabase::class)
     ->in('Feature');
 
 /*
@@ -44,7 +45,33 @@ expect()->extend('toBeOne', function () {
 |
 */
 
-function something()
+/**
+ * A signed-in HR Head, for the many page tests that need HR access.
+ */
+function hrHead(): User
 {
-    // ..
+    return User::factory()->hrHead()->create();
+}
+
+function hrStaff(): User
+{
+    return User::factory()->hrStaff()->create();
+}
+
+function employeeUser(): User
+{
+    return User::factory()->create();
+}
+
+/**
+ * The user who may open a page, by its route name: an employee for the Employee interface, nobody for the public pages
+ * (Login, Careers, the Applicant interface), and an HR Head for every HR page.
+ */
+function userFor(string $route): ?User
+{
+    return match (true) {
+        str_starts_with($route, 'employee.') => employeeUser(),
+        $route === 'login', $route === 'home', str_starts_with($route, 'careers.'), str_starts_with($route, 'applicant.') => null,
+        default => hrHead(),
+    };
 }

@@ -1,6 +1,10 @@
 <?php
 
 it('renders the :route page in dark mode by default', function (string $route) {
+    if ($user = userFor($route)) {
+        $this->actingAs($user);
+    }
+
     $this->get(route($route))
         ->assertOk()
         ->assertSee('data-bs-theme="dark"', escape: false);
@@ -9,7 +13,8 @@ it('renders the :route page in dark mode by default', function (string $route) {
     'dashboard' => ['dashboard'],
     'employees' => ['employees.index'],
     'new employee' => ['employees.create'],
-    'departments' => ['departments.index'],
+    'colleges' => ['colleges.index'],
+    'offices' => ['offices.index'],
     'job titles' => ['job-titles.index'],
     'recruitment' => ['recruitment.index'],
     'audit logs' => ['audit.index'],
@@ -26,6 +31,10 @@ it('renders the public :route page in light mode by default, with its own theme 
 ]);
 
 it('keeps Login, registration, and the applicant pages in dark mode', function (string $route) {
+    if ($user = userFor($route)) {
+        $this->actingAs($user);
+    }
+
     $this->get(route($route))
         ->assertOk()
         ->assertSee('data-bs-theme="dark"', escape: false)

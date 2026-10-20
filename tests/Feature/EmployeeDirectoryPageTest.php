@@ -1,5 +1,7 @@
 <?php
 
+beforeEach(fn () => $this->actingAs(employeeUser()));
+
 it('serves the directory with the sidebar Directory item current', function () {
     $this->get(route('employee.directory'))
         ->assertOk()
