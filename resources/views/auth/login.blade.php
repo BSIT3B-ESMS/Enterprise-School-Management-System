@@ -3,7 +3,7 @@
 @section('title', 'Sign In · '.config('app.name'))
 
 @section('content')
-    <div class="row g-0 min-vh-100" data-page="login">
+    <div class="row g-0 min-vh-100">
         <x-login-brand />
 
         <section class="col-md-6 d-flex align-items-center justify-content-center px-3 py-5">
@@ -48,7 +48,7 @@
                         <label class="form-check-label" for="remember">Remember Me</label>
                     </div>
 
-                    <button type="button" class="btn btn-link p-0" data-forgot-password>Forgot Password?</button>
+                    <a class="btn btn-link p-0" href="{{ route('password.help') }}">Forgot Password?</a>
                 </div>
 
                 <button type="submit" class="btn btn-primary login-submit">Login</button>
@@ -61,15 +61,5 @@
                 </div>
             </form>
         </section>
-    </div>
-
-    <div class="toast-container position-fixed bottom-0 end-0 p-3">
-        <div class="toast login-toast" role="status" aria-live="polite" aria-atomic="true" data-login-toast>
-            <div class="d-flex">
-                <div class="toast-body">Password reset is not available yet.</div>
-                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"
-                    aria-label="Close"></button>
-            </div>
-        </div>
     </div>
 @endsection

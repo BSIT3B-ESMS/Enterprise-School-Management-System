@@ -65,6 +65,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Password help
+    |--------------------------------------------------------------------------
+    |
+    | Staff passwords are reset by PLP HR. The sign-in page tells them to email
+    | this address; there is no self-service reset link.
+    |
+    */
+
+    'hr_email' => env('EMS_HR_EMAIL', 'hr@plpasig.edu.ph'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Academic calendar
     |--------------------------------------------------------------------------
     |

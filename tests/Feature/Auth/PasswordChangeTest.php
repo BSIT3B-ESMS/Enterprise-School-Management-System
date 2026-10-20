@@ -25,6 +25,16 @@ function changePassword(User $user, array $input = []): TestResponse
     ]);
 }
 
+it('offers a show/hide control for each password field', function () {
+    $response = $this->actingAs(userWithTemporaryPassword())->get(route('password.change'))->assertOk();
+    $html = $response->getContent();
+
+    expect(substr_count($html, 'data-password-toggle>'))->toBe(3)
+        ->and($html)->toContain('aria-controls="field-current_password"')
+        ->and($html)->toContain('aria-controls="field-password"')
+        ->and($html)->toContain('aria-controls="field-password_confirmation"');
+});
+
 it('lets a user replace a temporary password with their own', function () {
     $user = userWithTemporaryPassword();
 

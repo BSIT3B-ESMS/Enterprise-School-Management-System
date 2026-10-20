@@ -23,6 +23,7 @@ use App\Http\Controllers\EmployeePortalController;
 use App\Http\Controllers\EmployeeReportController;
 use App\Http\Controllers\EmployeeStatusController;
 use App\Http\Controllers\ExportLogController;
+use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\GovernmentIdController;
 use App\Http\Controllers\InterviewController;
 use App\Http\Controllers\JobPositionController;
@@ -41,6 +42,9 @@ use Illuminate\Support\Facades\Route;
 
 // The EMS opens on the sign-in page; PLP Careers, the public careers website, is linked from it.
 Route::get('/', fn () => redirect()->route('login'))->name('home');
+
+// Staff cannot reset their own password. This page tells them to email PLP HR, which issues a temporary password.
+Route::get('/forgot-password', ForgotPasswordController::class)->name('password.help');
 
 // The sign-in page, sign-out, two-factor challenge, and password confirmation are Laravel Fortify routes
 // (app/Providers/FortifyServiceProvider.php). HR, employees, and applicants all sign in there.

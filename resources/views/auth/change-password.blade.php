@@ -11,26 +11,11 @@
             @csrf
             @method('PUT')
 
-            <div>
-                <label for="current_password" class="form-label">Current password</label>
-                <input type="password" class="form-control" id="current_password" name="current_password"
-                    autocomplete="current-password" required>
-            </div>
+            <x-password-field name="current_password" label="Current password" autocomplete="current-password" required />
 
-            <div>
-                <label for="password" class="form-label">New password</label>
-                <input type="password" class="form-control" id="password" name="password" autocomplete="new-password"
-                    aria-describedby="password-hint" required>
-                <div class="form-text" id="password-hint">
-                    At least 8 characters, with an uppercase letter, a lowercase letter, and a number. Easy passwords are rejected.
-                </div>
-            </div>
+            <x-password-field name="password" label="New password" hint="At least 8 characters, with an uppercase letter, a lowercase letter, and a number. Easy passwords are rejected." required />
 
-            <div>
-                <label for="password_confirmation" class="form-label">Confirm new password</label>
-                <input type="password" class="form-control" id="password_confirmation" name="password_confirmation"
-                    autocomplete="new-password" required>
-            </div>
+            <x-password-field name="password_confirmation" label="Confirm new password" required />
 
             <button type="submit" class="btn btn-primary login-submit">Change Password</button>
         </form>
