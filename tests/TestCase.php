@@ -10,6 +10,7 @@ use Database\Seeders\AdmissionSetupSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
+use Illuminate\Support\Facades\Storage;
 use PHPOpenSourceSaver\JWTAuth\Facades\JWTAuth;
 
 abstract class TestCase extends BaseTestCase
@@ -20,6 +21,8 @@ abstract class TestCase extends BaseTestCase
     {
         parent::setUp();
         $this->seed([RoleSeeder::class, AdmissionSetupSeeder::class]);
+        // Uploads and the fake DMS write to the private disk: keep them out of storage/
+        Storage::fake('local');
     }
 
     protected function makeUser(Role $role, array $attributes = []): User
@@ -51,8 +54,11 @@ abstract class TestCase extends BaseTestCase
             'first_name' => 'Jordan', 'last_name' => 'Mendoza', 'email' => $email,
             'phone' => '+63 917 123 4567', 'password' => 'password',
         ]);
+        $user->markEmailAsVerified();
         if ($filled) {
-            app(ApplicationService::class)->saveForm($this->applicationOf($user), $this->completeForm(), $user);
+            // The LRN is unique per applicant: derive it from the email for anyone but the default applicant
+            $lrn = $email === 'jordan@example.com' ? [] : ['lrn' => sprintf('%012d', crc32($email))];
+            app(ApplicationService::class)->saveForm($this->applicationOf($user), $this->completeForm($lrn), $user);
         }
 
         return $user;

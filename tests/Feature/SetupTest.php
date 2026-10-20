@@ -29,13 +29,18 @@ class SetupTest extends TestCase
         $this->asUser($this->makeApplicant())->getJson('/api/applicant/portal')->assertJsonFragment(['BS Civil Engineering']);
     }
 
-    public function test_released_passes_fill_slots(): void
+    /** FR-09: slots are taken on acceptance, and can't be set below what's taken */
+    public function test_accepted_offers_fill_slots(): void
     {
-        $user = $this->examined('passed');
-        $this->asUser($this->officer())->postJson('/api/admin/results/release', ['ids' => [$this->number($user)]])->assertOk();
+        $this->accepted();
+        $this->assertSame(1, Program::where('code', 'BSIT')->first()->filledSlots());
 
         $this->asUser($this->officer())->patchJson('/api/admin/programs/BSIT', ['slots' => 1])->assertOk();
-        $this->assertSame(1, Program::where('code', 'BSIT')->first()->filledSlots());
+
+        // A second offer for the full program can't be accepted
+        $second = $this->released('passed', 'second@example.com');
+        $this->asUser($second)->postJson('/api/applicant/offer/accept')
+            ->assertStatus(422)->assertJsonPath('message', 'All BSIT slots have been taken. Contact the admission office.');
     }
 
     public function test_requirements_and_deadline(): void

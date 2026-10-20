@@ -13,14 +13,16 @@ use App\Models\ExamRegistration;
 use App\Models\ExamResult;
 use App\Models\ExamSession;
 use App\Models\User;
+use App\Notifications\AdmissionNotice;
+use App\Services\Dms\DmsSync;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Pen-and-paper entrance exam (FR-06, decision D1) and results (FR-08).
- * Nothing is taken or scored online: staff schedule, check attendance at
- * the venue and record the score from the marked paper. Scores stay
- * internal (NFR-02).
+ * Pen-and-paper entrance exam (FR-06, FR-07, decision D1) and results
+ * (FR-08). Nothing is taken or scored online: staff schedule, scan the QR
+ * permit at the venue and record the score from the marked paper. Scores
+ * are Restricted: never sent to applicants.
  */
 class ExamService
 {
@@ -28,6 +30,8 @@ class ExamService
         private ApplicationService $applications,
         private ApplicationStatusService $status,
         private AuditLogger $audit,
+        private OfferService $offers,
+        private DmsSync $dms,
     ) {}
 
     public function createSession(string $date, string $batch, string $venue, int $capacity, User $staff): ExamSession
@@ -60,23 +64,30 @@ class ExamService
             ->every(fn ($r) => ($docs[$r->id]->status ?? null) === ApplicationDocument::VERIFIED);
     }
 
-    /** Approve for the exam: assign a session and issue the permit (FR-05, FR-06). */
-    public function approve(Application $application, ExamSession $session, User $staff): ExamRegistration
+    /**
+     * Approve for the exam: assign a session and issue the permit (FR-05,
+     * FR-06). $by is admission personnel, or the applicant when
+     * self-scheduling is on (D17).
+     */
+    public function approve(Application $application, ExamSession $session, User $by): ExamRegistration
     {
         if (! $this->canApprove($application)) {
             throw new BusinessRuleException('Verify every required document before approving for the exam.');
         }
 
-        $registration = DB::transaction(function () use ($application, $session, $staff) {
+        $registration = DB::transaction(function () use ($application, $session, $by) {
             $this->assertSeat($session);
+            $permit = $this->permitNumber($application);
             $registration = ExamRegistration::create([
                 'application_id' => $application->id,
                 'exam_session_id' => $session->id,
-                'permit_no' => $this->permitNumber($application),
-                'approved_by' => $staff->id,
+                'permit_no' => $permit,
+                'qr_token' => $this->qrToken($permit, $application),
+                'approved_by' => $by->hasRole('admission') ? $by->id : null,
             ]);
-            $this->status->transition($application, ApplicationStatus::ForExam, $staff);
-            $this->audit->record('exam.approved', "Approved for the entrance exam · {$session->label()}", $registration, $application);
+            $this->status->transition($application, ApplicationStatus::ForExam, $by);
+            $this->audit->record('exam.approved', ($by->hasRole('admission') ? 'Approved for the entrance exam' : 'Chose an entrance exam session')." · {$session->label()}", $registration, $application);
+            $this->dms->record('exam.scheduled', $application, $this->sessionData($session, $permit));
 
             return $registration;
         });
@@ -100,6 +111,7 @@ class ExamService
                 'attendance_at' => null, 'permit_checked' => false, 'form_checked' => false,
             ]);
             $this->audit->record('exam.rescheduled', "Rescheduled the entrance exam to {$session->label()}", $registration, $application);
+            $this->dms->record('exam.scheduled', $application, $this->sessionData($session, $registration->permit_no));
         });
         ExamScheduled::dispatch($application, $session);
     }
@@ -130,8 +142,57 @@ class ExamService
                 default => 'Cleared exam attendance',
             };
             $this->audit->record('exam.attendance', $text, $registration, $application);
+            $this->dms->record('exam.attendance', $application, ['attendance' => $value, 'permit' => $registration->permit_no]);
         }
         $registration->save();
+    }
+
+    /**
+     * FR-07: staff scan the QR code on the printed permit. Checks the token,
+     * the exam day and (optionally) the session being run; marks the
+     * examinee present. Scanning twice is harmless.
+     */
+    public function checkIn(string $token, ?ExamSession $expected, User $staff): Application
+    {
+        $registration = ExamRegistration::where('qr_token', $token)->with(['session', 'application.result'])->first()
+            ?? throw new BusinessRuleException('This QR code is not a valid exam permit.');
+        $session = $registration->session;
+        $application = $registration->application;
+
+        if ($expected && $expected->id !== $session->id) {
+            throw new BusinessRuleException("Permit {$registration->permit_no} is for {$session->label()} at {$session->venue}, not this session.");
+        }
+        $today = now()->setTimezone(config('admission.display_timezone'))->toDateString();
+        if (config('admission.exams.check_in_same_day_only') && $session->date->toDateString() !== $today) {
+            throw new BusinessRuleException("Permit {$registration->permit_no} is for ".$session->date->format('F j, Y').'.');
+        }
+        if ($registration->attendance === 'present') {
+            return $application;
+        }
+
+        $this->updateRoster($application, ['permitChecked' => true, 'formChecked' => true, 'attendance' => 'present'], $staff);
+
+        return $application;
+    }
+
+    /** Scheduler: email examinees the day before their session. */
+    public function sendReminders(): int
+    {
+        $tomorrow = now()->setTimezone(config('admission.display_timezone'))->addDay()->toDateString();
+        $due = ExamRegistration::whereNull('reminder_sent_at')
+            ->whereHas('session', fn ($q) => $q->whereDate('date', $tomorrow))
+            ->with(['session', 'application.applicant.user'])->get();
+
+        foreach ($due as $registration) {
+            $s = $registration->session;
+            $time = ExamSession::BATCHES[$s->batch]['time'];
+            $registration->application->applicant->user->notify(new AdmissionNotice('exam_reminder', 'Your entrance exam is tomorrow',
+                "Reminder: your entrance exam is tomorrow, {$s->date->format('l, F j')}, {$time}, at {$s->venue}. Bring your printed exam permit ({$registration->permit_no}) and application form, a valid ID and two pencils.",
+                $registration->application->number));
+            $registration->update(['reminder_sent_at' => now()]);
+        }
+
+        return $due->count();
     }
 
     /** Record (or correct, before release) the internal score and decision. */
@@ -175,6 +236,12 @@ class ExamService
                 }
                 $result->update(['is_released' => true, 'released_by' => $staff->id, 'released_at' => now()]);
                 $this->audit->record('result.released', 'Released the exam result to the applicant', $result, $application);
+                $this->dms->record('exam.result', $application, [
+                    'decision' => $result->decision,
+                    'score' => ['value' => $result->score, 'classification' => 'restricted'],
+                    'released_at' => $result->released_at->toIso8601String(),
+                ]);
+                $this->offers->afterResultReleased($application, $staff);
                 $released->push($application);
             }
             if ($n = $released->count()) {
@@ -188,25 +255,32 @@ class ExamService
         return $released;
     }
 
-    /** The applicant accepts the offer of admission (portal "Accept offer"). */
-    public function acceptOffer(Application $application): void
-    {
-        if (! $application->medicalApplies()) {
-            throw new BusinessRuleException('There is no offer of admission to accept yet.');
-        }
-        if ($application->offer_accepted_at) {
-            return;
-        }
-        $application->update(['offer_accepted_at' => now()]);
-        $this->audit->record('offer.accepted', 'Accepted the offer of admission', $application, $application);
-    }
-
     private function assertSeat(ExamSession $session): void
     {
         $session = ExamSession::lockForUpdate()->findOrFail($session->id);
         if ($session->registrations()->count() >= $session->capacity) {
             throw new BusinessRuleException('That session is full. Pick another one.');
         }
+    }
+
+    /** Sessions an applicant may choose when self-scheduling is on (D17): upcoming, with seats. */
+    public function openSessions(): Collection
+    {
+        return ExamSession::where('admission_period_id', AdmissionPeriod::current()->id)
+            ->whereDate('date', '>', now()->toDateString())
+            ->withCount('registrations')->orderBy('date')->orderBy('batch')->get()
+            ->filter(fn (ExamSession $s) => $s->registrations_count < $s->capacity)->values();
+    }
+
+    /** Signed value printed as the permit's QR code; can't be guessed from the permit number. */
+    public function qrToken(string $permit, Application $application): string
+    {
+        return substr(hash_hmac('sha256', $permit.'|'.$application->id, (string) config('app.key')), 0, 40);
+    }
+
+    private function sessionData(ExamSession $session, string $permit): array
+    {
+        return ['date' => $session->date->toDateString(), 'batch' => $session->batch, 'venue' => $session->venue, 'permit' => $permit];
     }
 
     /** EX-27-00001: "27" from the academic year (2027–2028) + the application's number. */

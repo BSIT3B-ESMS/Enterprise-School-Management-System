@@ -4,13 +4,16 @@ use App\Http\Controllers\Api\Applicant\ApplicationController;
 use App\Http\Controllers\Api\Applicant\DocumentController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\Integration\EnrollmentController;
+use App\Http\Controllers\Api\InterviewController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\Office;
+use App\Http\Controllers\Api\ReportController;
 use Illuminate\Support\Facades\Route;
 
 /*
 | JSON API used by the applicant portal and the admission office panel.
-| Nginx routes /api to Laravel (see the architecture diagram).
+| Nginx routes /api to Laravel (paper §7.2). Endpoint reference:
+| docs/API.md.
 */
 
 Route::prefix('auth')->group(function () {
@@ -24,10 +27,11 @@ Route::prefix('auth')->group(function () {
         Route::get('me', [AuthController::class, 'me']);
         Route::post('refresh', [AuthController::class, 'refresh']);
         Route::post('logout', [AuthController::class, 'logout']);
+        Route::post('email/resend', [AuthController::class, 'resendVerification'])->middleware('throttle:login');
     });
 });
 
-// Other ERP systems (architecture diagram: REST + X-API-Key, IP allowlist at Nginx)
+// Other ERP systems (REST + X-API-Key + IP allowlist; api-client:create)
 Route::prefix('integrations')->middleware('throttle:api')->group(function () {
     Route::post('enrollment/student-number', [EnrollmentController::class, 'studentNumber'])->middleware('integration:enrollment');
 });
@@ -44,7 +48,13 @@ Route::prefix('applicant')->middleware(['auth:api', 'active', 'role:applicant'])
     Route::get('portal', [ApplicationController::class, 'show']);
     Route::put('application', [ApplicationController::class, 'update']);
     Route::post('submit', [ApplicationController::class, 'submit']);
-    Route::post('offer/accept', [ApplicationController::class, 'acceptOffer']);
+    Route::post('offer/accept', [ApplicationController::class, 'acceptOffer'])->middleware('throttle:login');
+
+    Route::get('exam-permit', [ApplicationController::class, 'examPermit']);
+    Route::get('application-form', [ApplicationController::class, 'applicationForm']);
+    Route::get('acceptance-letter', [ApplicationController::class, 'acceptanceLetter']);
+    Route::get('exam-sessions', [ApplicationController::class, 'examSessions']);       // EXAM_SELF_SCHEDULE only
+    Route::post('exam-session', [ApplicationController::class, 'chooseExamSession']);  // EXAM_SELF_SCHEDULE only
 
     Route::post('documents/{key}', [DocumentController::class, 'store'])->middleware('throttle:uploads');
     Route::delete('documents/{key}', [DocumentController::class, 'destroy']);
@@ -56,17 +66,19 @@ Route::prefix('applicant')->middleware(['auth:api', 'active', 'role:applicant'])
 });
 
 // Admission office panel: admission personnel and the clinic. There are no
-// routes here for accounts, backups or security settings (NFR-01).
-Route::prefix('admin')->middleware(['auth:api', 'active', 'role:admission|clinic'])->group(function () {
+// routes here for accounts, backups or security settings (§7.1).
+Route::prefix('admin')->middleware(['auth:api', 'active', 'two_factor', 'role:admission|clinic'])->group(function () {
     Route::get('state', [Office\StateController::class, 'show']);
 
     Route::prefix('applicants/{application}')->group(function () {
         Route::patch('documents/{key}', [Office\DocumentController::class, 'review']);
         Route::post('documents/verify-pending', [Office\DocumentController::class, 'verifyPending']);
         Route::get('documents/{key}/file', [Office\DocumentController::class, 'file']);
+        Route::patch('documents/{key}/photocopy', [Office\DocumentController::class, 'photocopy']);
 
         Route::patch('medical/{key}', [Office\DocumentController::class, 'reviewMedical']);
         Route::post('medical/verify-pending', [Office\DocumentController::class, 'verifyPendingMedical']);
+        Route::patch('medical/{key}/flag', [Office\DocumentController::class, 'flagMedical']);
     });
 
     // Admission personnel only: the clinic handles medical requirements, nothing else
@@ -77,10 +89,27 @@ Route::prefix('admin')->middleware(['auth:api', 'active', 'role:admission|clinic
         Route::post('applicants/{application}/result', [Office\ExamController::class, 'recordResult']);
         Route::post('results/release', [Office\ExamController::class, 'release']);
         Route::post('exam-sessions', [Office\ExamController::class, 'storeSession']);
+        Route::post('exam/check-in', [Office\ExamController::class, 'checkIn']);
+
+        Route::get('interviews', [InterviewController::class, 'index']);
+        Route::post('interview-schedules', [InterviewController::class, 'storeSchedule']);
+        Route::post('applicants/{application}/interview', [InterviewController::class, 'assign']);
 
         Route::post('programs', [Office\SetupController::class, 'storeProgram']);
         Route::patch('programs/{program:code}', [Office\SetupController::class, 'updateProgram']);
         Route::patch('requirements/{key}', [Office\SetupController::class, 'updateRequirement']);
         Route::patch('admission-period', [Office\SetupController::class, 'updatePeriod']);
     });
+});
+
+// College Dean (FR-17): interviews for the dean's own college. API only (no screens yet).
+Route::prefix('dean')->middleware(['auth:api', 'active', 'two_factor', 'role:college_dean'])->group(function () {
+    Route::get('interviews', [InterviewController::class, 'index']);
+    Route::post('applicants/{application}/interview', [InterviewController::class, 'record']);
+});
+
+// Reports (FR-13), scoped by role inside ReportService
+Route::prefix('reports')->middleware(['auth:api', 'active', 'two_factor', 'role:admission|clinic|college_dean'])->group(function () {
+    Route::get('/', [ReportController::class, 'index']);
+    Route::get('{report}', [ReportController::class, 'show']);
 });

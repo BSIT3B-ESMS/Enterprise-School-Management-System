@@ -11,7 +11,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
-/** Entrance exams and Results screens (FR-06, FR-08). Admission personnel only. */
+/** Entrance exams and Results screens (FR-06, FR-07, FR-08). Admission personnel only. */
 class ExamController extends Controller
 {
     public function __construct(
@@ -55,6 +55,22 @@ class ExamController extends Controller
             'attendance' => ['sometimes', 'nullable', Rule::in(['present', 'absent'])],
         ]);
         $this->exams->updateRoster($application, $data, $request->user());
+
+        return $this->applicant($application);
+    }
+
+    /**
+     * FR-07: scan the QR code on a printed permit (API only: the panel has
+     * no scanner screen yet). Body: { token, sessionId? }.
+     */
+    public function checkIn(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'token' => ['required', 'string', 'max:64'],
+            'sessionId' => ['nullable', 'string', 'regex:/^S\d+$/'],
+        ]);
+        $expected = isset($data['sessionId']) ? ExamSession::findOrFail(ExamSession::idFromPublic($data['sessionId'])) : null;
+        $application = $this->exams->checkIn($data['token'], $expected, $request->user());
 
         return $this->applicant($application);
     }

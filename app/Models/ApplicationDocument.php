@@ -10,7 +10,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable([
     'application_id', 'requirement_id', 'version', 'is_current', 'status', 'storage_driver', 'storage_ref',
-    'original_name', 'mime', 'size', 'checksum', 'remark', 'uploaded_by', 'reviewed_by', 'reviewed_at',
+    'original_name', 'mime', 'size', 'checksum', 'scan_status', 'remark', 'uploaded_by', 'reviewed_by', 'reviewed_at',
+    'photocopy_received_at', 'photocopy_received_by', 'falsification_flag', 'falsification_note', 'falsification_flagged_by',
 ])]
 #[Hidden(['storage_ref', 'storage_driver', 'checksum'])]
 class ApplicationDocument extends Model
@@ -30,6 +31,8 @@ class ApplicationDocument extends Model
             'size' => 'integer',
             'version' => 'integer',
             'reviewed_at' => 'datetime',
+            'photocopy_received_at' => 'datetime',
+            'falsification_flag' => 'boolean',
         ];
     }
 

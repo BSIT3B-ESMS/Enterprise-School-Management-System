@@ -10,15 +10,18 @@ use App\Models\Application;
 use App\Models\ApplicationDocument;
 use App\Models\Requirement;
 use App\Models\User;
+use App\Services\Dms\DmsSync;
 use App\Services\Documents\DocumentStorage;
+use App\Services\Security\MalwareScanner;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Document upload, review and resubmission (FR-03, FR-04) and medical
- * requirements (FR-13, decision T2). Admission documents are reviewed by
+ * Document upload, review, resubmission and photocopies (FR-03, FR-04) and
+ * medical requirements (FR-10, NFR-05). Admission documents are reviewed by
  * admission personnel; medical files only by the clinic (confidential).
+ * Every upload is virus-scanned, then stored (the DMS in production).
  */
 class DocumentService
 {
@@ -26,6 +29,8 @@ class DocumentService
         private DocumentStorage $storage,
         private ApplicationStatusService $status,
         private AuditLogger $audit,
+        private MalwareScanner $scanner,
+        private DmsSync $dms,
     ) {}
 
     public function requirement(string $key, string $stage): Requirement
@@ -54,9 +59,10 @@ class DocumentService
             ? $this->assertMedicalUploadAllowed($application, $existing)
             : $this->assertAdmissionUploadAllowed($application, $requirement, $existing);
 
-        $stored = $this->storage->store($file, $application, $requirement);
+        $scan = $this->scanner->scan($file->getRealPath());
+        $stored = $this->storage->store($file, $application, $requirement, $existing);
 
-        return DB::transaction(function () use ($application, $requirement, $file, $by, $existing, $stored) {
+        return DB::transaction(function () use ($application, $requirement, $file, $by, $existing, $stored, $scan) {
             $existing?->update(['is_current' => false]);
             $document = $application->allDocuments()->create([
                 'requirement_id' => $requirement->id,
@@ -65,10 +71,19 @@ class DocumentService
                 'storage_driver' => $stored->driver,
                 'storage_ref' => $stored->ref,
                 'checksum' => $stored->checksum,
+                'scan_status' => $scan,
                 'original_name' => mb_substr($file->getClientOriginalName(), 0, 255),
                 'mime' => $file->getMimeType(),
                 'size' => $file->getSize(),
                 'uploaded_by' => $by->id,
+            ]);
+
+            $this->dms->record('document.uploaded', $application, [
+                'requirement' => $requirement->key,
+                'stage' => $requirement->stage,
+                'version' => $document->version,
+                'dms_document_id' => $stored->driver === 'dms' ? $stored->ref : null,
+                'confidential' => $requirement->stage === Requirement::STAGE_MEDICAL,
             ]);
 
             // A replacement for a file that was sent back is worth an audit line
@@ -102,7 +117,7 @@ class DocumentService
     public function submitMedical(Application $application): void
     {
         if (! $application->medicalApplies()) {
-            throw new BusinessRuleException('Medical requirements open after a passing result is released.');
+            throw new BusinessRuleException('Medical requirements open after you accept your slot.');
         }
         if ($application->medical_submitted_at) {
             throw new BusinessRuleException('Your medical requirements were already sent to the clinic.');
@@ -153,6 +168,7 @@ class DocumentService
                 default => "Marked \"{$title}\" as requires resubmission: {$remark}",
             };
             $this->audit->record($medical ? 'medical.reviewed' : 'document.reviewed', $text, $document, $application, ['decision' => $decision]);
+            $this->dms->record('document.reviewed', $application, ['requirement' => $requirement->key, 'stage' => $requirement->stage, 'decision' => $decision, 'remark' => $document->remark]);
 
             $medical ? $this->afterMedicalReview($application, $staff) : $this->syncStatus($application, $staff);
         });
@@ -185,11 +201,70 @@ class DocumentService
                 $medical ? "Verified {$n} medical requirement".($n === 1 ? '' : 's') : "Verified {$n} document".($n === 1 ? '' : 's'),
                 $application, $application, ['decision' => 'verified', 'count' => $n],
             );
+            foreach ($pending as $d) {
+                $this->dms->record('document.reviewed', $application, ['requirement' => $d->requirement->key, 'stage' => $d->requirement->stage, 'decision' => ApplicationDocument::VERIFIED, 'remark' => null]);
+            }
             $medical ? $this->afterMedicalReview($application, $staff) : $this->syncStatus($application, $staff);
         });
         $pending->each(fn ($d) => DocumentReviewed::dispatch($d->fresh(), $staff));
 
         return $pending->count();
+    }
+
+    /**
+     * §9.1: the applicant also hands in a photocopy of each document; staff
+     * tick it off. Admission personnel for admission documents, the clinic
+     * for medical ones.
+     */
+    public function markPhotocopy(Application $application, Requirement $requirement, bool $received, User $staff): ApplicationDocument
+    {
+        $this->assertReviewer($staff, $requirement);
+        $document = $this->current($application, $requirement)
+            ?? throw new BusinessRuleException('Nothing has been uploaded for this requirement yet.');
+        if ($received === ($document->photocopy_received_at !== null)) {
+            return $document;
+        }
+
+        DB::transaction(function () use ($application, $requirement, $document, $received, $staff) {
+            $document->update([
+                'photocopy_received_at' => $received ? now() : null,
+                'photocopy_received_by' => $received ? $staff->id : null,
+            ]);
+            $this->audit->record('document.photocopy', ($received ? 'Received the photocopy of' : 'Cleared the photocopy of')." \"{$requirement->title}\"", $document, $application);
+            $this->dms->record('document.photocopy', $application, ['requirement' => $requirement->key, 'received' => $received]);
+        });
+
+        return $document;
+    }
+
+    /** FR-10: the clinic flags a medical file it suspects is falsified, with a note. */
+    public function flagFalsification(Application $application, Requirement $requirement, bool $flag, ?string $note, User $staff): ApplicationDocument
+    {
+        if ($requirement->stage !== Requirement::STAGE_MEDICAL || ! $staff->hasRole('clinic')) {
+            throw new AuthorizationException('Only the university clinic can flag medical files.');
+        }
+        $document = $this->current($application, $requirement)
+            ?? throw new BusinessRuleException('Nothing has been uploaded for this requirement yet.');
+        if ($flag && blank($note)) {
+            throw new BusinessRuleException('Add a note explaining what looks wrong.');
+        }
+
+        DB::transaction(function () use ($application, $requirement, $document, $flag, $note, $staff) {
+            $document->update([
+                'falsification_flag' => $flag,
+                'falsification_note' => $flag ? $note : null,
+                'falsification_flagged_by' => $flag ? $staff->id : null,
+            ]);
+            $this->audit->record('medical.flagged', $flag
+                ? "Flagged medical requirement \"{$requirement->title}\" as possibly falsified: {$note}"
+                : "Cleared the falsification flag on \"{$requirement->title}\"", $document, $application);
+            $this->dms->record('document.flagged', $application, ['requirement' => $requirement->key, 'flagged' => $flag, 'note' => $flag ? $note : null]);
+            if (! $flag) {
+                $this->afterMedicalReview($application, $staff); // the flag may have been the only thing holding clearance
+            }
+        });
+
+        return $document;
     }
 
     /** Medical clearance: every active medical requirement verified. */
@@ -219,12 +294,29 @@ class DocumentService
         }
     }
 
+    /**
+     * All required medical items verified → Admitted (FR-10), which the DMS
+     * records for Enrollment (FR-11, D12). A flagged file blocks clearance.
+     */
     private function afterMedicalReview(Application $application, User $staff): void
     {
-        if ($this->medicallyCleared($application)) {
-            $this->audit->record('medical.cleared', 'Medically cleared · admission complete', $application, $application);
-            ApplicantAdmitted::dispatch($application);
+        if ($application->status !== ApplicationStatus::ForMedical || ! $this->medicallyCleared($application)) {
+            return;
         }
+        if ($application->documents()->where('falsification_flag', true)->exists()) {
+            return;
+        }
+
+        $application->update(['admitted_at' => now()]);
+        $this->status->transition($application, ApplicationStatus::Admitted, $staff, 'Medically cleared');
+        $this->audit->record('medical.cleared', 'Medically cleared · admission complete', $application, $application);
+        $this->dms->record('admission.completed', $application, [
+            'admitted' => true,
+            'admitted_at' => $application->admitted_at->toIso8601String(),
+            'program' => $application->offeredProgram?->code,
+        ]);
+        $this->dms->record('applicant.upserted', $application);
+        ApplicantAdmitted::dispatch($application);
     }
 
     private function assertAdmissionUploadAllowed(Application $application, Requirement $requirement, ?ApplicationDocument $existing): void
@@ -238,13 +330,13 @@ class DocumentService
         if ($application->status === ApplicationStatus::Resubmit && (! $existing || $existing->status === ApplicationDocument::RESUBMIT)) {
             return;
         }
-        throw new BusinessRuleException("Your documents have been sent to admissions. You can only replace a file admissions sends back.");
+        throw new BusinessRuleException('Your documents have been sent to admissions. You can only replace a file admissions sends back.');
     }
 
     private function assertMedicalUploadAllowed(Application $application, ?ApplicationDocument $existing): void
     {
         if (! $application->medicalApplies()) {
-            throw new BusinessRuleException('Medical requirements open after a passing result is released.');
+            throw new BusinessRuleException('Medical requirements open after you accept your slot.');
         }
         if (! $existing) {
             return;
@@ -272,7 +364,7 @@ class DocumentService
     {
         if ($requirement->stage === Requirement::STAGE_MEDICAL) {
             if (! $application->medicalApplies()) {
-                throw new BusinessRuleException('Medical requirements apply only after a passing result is released.');
+                throw new BusinessRuleException('Medical requirements apply only after the applicant accepts a slot.');
             }
 
             return;

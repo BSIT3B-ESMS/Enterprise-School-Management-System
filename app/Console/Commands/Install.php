@@ -3,6 +3,8 @@
 namespace App\Console\Commands;
 
 use App\Models\Program;
+use Database\Seeders\CollegeSeeder;
+use Database\Seeders\RoleSeeder;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -37,6 +39,9 @@ class Install extends Command
 
         if (Program::exists()) {
             $this->components->twoColumnDetail('Starting data', '<fg=yellow>already there, not reseeded</>');
+            // Roles and colleges added by later versions (both only fill in what's missing)
+            $this->components->task('New roles and colleges', fn () => Artisan::call('db:seed', ['--class' => RoleSeeder::class, '--force' => true]) === 0
+                && Artisan::call('db:seed', ['--class' => CollegeSeeder::class, '--force' => true]) === 0);
         } else {
             $this->components->info('Loading starting data'.(app()->environment('local') ? ' and demo applicants (about a minute)' : '').'…');
             Artisan::call('db:seed', ['--force' => true], $this->output);

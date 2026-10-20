@@ -2,11 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Models\Application;
 use App\Models\AuditLog;
+use App\Models\DmsOutboxEvent;
 use App\Models\Program;
 use App\Models\Requirement;
 use App\Services\AuditLogger;
 use Database\Seeders\DatabaseSeeder;
+use Database\Seeders\DemoSeeder;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use LogicException;
@@ -22,6 +25,18 @@ class SchemaTest extends TestCase
         $this->assertSame(11, Program::count());
         $this->assertSame(8, Requirement::admission()->count());
         $this->assertSame(3, Requirement::medical()->count());
+    }
+
+    /** The demo data walks applicants through the real services, interviews and offers included. */
+    public function test_demo_seed_runs_the_whole_flow(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        $this->seed(DemoSeeder::class);
+
+        $statuses = Application::pluck('status')->map->value->unique();
+        $this->assertTrue($statuses->contains('submitted'));
+        $this->assertTrue($statuses->intersect(['offered', 'for_medical', 'admitted', 'for_interview'])->isNotEmpty());
+        $this->assertSame(0, DmsOutboxEvent::where('status', '!=', DmsOutboxEvent::SENT)->count());
     }
 
     /** NFR-03: the audit log can't be edited through the model. */

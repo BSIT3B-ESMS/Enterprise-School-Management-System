@@ -23,6 +23,7 @@ class AdmissionSetupSeeder extends Seeder
             'exam_ends_on' => '2026-12-13',
             'results_release_on' => '2027-02-13',
             'reservation_deadline' => '2027-03-20',
+            'acceptance_window_days' => config('admission.offers.default_window_days'),
             'is_active' => true,
         ]);
 
@@ -42,6 +43,8 @@ class AdmissionSetupSeeder extends Seeder
         foreach ($programs as [$code, $name, $slots]) {
             Program::updateOrCreate(['code' => $code], ['name' => $name, 'slots' => $slots]);
         }
+        // Colleges, deans' scope and interview programs (FR-17)
+        $this->call(CollegeSeeder::class);
 
         // Freshman documentary requirements (decision T6: the admin panel's list)
         $admission = [

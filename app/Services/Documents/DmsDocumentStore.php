@@ -10,12 +10,13 @@ use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
 /**
- * The university Document Management System (architecture diagram:
- * "Gets uploads directly · Medical = confidential · REST API + API key").
+ * Files go straight to the Document Management System (paper §9.1:
+ * synchronous upload; the OAS keeps only the DMS document ID).
  *
- * The DMS API isn't published yet, so the endpoints below are the assumed
- * contract (POST /documents → { id }, GET /documents/{id}/content). Adjust
- * here only when the real API is known.
+ * Proposed contract (§9.3, to be confirmed by the DMS team):
+ *   POST /documents                     → { id }   first upload
+ *   POST /documents/{id}/versions       → { id }   replacement after "Requires resubmission"
+ *   GET  /documents/{id}/download-url   → { url }  link valid for 5 minutes
  */
 class DmsDocumentStore implements DocumentStore
 {
@@ -30,17 +31,18 @@ class DmsDocumentStore implements DocumentStore
         return 'dms';
     }
 
-    public function put(UploadedFile $file, Application $application, Requirement $requirement): StoredFile
+    public function put(UploadedFile $file, Application $application, Requirement $requirement, ?string $previousRef = null): StoredFile
     {
         $checksum = hash_file('sha256', $file->getRealPath());
+        $path = $previousRef ? '/documents/'.rawurlencode($previousRef).'/versions' : '/documents';
 
         $response = $this->client()
             // The same file for the same requirement is stored once, even if the call is retried
             ->withHeaders(['Idempotency-Key' => hash('sha256', $application->number.'|'.$requirement->key.'|'.$checksum)])
             ->attach('file', fopen($file->getRealPath(), 'r'), $file->getClientOriginalName())
-            ->post('/documents', [
+            ->post($path, [
                 'source' => 'admission',
-                'owner_ref' => $application->number,
+                'applicant_ref' => $application->number,
                 'category' => $requirement->key,
                 'confidential' => $requirement->stage === Requirement::STAGE_MEDICAL ? '1' : '0',
                 'sha256' => $checksum,
@@ -54,9 +56,14 @@ class DmsDocumentStore implements DocumentStore
         return new StoredFile('dms', (string) $id, $checksum);
     }
 
+    /** Opened through an authorized OAS route only: the 5-minute link never reaches the browser. */
     public function readStream(string $ref)
     {
-        $response = $this->client()->withOptions(['stream' => true])->get('/documents/'.rawurlencode($ref).'/content')->throw();
+        $url = $this->client()->get('/documents/'.rawurlencode($ref).'/download-url')->throw()->json('url');
+        if (! $url) {
+            throw new RuntimeException('The document system did not return a download link.');
+        }
+        $response = Http::timeout($this->timeout)->withOptions(['stream' => true])->get($url)->throw();
 
         return $response->toPsrResponse()->getBody()->detach();
     }

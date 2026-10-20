@@ -39,6 +39,44 @@ class SysadminToolsTest extends TestCase
         $zip->close();
     }
 
+    /** NFR-06: encrypted (AES-256) and copied off the server */
+    public function test_backup_is_encrypted_and_copied_off_server(): void
+    {
+        Storage::fake('offsite');
+        $dir = sys_get_temp_dir().'/adm_backup_test_'.uniqid();
+        $file = $dir.'/db.sqlite';
+        mkdir($dir);
+        touch($file);
+        config([
+            'database.connections.filecopy' => ['driver' => 'sqlite', 'database' => $file, 'prefix' => ''],
+            'admission.backups.path' => $dir.'/backups',
+            'admission.backups.password' => 'correct horse',
+            'admission.backups.remote_disk' => 'offsite',
+        ]);
+        \DB::purge('filecopy');
+
+        $this->artisan('app:backup', ['--connection' => 'filecopy'])->expectsOutputToContain('encrypted')->assertSuccessful();
+
+        $zips = glob($dir.'/backups/backup_*.zip');
+        $zip = new \ZipArchive;
+        $zip->open($zips[0]);
+        $this->assertSame(\ZipArchive::EM_AES_256, $zip->statName('database.sqlite')['encryption_method']);
+        $this->assertFalse($zip->getFromName('database.sqlite'));   // unreadable without the password
+        $zip->setPassword('correct horse');
+        $this->assertNotFalse($zip->getFromName('database.sqlite'));
+        $zip->close();
+        Storage::disk('offsite')->assertExists('oas-backups/'.basename($zips[0]));
+    }
+
+    public function test_api_client_command_stores_only_a_hash(): void
+    {
+        $this->artisan('api-client:create', ['name' => 'enrollment', '--ips' => '10.0.0.5, 10.0.0.6'])
+            ->expectsOutputToContain('X-API-Key:')->assertSuccessful();
+        $client = \App\Models\ApiClient::where('name', 'enrollment')->first();
+        $this->assertSame(['10.0.0.5', '10.0.0.6'], $client->allowed_ips);
+        $this->assertSame(64, strlen($client->key_hash));
+    }
+
     public function test_privileges_command(): void
     {
         if (\DB::getDriverName() === 'mysql') {

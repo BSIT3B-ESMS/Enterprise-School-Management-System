@@ -15,8 +15,10 @@ use App\Support\ApplicantForm;
  * Builds the applicant portal's state in the shape applicant.js keeps in
  * localStorage, so the UI renders it unchanged.
  *
- * NFR-02: built from an explicit allow-list. The exam score is never read
- * here, and an unreleased result is never mentioned.
+ * Built from an explicit allow-list (§8.3): the exam score and the
+ * interview grade are never read here, and an unreleased result is never
+ * mentioned. Keys the portal doesn't use yet (offer, interview,
+ * emailVerified…) are there for the screens still to come.
  */
 class ApplicantPortalPresenter
 {
@@ -27,7 +29,7 @@ class ApplicantPortalPresenter
 
     public function present(Application $application): array
     {
-        $application->loadMissing(['applicant.user', 'period', 'examRegistration.session', 'result', 'documents.requirement']);
+        $application->loadMissing(['applicant.user', 'period', 'examRegistration.session', 'result', 'documents.requirement', 'interview.schedule', 'offeredProgram']);
         $progress = $application->form_progress ?? ['step' => 1, 'completed' => []];
         $released = $application->result?->is_released ? $application->result : null;
         $period = $application->period;
@@ -35,12 +37,17 @@ class ApplicantPortalPresenter
         return [
             'applicationId' => $application->number,
             'status' => $application->status->value,
+            'statusLabel' => $application->status->label(),
             'phase' => $this->phase($application),
+            'emailVerified' => $application->applicant->user->hasVerifiedEmail(),
             'step' => (int) $progress['step'],
             'completed' => array_map('intval', $progress['completed']),
             'data' => $this->applications->formValues($application),
             'submittedAt' => $application->submitted_at?->copy()->setTimezone(config('admission.display_timezone'))->toDateString(),
-            'accepted' => $application->offer_accepted_at !== null,
+            'accepted' => $application->status->holdsSlot(),
+            'offer' => $this->offer($application),
+            'interview' => $this->interview($application),
+            'studentNumber' => $application->student_number,
             // Official requirements keyed by requirement key. The portal's own cards
             // are not mapped yet (PROGRESS.md, H1).
             'documents' => $this->documents($application, Requirement::STAGE_ADMISSION),
@@ -53,7 +60,8 @@ class ApplicantPortalPresenter
                 ['title' => 'Application deadline', 'date' => $period->application_deadline?->toDateString()],
                 ['title' => 'Entrance exam days', 'date' => $period->exam_starts_on?->toDateString(), 'end' => $period->exam_ends_on?->toDateString()],
                 ['title' => 'Release of results', 'date' => $period->results_release_on?->toDateString()],
-                ['title' => 'Reservation fee deadline', 'date' => $period->reservation_deadline?->toDateString()],
+                // The offer letter reads its "confirm by" date from here: the applicant's own deadline once offered
+                ['title' => 'Reservation fee deadline', 'date' => $this->local($application->acceptance_deadline) ?? $period->reservation_deadline?->toDateString()],
             ], fn ($d) => $d['date'] !== null)),
         ];
     }
@@ -68,10 +76,47 @@ class ApplicantPortalPresenter
         return match ($application->status) {
             ApplicationStatus::Draft, ApplicationStatus::Resubmit => 'draft',
             ApplicationStatus::Submitted => 'review',
-            // The portal has no "did not pass" screen yet (matrix discrepancy 4)
-            ApplicationStatus::ForExam, ApplicationStatus::Failed => 'exam',
-            ApplicationStatus::Passed => $application->result?->is_released ? 'result' : 'exam',
+            // The portal has no "did not pass" or interview screens yet (UI pending)
+            ApplicationStatus::ForExam, ApplicationStatus::Passed, ApplicationStatus::Failed,
+            ApplicationStatus::ForInterview, ApplicationStatus::InterviewFailed => 'exam',
+            ApplicationStatus::Offered, ApplicationStatus::SlotAccepted, ApplicationStatus::ForMedical,
+            ApplicationStatus::Admitted, ApplicationStatus::Forfeited => 'result',
         };
+    }
+
+    private function offer(Application $application): ?array
+    {
+        if (! $application->offered_at) {
+            return null;
+        }
+
+        return [
+            'program' => $application->offeredProgram?->name,
+            'deadline' => $this->local($application->acceptance_deadline),
+            'acceptedAt' => $this->local($application->offer_accepted_at),
+            'forfeited' => $application->status === ApplicationStatus::Forfeited,
+        ];
+    }
+
+    /** Schedule and outcome only: the grade is Restricted. */
+    private function interview(Application $application): ?array
+    {
+        $i = $application->interview;
+        if (! $i) {
+            return null;
+        }
+
+        return [
+            'date' => $i->schedule->date->toDateString(),
+            'time' => $i->schedule->time,
+            'venue' => $i->schedule->venue,
+            'outcome' => $i->outcome,
+        ];
+    }
+
+    private function local($at): ?string
+    {
+        return $at?->copy()->setTimezone(config('admission.display_timezone'))->toDateString();
     }
 
     private function exam(Application $application): ?array

@@ -12,11 +12,18 @@ use Symfony\Component\Process\Process;
 use ZipArchive;
 
 /**
- * Sysadmin backup (D7: staff can't run backups). One zip with the database
- * dump and the private document files. Runs nightly from the scheduler.
+ * Sysadmin backup (NFR-06, INT-05; staff can't run backups). One zip with
+ * the database dump and the document files kept on this server. Runs
+ * nightly from the scheduler (RPO 24 h).
+ *
+ * - BACKUP_PASSWORD set: every entry is AES-256 encrypted (opens with
+ *   7-Zip or `unzip` builds with AES support, using that password).
+ * - BACKUP_REMOTE_DISK set: the zip is also copied off the server (s3 on
+ *   AWS, or a Google Drive disk as the paper suggests).
  *
  * On Amazon RDS, keep RDS automated backups on as well; this command is the
- * application-level copy (database + files) that can be restored anywhere.
+ * application-level copy that can be restored anywhere. Restore steps:
+ * docs/DEPLOYMENT_AWS.md.
  */
 class Backup extends Command
 {
@@ -48,11 +55,43 @@ class Backup extends Command
 
         $removed = $this->prune($dir, (int) ($this->option('keep') ?: config('admission.backups.keep')));
         $size = round(filesize($zipPath) / 1048576, 1);
-        $audit->record('system.backup', "Created a backup ({$size} MB, {$files} documents)", meta: ['file' => basename($zipPath)]);
+        $encrypted = (bool) config('admission.backups.password');
 
-        $this->info("Backup written: {$zipPath} ({$size} MB, {$files} document files)".($removed ? "; removed {$removed} old backup(s)" : ''));
+        $remote = null;
+        if ($disk = config('admission.backups.remote_disk')) {
+            try {
+                $remote = $this->copyOffServer($zipPath, $disk);
+            } catch (\Throwable $e) {
+                $audit->record('system.backup_failed', "Backup written locally but not copied to {$disk}: ".mb_substr($e->getMessage(), 0, 200));
+                $this->error("Backup written to {$zipPath}, but the copy to the \"{$disk}\" disk failed: {$e->getMessage()}");
+
+                return self::FAILURE;
+            }
+        }
+
+        $audit->record('system.backup', "Created a backup ({$size} MB, {$files} documents".($encrypted ? ', encrypted' : '').($remote ? ", copied to {$disk}" : '').')', meta: ['file' => basename($zipPath)]);
+        $this->info("Backup written: {$zipPath} ({$size} MB, {$files} document files".($encrypted ? ', encrypted' : ', NOT encrypted: set BACKUP_PASSWORD').')'
+            .($remote ? "; copied to {$disk}:{$remote}" : '')
+            .($removed ? "; removed {$removed} old backup(s)" : ''));
 
         return self::SUCCESS;
+    }
+
+    private function copyOffServer(string $zipPath, string $disk): string
+    {
+        $target = trim(config('admission.backups.remote_path'), '/').'/'.basename($zipPath);
+        $stream = fopen($zipPath, 'r');
+        try {
+            if (! Storage::disk($disk)->writeStream($target, $stream)) {
+                throw new RuntimeException('the disk refused the file');
+            }
+        } finally {
+            if (is_resource($stream)) {
+                fclose($stream);
+            }
+        }
+
+        return $target;
     }
 
     private function dumpDatabase(string $tmp): string
@@ -103,13 +142,24 @@ class Backup extends Command
         if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
             throw new RuntimeException("Can't create {$zipPath}.");
         }
-        $zip->addFile($dump, basename($dump));
+        $password = config('admission.backups.password');
+        $add = function (string $path, string $name) use ($zip, $password) {
+            $zip->addFile($path, $name);
+            if ($password) {
+                $zip->setEncryptionName($name, ZipArchive::EM_AES_256, $password);
+            }
+        };
+        $add($dump, basename($dump));
 
-        $disk = Storage::disk(config('admission.documents.local_disk'));
+        // Documents on this server only. Files in the DMS or on S3 are backed up there.
         $count = 0;
-        foreach ($disk->allFiles('documents') as $file) {
-            $zip->addFile($disk->path($file), $file);
-            $count++;
+        $diskName = config('admission.documents.local_disk');
+        if (config("filesystems.disks.{$diskName}.driver") === 'local') {
+            $disk = Storage::disk($diskName);
+            foreach ($disk->allFiles('documents') as $file) {
+                $add($disk->path($file), $file);
+                $count++;
+            }
         }
         $zip->setArchiveComment('PLP Online Admission backup '.now()->toIso8601String());
         $zip->close();

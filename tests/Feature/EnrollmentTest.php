@@ -2,97 +2,83 @@
 
 namespace Tests\Feature;
 
-use App\Enums\Role;
-use App\Models\EnrollmentHandoff;
-use Illuminate\Http\Client\Request as HttpRequest;
-use Illuminate\Support\Facades\Http;
+use App\Models\ApiClient;
+use App\Models\DmsOutboxEvent;
+use Illuminate\Support\Facades\Artisan;
 use Tests\Concerns\BuildsApplications;
 use Tests\TestCase;
 
-/** Enrollment integration (architecture diagram, T9: switched off by default). */
+/**
+ * Enrollment (FR-11, decision D12): no direct OAS → Enrollment call. The
+ * DMS gets the Admitted flag; the student-number callback is off unless
+ * the team confirms it, and then needs the "enrollment" API client.
+ */
 class EnrollmentTest extends TestCase
 {
     use BuildsApplications;
 
-    private function enable(): void
+    public function test_admission_completion_goes_to_the_dms(): void
     {
-        config(['admission.enrollment' => ['enabled' => true, 'base_url' => 'https://enroll.test/api', 'api_key' => 'out-key',
-            'inbound_key' => 'in-key', 'timeout' => 5]]);
-    }
-
-    /** Released pass → medical cleared by the clinic. */
-    private function admitted(): string
-    {
-        $user = $this->examined('passed');
+        $user = $this->admitted();
         $number = $this->number($user);
-        $this->asUser($this->officer())->postJson('/api/admin/results/release', ['ids' => [$number]])->assertOk();
-        foreach (['medCert', 'xray', 'labs'] as $key) {
-            $this->uploadDoc($user, $key, 'medical')->assertCreated();
-        }
-        $this->asUser($user)->postJson('/api/applicant/medical/submit')->assertOk();
-        $this->asUser($this->makeUser(Role::Clinic))->postJson("/api/admin/applicants/{$number}/medical/verify-pending")->assertOk();
 
-        return $number;
+        $event = DmsOutboxEvent::where('type', 'admission.completed')->where('applicant_ref', $number)->firstOrFail();
+        $this->assertSame(DmsOutboxEvent::SENT, $event->status);
+        $this->assertTrue($event->payload['data']['admitted']);
+        $this->assertSame('BSIT', $event->payload['data']['program']);
     }
 
-    public function test_switched_off_by_default(): void
+    public function test_callback_is_off_by_default(): void
     {
-        Http::fake();
-        $this->admitted();
-
-        $this->assertSame(0, EnrollmentHandoff::count());
-        Http::assertNothingSent();
+        $number = $this->number($this->admitted());
+        $this->postJson('/api/integrations/enrollment/student-number', ['admission_reference' => $number, 'student_number' => '2027-00123'],
+            ['X-API-Key' => $this->client()])->assertNotFound();
     }
 
-    public function test_admitted_applicant_is_sent_with_keys(): void
+    public function test_student_number_callback_needs_the_enrollment_client(): void
     {
-        $this->enable();
-        Http::fake(['enroll.test/api/admitted' => Http::response(['received' => true], 202)]);
-
-        $number = $this->admitted();
-
-        $handoff = EnrollmentHandoff::firstOrFail();
-        $this->assertSame(EnrollmentHandoff::SENT, $handoff->status);
-        Http::assertSent(fn (HttpRequest $r) => $r->hasHeader('X-API-Key', 'out-key')
-            && $r->hasHeader('Idempotency-Key', $handoff->idempotency_key)
-            && $r['admission_reference'] === $number
-            && $r['program_code'] === 'BSIT');
-    }
-
-    public function test_failure_is_recorded_and_retry_reuses_the_idempotency_key(): void
-    {
-        $this->enable();
-        Http::fake(['enroll.test/*' => Http::sequence()->push('down', 503)->push(['student_number' => '2027-00042'], 201)]);
-
-        try {
-            $this->admitted();
-        } catch (\Throwable) {
-            // sync queue: the first attempt's failure surfaces here
-        }
-        $handoff = EnrollmentHandoff::firstOrFail();
-        $this->assertStringContainsString('HTTP 503', (string) $handoff->last_error);
-
-        $this->artisan('enrollment:retry')->assertSuccessful();
-
-        $handoff->refresh();
-        $this->assertSame(EnrollmentHandoff::ACKNOWLEDGED, $handoff->status);
-        $this->assertSame('2027-00042', $handoff->student_number);
-        $keys = collect(Http::recorded())->map(fn ($pair) => $pair[0]->header('Idempotency-Key')[0])->unique();
-        $this->assertCount(1, $keys);
-    }
-
-    public function test_student_number_callback_needs_the_inbound_key(): void
-    {
-        $this->enable();
-        Http::fake();
-        $number = $this->admitted();
-        $body = ['admission_reference' => $number, 'student_number' => '2027-00099'];
+        config(['admission.enrollment.callback_enabled' => true]);
+        $number = $this->number($this->admitted());
+        $key = $this->client();
+        $body = ['admission_reference' => $number, 'student_number' => '2027-00123'];
 
         $this->postJson('/api/integrations/enrollment/student-number', $body)->assertUnauthorized();
         $this->postJson('/api/integrations/enrollment/student-number', $body, ['X-API-Key' => 'wrong'])->assertUnauthorized();
-        $this->postJson('/api/integrations/enrollment/student-number', $body, ['X-API-Key' => 'in-key'])
-            ->assertOk()->assertJsonPath('data.student_number', '2027-00099');
 
-        $this->assertDatabaseHas('audit_logs', ['description' => 'Enrollment assigned student number 2027-00099']);
+        $this->postJson('/api/integrations/enrollment/student-number', $body, ['X-API-Key' => $key])
+            ->assertOk()->assertJsonPath('data.student_number', '2027-00123');
+        // Retried by Enrollment: same answer
+        $this->postJson('/api/integrations/enrollment/student-number', $body, ['X-API-Key' => $key])->assertOk();
+
+        $this->assertDatabaseHas('applications', ['number' => $number, 'student_number' => '2027-00123']);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'api.inbound', 'actor_name' => 'API · enrollment']);
+    }
+
+    public function test_ip_allowlist_and_disabled_client(): void
+    {
+        config(['admission.enrollment.callback_enabled' => true]);
+        $number = $this->number($this->admitted());
+        $body = ['admission_reference' => $number, 'student_number' => '2027-00123'];
+
+        $key = $this->client('--ips=10.0.0.5');
+        $this->postJson('/api/integrations/enrollment/student-number', $body, ['X-API-Key' => $key])->assertUnauthorized();
+
+        $key = $this->client();
+        Artisan::call('api-client:create', ['name' => 'enrollment', '--disable' => true]);
+        $this->postJson('/api/integrations/enrollment/student-number', $body, ['X-API-Key' => $key])->assertUnauthorized();
+    }
+
+    /** api-client:create, returning the printed key. Only its hash is stored. */
+    private function client(?string $ips = null): string
+    {
+        $args = ['name' => 'enrollment'];
+        if ($ips) {
+            $args['--ips'] = substr($ips, 6);
+        }
+        Artisan::call('api-client:create', $args);
+        preg_match('/X-API-Key: (\S+)/', Artisan::output(), $m);
+        $this->assertSame(ApiClient::hashKey($m[1]), ApiClient::where('name', 'enrollment')->value('key_hash'));
+
+        return $m[1];
     }
 }

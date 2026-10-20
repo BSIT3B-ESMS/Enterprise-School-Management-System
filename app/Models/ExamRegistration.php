@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['application_id', 'exam_session_id', 'permit_no', 'permit_checked', 'form_checked', 'attendance', 'attendance_by', 'attendance_at', 'approved_by'])]
+#[Fillable(['application_id', 'exam_session_id', 'permit_no', 'qr_token', 'permit_checked', 'form_checked', 'attendance', 'attendance_by', 'attendance_at', 'approved_by', 'reminder_sent_at'])]
 class ExamRegistration extends Model
 {
     protected function casts(): array
@@ -15,6 +15,7 @@ class ExamRegistration extends Model
             'permit_checked' => 'boolean',
             'form_checked' => 'boolean',
             'attendance_at' => 'datetime',
+            'reminder_sent_at' => 'datetime',
         ];
     }
 

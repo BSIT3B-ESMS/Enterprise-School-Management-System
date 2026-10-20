@@ -22,7 +22,7 @@ class LocalDocumentStore implements DocumentStore
         return 'local';
     }
 
-    public function put(UploadedFile $file, Application $application, Requirement $requirement): StoredFile
+    public function put(UploadedFile $file, Application $application, Requirement $requirement, ?string $previousRef = null): StoredFile
     {
         $name = Str::random(40).'.'.strtolower($file->guessExtension() ?: $file->getClientOriginalExtension());
         $path = Storage::disk($this->disk)->putFileAs("documents/{$application->number}", $file, $name);

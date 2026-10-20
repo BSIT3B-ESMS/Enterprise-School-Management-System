@@ -22,7 +22,8 @@ use Illuminate\Support\Facades\DB;
  * the JSON and memory stays flat at peak (~20,000 applicants). Measured
  * numbers are in PROGRESS.md.
  *
- * The internal score is included for admission personnel only (NFR-02).
+ * The internal score and interview grade are included for admission
+ * personnel only (Restricted, §8.3); the clinic never gets them.
  */
 class OfficeStatePresenter
 {
@@ -62,7 +63,8 @@ class OfficeStatePresenter
                 'period' => $period->label,
                 'inactiveDocs' => Requirement::admission()->where('is_active', false)->pluck('key')->all(),
             ],
-            'audit' => DB::table('audit_logs')->whereNull('application_id')->orderBy('id')
+            // Applicant sign-ins are audited too, but they are not office activity
+            'audit' => DB::table('audit_logs')->whereNull('application_id')->where('action', '!=', 'applicant.login')->orderBy('id')
                 ->get(['actor_name', 'description', 'created_at'])
                 ->map(fn ($l) => $this->entry($l))->all(),
         ];
@@ -105,11 +107,13 @@ class OfficeStatePresenter
             ->leftJoin('exam_registrations as r', 'r.application_id', '=', 'a.id')
             ->leftJoin('exam_results as res', 'res.application_id', '=', 'a.id')
             ->leftJoin('users as rec', 'rec.id', '=', 'res.recorded_by')
+            ->leftJoin('programs as op', 'op.id', '=', 'a.offered_program_id')
             ->whereIn('a.id', $ids)
             ->whereNull('a.deleted_at')
             ->orderBy('a.id')
             ->get([
-                'a.id', 'a.number', 'a.status', 'a.created_at', 'a.submitted_at',
+                'a.id', 'a.number', 'a.status', 'a.created_at', 'a.submitted_at', 'a.acceptance_deadline', 'a.offer_accepted_at', 'a.admitted_at', 'a.student_number',
+                'p.possible_duplicate_of', 'op.code as offered_program',
                 'p.lrn', 'p.last_name', 'p.first_name', 'p.middle_name', 'p.sex', 'p.phone', 'p.is_resident', 'p.district',
                 'p.barangay', 'p.address', 'p.city', 'p.province', 'p.birthday', 'p.school_type', 'p.last_school', 'p.strand',
                 'p.applicant_type', 'p.has_guardian', 'u.email',
@@ -131,8 +135,17 @@ class OfficeStatePresenter
             ->leftJoin('users as rv', 'rv.id', '=', 'd.reviewed_by')
             ->where('d.is_current', true), 'd.application_id')
             ->orderBy('d.id')
-            ->get(['d.application_id', 'q.key', 'q.stage', 'd.status', 'd.original_name', 'd.size', 'd.created_at', 'rv.name as reviewer', 'd.reviewed_at', 'd.remark'])
+            ->get(['d.application_id', 'q.key', 'q.stage', 'd.status', 'd.original_name', 'd.size', 'd.created_at', 'rv.name as reviewer', 'd.reviewed_at', 'd.remark',
+                'd.scan_status', 'd.photocopy_received_at', 'd.falsification_flag', 'd.falsification_note'])
             ->groupBy('application_id');
+
+        $interviews = $scope(DB::table('interview_assignments as i')->join('interview_schedules as s', 's.id', '=', 'i.interview_schedule_id'), 'i.application_id')
+            ->get(['i.application_id', 's.id as schedule_id', 's.date', 's.time', 's.venue', 'i.outcome', 'i.grade'])
+            ->keyBy('application_id');
+
+        // Possible duplicates (FR-01): the other applicant's application number
+        $dupIds = $rows->pluck('possible_duplicate_of')->filter()->unique()->all();
+        $dupNumbers = $dupIds ? DB::table('applications')->whereIn('applicant_id', $dupIds)->orderBy('id')->pluck('number', 'applicant_id') : collect();
 
         $history = $scope(DB::table('audit_logs'), 'application_id')
             ->orderBy('id')->get(['application_id', 'actor_name', 'description', 'created_at'])
@@ -150,6 +163,10 @@ class OfficeStatePresenter
                     'reviewedBy' => $d->reviewer,
                     'reviewedAt' => $this->at($d->reviewed_at),
                     'remark' => $d->remark,
+                    'scan' => $d->scan_status,
+                    'photocopyAt' => $this->at($d->photocopy_received_at),
+                    'flagged' => $d->falsification_flag ? true : null,
+                    'flagNote' => $d->falsification_flag ? $d->falsification_note : null,
                 ], fn ($v) => $v !== null);
             }
             $resident = (bool) $a->is_resident;
@@ -194,9 +211,27 @@ class OfficeStatePresenter
                     'releasedAt' => $this->at($a->released_at),
                 ], fn ($v) => $v !== null) : null,
                 'history' => ($history[$a->id] ?? collect())->map(fn ($l) => $this->entry($l))->all(),
+                // Not used by the panel yet: the updated paper's stages (offer, interview, admitted)
+                'status' => $a->status,
+                'possibleDuplicateOf' => $a->possible_duplicate_of ? ($dupNumbers[$a->possible_duplicate_of] ?? null) : null,
+                'offer' => $a->offered_program ? [
+                    'program' => $a->offered_program,
+                    'deadline' => $this->at($a->acceptance_deadline),
+                    'acceptedAt' => $this->at($a->offer_accepted_at),
+                ] : null,
+                'interview' => isset($interviews[$a->id]) ? array_filter([
+                    'scheduleId' => (int) $interviews[$a->id]->schedule_id,
+                    'date' => substr($interviews[$a->id]->date, 0, 10),
+                    'time' => $interviews[$a->id]->time,
+                    'venue' => $interviews[$a->id]->venue,
+                    'outcome' => $interviews[$a->id]->outcome,
+                    'grade' => $withScore && $interviews[$a->id]->grade !== null ? (int) $interviews[$a->id]->grade : null,
+                ], fn ($v) => $v !== null) : null,
+                'admittedAt' => $this->at($a->admitted_at),
+                'studentNumber' => $a->student_number,
             ];
-            // Medical requirements apply after a released pass (Application::medicalApplies)
-            if ($a->status === 'passed' && $a->is_released) {
+            // Medical requirements open once the slot is accepted (Application::medicalApplies)
+            if (in_array($a->status, ['for_medical', 'admitted'], true)) {
                 $item['medical'] = ['files' => $docs['medical']];
             }
             $out[] = $item;

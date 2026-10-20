@@ -11,32 +11,39 @@ use App\Models\Application;
 use App\Models\Program;
 use App\Models\Requirement;
 use App\Models\User;
+use App\Notifications\VerifyApplicantEmail;
+use App\Services\Dms\DmsSync;
 use App\Support\ApplicantForm;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
-use Illuminate\Validation\ValidationException;
 
 /**
- * Applicant registration and the application lifecycle (FR-01, FR-02, FR-05, FR-10).
+ * Applicant registration and the application lifecycle (FR-01, FR-02, FR-05).
  */
 class ApplicationService
 {
     public function __construct(
         private ApplicationStatusService $status,
         private AuditLogger $audit,
+        private DmsSync $dms,
     ) {}
 
-    /** New applicant account: user + profile + draft application for the open period. */
+    /**
+     * New applicant account: user + profile + draft application for the open
+     * period (FR-01). The privacy notice was accepted on the form (NFR-05);
+     * a verification link is emailed.
+     */
     public function register(array $data): User
     {
-        return DB::transaction(function () use ($data) {
+        $user = DB::transaction(function () use ($data) {
             $user = User::create([
                 'name' => trim($data['first_name'].' '.$data['last_name']),
                 'email' => $data['email'],
                 'password' => $data['password'],
             ]);
+            $user->forceFill(['privacy_accepted_at' => now()])->save();
             $user->assignRole('applicant');
 
             $applicant = Applicant::create([
@@ -48,9 +55,13 @@ class ApplicationService
 
             $application = $this->start($applicant, $user);
             $this->audit->record('applicant.registered', 'Created an applicant account', $applicant, $application, actor: $user);
+            $this->dms->record('applicant.upserted', $application);
 
             return $user;
         });
+        $user->notify(new VerifyApplicantEmail);
+
+        return $user;
     }
 
     public function start(Applicant $applicant, ?User $by = null): Application
@@ -141,6 +152,10 @@ class ApplicationService
         }
         $this->assertSectionsComplete([1, 2, 3], $this->formValues($application), $application->applicant_id);
 
+        if (config('admission.require_verified_email') && ! $by->hasVerifiedEmail()) {
+            throw new BusinessRuleException("Confirm your email address first: open the link we sent to {$by->email}.");
+        }
+
         $missing = $this->missingDocuments($application);
         if ($missing) {
             throw new BusinessRuleException('Upload these documents first: '.implode(', ', $missing).'.');
@@ -149,6 +164,7 @@ class ApplicationService
         $resubmission = $application->status === ApplicationStatus::Resubmit;
         DB::transaction(function () use ($application, $by, $resubmission) {
             $this->status->transition($application, ApplicationStatus::Submitted, $by);
+            $this->dms->record('applicant.upserted', $application->fresh());
             $count = $application->documents()->whereHas('requirement', fn ($q) => $q->where('stage', Requirement::STAGE_ADMISSION))->count();
             $this->audit->record(
                 $resubmission ? 'application.resubmitted' : 'application.submitted',
@@ -240,8 +256,11 @@ class ApplicationService
             $applicant->is_resident = $valid['city'] ? (bool) preg_match('/\bpasig\b/i', $valid['city']) : null;
         }
 
-        // FR-10: after the first submission, every profile change is kept
-        if ($application->status !== ApplicationStatus::Draft) {
+        $identityChanged = $applicant->isDirty(['last_name', 'first_name', 'birthday']);
+
+        // §8.1 change history: after the first submission, every profile change is kept
+        $afterSubmission = $application->status !== ApplicationStatus::Draft && $applicant->isDirty();
+        if ($afterSubmission) {
             foreach ($applicant->getDirty() as $column => $new) {
                 ApplicantChange::create([
                     'applicant_id' => $applicant->id,
@@ -254,6 +273,34 @@ class ApplicationService
             }
         }
         $applicant->save();
+
+        if ($identityChanged) {
+            $this->flagDuplicate($applicant);
+        }
+        if ($afterSubmission) {
+            $this->dms->record('applicant.upserted', $application);
+        }
+    }
+
+    /**
+     * FR-01: one account per email is enforced at registration; a second
+     * account for the same person (same name and birthdate) is flagged for
+     * staff review, never blocked.
+     */
+    private function flagDuplicate(Applicant $applicant): void
+    {
+        $match = null;
+        if ($applicant->birthday && $applicant->first_name && $applicant->last_name) {
+            $match = Applicant::whereKeyNot($applicant->id)
+                ->whereDate('birthday', $applicant->birthday)
+                ->whereRaw('LOWER(last_name) = ?', [mb_strtolower($applicant->last_name)])
+                ->whereRaw('LOWER(first_name) = ?', [mb_strtolower($applicant->first_name)])
+                ->orderBy('id')
+                ->value('id');
+        }
+        if ($applicant->possible_duplicate_of !== $match) {
+            $applicant->forceFill(['possible_duplicate_of' => $match])->save();
+        }
     }
 
     private function saveChoices(Application $application, array $valid): void

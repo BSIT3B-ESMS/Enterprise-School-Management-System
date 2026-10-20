@@ -19,6 +19,8 @@ trait BuildsApplications
 {
     protected ?User $officer = null;
 
+    protected ?ExamSession $sharedSession = null;
+
     protected function officer(): User
     {
         return $this->officer ??= $this->makeUser(Role::Admission, ['name' => 'Maria Santos']);
@@ -53,7 +55,7 @@ trait BuildsApplications
     {
         $user = $this->submitted($email);
         $number = $this->applicationOf($user)->number;
-        $session ??= $this->examSession();
+        $session ??= $this->sharedSession ??= $this->examSession();
         $this->asUser($this->officer())->postJson("/api/admin/applicants/{$number}/documents/verify-pending")->assertOk();
         $this->asUser($this->officer())->postJson("/api/admin/applicants/{$number}/approve", ['sessionId' => 'S'.$session->id])->assertOk();
 
@@ -69,6 +71,44 @@ trait BuildsApplications
         $this->asUser($this->officer())->postJson("/api/admin/applicants/{$number}/result", compact('score', 'decision'))->assertOk();
 
         return $user;
+    }
+
+    /** Result released. A pass with a first choice that needs no interview (BSIT) is now Offered. */
+    protected function released(string $decision = 'passed', string $email = 'jordan@example.com'): User
+    {
+        $user = $this->examined($decision, $decision === 'passed' ? 82 : 41, $email);
+        $this->asUser($this->officer())->postJson('/api/admin/results/release', ['ids' => [$this->number($user)]])->assertOk();
+
+        return $user;
+    }
+
+    /** Offer accepted: the slot is taken and medical requirements are open. */
+    protected function accepted(string $email = 'jordan@example.com'): User
+    {
+        $user = $this->released('passed', $email);
+        $this->asUser($user)->postJson('/api/applicant/offer/accept')->assertOk();
+
+        return $user;
+    }
+
+    /** Medical requirements verified by the clinic: Admitted. */
+    protected function admitted(string $email = 'jordan@example.com'): User
+    {
+        $user = $this->accepted($email);
+        foreach (['medCert', 'xray', 'labs'] as $key) {
+            $this->uploadDoc($user, $key, 'medical')->assertCreated();
+        }
+        $this->asUser($user)->postJson('/api/applicant/medical/submit')->assertOk();
+        $this->asUser($this->clinic())->postJson("/api/admin/applicants/{$this->number($user)}/medical/verify-pending")->assertOk();
+
+        return $user;
+    }
+
+    protected ?User $clinicUser = null;
+
+    protected function clinic(): User
+    {
+        return $this->clinicUser ??= $this->makeUser(Role::Clinic, ['name' => 'Dr. L. Bautista']);
     }
 
     protected function number(User $user): string

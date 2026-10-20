@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[Fillable([
-    'user_id', 'lrn', 'last_name', 'first_name', 'middle_name', 'sex', 'birthday', 'civil_status', 'phone',
+    'user_id', 'possible_duplicate_of', 'lrn', 'last_name', 'first_name', 'middle_name', 'sex', 'birthday', 'civil_status', 'phone',
     'address', 'city', 'province', 'zip', 'is_resident', 'district', 'barangay',
     'guardian_name', 'guardian_phone', 'has_guardian', 'last_school', 'school_type', 'strand',
     'grad_year', 'applicant_type', 'gwa',

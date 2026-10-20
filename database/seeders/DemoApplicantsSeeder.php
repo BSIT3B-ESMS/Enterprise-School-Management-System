@@ -5,12 +5,15 @@ namespace Database\Seeders;
 use App\Models\AdmissionPeriod;
 use App\Models\Application;
 use App\Models\ExamSession;
+use App\Models\InterviewSchedule;
 use App\Models\Program;
 use App\Models\Requirement;
 use App\Models\User;
 use App\Services\ApplicationService;
 use App\Services\DocumentService;
 use App\Services\ExamService;
+use App\Services\InterviewService;
+use App\Services\OfferService;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 use Illuminate\Http\UploadedFile;
@@ -94,6 +97,7 @@ class DemoApplicantsSeeder extends Seeder
                 'first_name' => $first, 'last_name' => $last, 'email' => strtolower(str_replace(' ', '', "{$first}.{$last}")).$i.'@example.com',
                 'phone' => '+63 9'.mt_rand(10, 99).' '.mt_rand(100, 999).' '.mt_rand(1000, 9999), 'password' => 'password123',
             ]);
+            $user->markEmailAsVerified();
             $application = $this->applications->current($user->applicant);
             [$school, $type] = self::SCHOOLS[mt_rand(0, count(self::SCHOOLS) - 1)];
             $choices = $this->sample($programs, 2);
@@ -158,18 +162,29 @@ class DemoApplicantsSeeder extends Seeder
             $score = min(98, max(28, (int) round(66 + (mt_rand(0, 100) + mt_rand(0, 100) + mt_rand(0, 100) - 150) / 100 * 26)));
             $this->exams->recordResult($application->fresh(), $score, $score >= config('admission.passing_score') ? 'passed' : 'failed', $officer);
 
-            // The earliest session's results are released; passers go on to medical
+            // The earliest session's results are released; passers get an offer (or an interview first)
             if (! $session->date->isSameDay($sessions[0]->date)) {
                 continue;
             }
             $released = $session->date->copy()->addDays(3)->setTime(9, 0);
             $this->at($released, $officer);
             $this->exams->release(collect([$application->fresh()]), $officer);
-            if ($score < config('admission.passing_score') || mt_rand(1, 100) <= 30) {
+            if ($score < config('admission.passing_score')) {
                 continue;
             }
-            $this->at($released->copy()->addDays(mt_rand(1, 4)), $user);
-            $this->exams->acceptOffer($application->fresh());
+            $application = $application->fresh();
+            if ($application->status->value === 'for_interview') {
+                $this->interview($application, $released, $officer);
+                $application = $application->fresh();
+                if ($application->status->value !== 'offered') {
+                    continue;
+                }
+            }
+            if (mt_rand(1, 100) <= 30) {
+                continue; // offer not accepted yet
+            }
+            $this->at($application->offered_at->copy()->addDays(mt_rand(1, 3)), $user);
+            app(OfferService::class)->accept($application->fresh(), $user);
             $medical = Requirement::medical()->get();
             foreach ($medical as $requirement) {
                 $this->documents->upload($application->fresh(), $requirement, $this->file($requirement->key), $user);
@@ -183,6 +198,25 @@ class DemoApplicantsSeeder extends Seeder
 
         Carbon::setTestNow();
         Auth::guard('api')->forgetUser();
+    }
+
+    /** Interview for programs that require one (BSN in the demo): scheduled, then the dean records it. */
+    private function interview(Application $application, Carbon $released, User $officer): void
+    {
+        $program = $application->firstChoice();
+        $interviews = app(InterviewService::class);
+        $this->at($released->copy()->addHour(), $officer);
+        $schedule = InterviewSchedule::where('program_id', $program->id)->first()
+            ?? $interviews->createSchedule($program, $released->copy()->addDays(2)->toDateString(), '9:00 AM – 12:00 NN', 'Nursing Building · Room 105', 20, $officer);
+        $interviews->assign($application, $schedule, $officer);
+
+        $dean = $program->college?->dean;
+        if (! $dean || mt_rand(1, 100) <= 25) {
+            return; // outcome not recorded yet
+        }
+        $this->at($schedule->date->copy()->setTime(14, 0), $dean);
+        $grade = mt_rand(70, 98);
+        $interviews->record($application->fresh(), $grade, $grade >= 75 ? 'passed' : 'failed', $dean);
     }
 
     /** Pretend "now" is $time and $user is signed in, so timestamps and audit lines read right. */

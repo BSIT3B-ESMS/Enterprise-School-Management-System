@@ -8,14 +8,17 @@ use App\Exceptions\BusinessRuleException;
 use App\Models\Application;
 use App\Models\StatusHistory;
 use App\Models\User;
+use App\Services\Dms\DmsSync;
 
 /**
  * The only place an application's status changes (FR-05). Enforces the
- * allowed transitions, writes the status history and fires the event that
- * drives notifications.
+ * allowed transitions (plan §3.1), writes the status history, queues the
+ * DMS event and fires the event that drives notifications.
  */
 class ApplicationStatusService
 {
+    public function __construct(private DmsSync $dms) {}
+
     public function transition(Application $application, ApplicationStatus $to, ?User $by = null, ?string $remark = null): void
     {
         $from = $application->status;
@@ -42,6 +45,7 @@ class ApplicationStatusService
             'changed_by' => $by?->id,
             'remark' => $remark,
         ]);
+        $this->dms->record('status.changed', $application, ['from' => $from->value, 'to' => $to->value, 'remark' => $remark]);
 
         ApplicationStatusChanged::dispatch($application, $from, $to);
     }

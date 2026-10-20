@@ -4,11 +4,13 @@ namespace Tests\Feature;
 
 use App\Enums\ApplicationStatus;
 use App\Enums\Role;
+use App\Exceptions\BusinessRuleException;
 use App\Models\Application;
 use App\Models\ApplicationDocument;
 use App\Models\ExamResult;
 use App\Models\User;
 use App\Services\ApplicationService;
+use App\Services\Security\MalwareScanner;
 use Illuminate\Http\Client\Request as HttpRequest;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
@@ -147,12 +149,12 @@ class DocumentTest extends TestCase
         $this->asUser($user)->getJson('/api/admin/state')->assertForbidden();
     }
 
-    /** FR-13, decision T2 */
+    /** FR-10: medical requirements after slot acceptance; clinic only; all verified → Admitted */
     public function test_medical_flow(): void
     {
         $user = $this->submittedApplicant();
         $application = $this->applicationOf($user);
-        $this->releasePass($application);
+        $this->acceptedSlot($application);
         $clinic = $this->makeUser(Role::Clinic, ['name' => 'Dr. L. Bautista']);
         $admission = $this->makeUser(Role::Admission);
 
@@ -177,29 +179,100 @@ class DocumentTest extends TestCase
         $this->asUser($user)->postJson('/api/applicant/medical/submit')->assertOk();
         $this->asUser($clinic)->postJson("{$url}/verify-pending")->assertOk()->assertJsonPath('verified', 3);
 
-        $this->asUser($user)->getJson('/api/applicant/portal')->assertJsonPath('data.medical.status', 'cleared');
+        $this->asUser($user)->getJson('/api/applicant/portal')
+            ->assertJsonPath('data.medical.status', 'cleared')
+            ->assertJsonPath('data.status', 'admitted');
         $this->assertDatabaseHas('audit_logs', ['description' => 'Medically cleared · admission complete', 'actor_name' => 'Dr. L. Bautista']);
+        $this->assertNotNull($application->fresh()->admitted_at);
+        // Every opening of a medical file is audited (NFR-05)
+        $this->assertDatabaseHas('audit_logs', ['action' => 'medical.file_opened']);
     }
 
-    /** Decision T5: documents go to the DMS with the API key when it's switched on */
+    /** FR-10: a file flagged as possibly falsified holds clearance until the flag is cleared */
+    public function test_falsification_flag_holds_admission(): void
+    {
+        $user = $this->submittedApplicant();
+        $application = $this->applicationOf($user);
+        $this->acceptedSlot($application);
+        $clinic = $this->makeUser(Role::Clinic);
+        foreach (['medCert', 'xray', 'labs'] as $key) {
+            $this->upload($user, $key, null, 'medical')->assertCreated();
+        }
+        $this->asUser($user)->postJson('/api/applicant/medical/submit')->assertOk();
+        $url = "/api/admin/applicants/{$application->number}/medical";
+
+        $this->asUser($clinic)->patchJson("{$url}/medCert/flag", ['flagged' => true])->assertStatus(422); // note required
+        $this->asUser($this->makeUser(Role::Admission))->patchJson("{$url}/medCert/flag", ['flagged' => true, 'note' => 'x'])->assertForbidden();
+        $this->asUser($clinic)->patchJson("{$url}/medCert/flag", ['flagged' => true, 'note' => 'Signature does not match the clinic on file.'])
+            ->assertOk()->assertJsonPath('data.medical.files.medCert.flagged', true);
+        $this->asUser($clinic)->postJson("{$url}/verify-pending")->assertOk();
+        $this->assertSame(ApplicationStatus::ForMedical, $application->fresh()->status);
+
+        $this->asUser($clinic)->patchJson("{$url}/medCert/flag", ['flagged' => false])->assertOk();
+        $this->assertSame(ApplicationStatus::Admitted, $application->fresh()->status);
+    }
+
+    /** §9.1: photocopies handed in are ticked off by the right office */
+    public function test_photocopy_received(): void
+    {
+        $user = $this->submittedApplicant();
+        $number = $this->applicationOf($user)->number;
+        $staff = $this->makeUser(Role::Admission, ['name' => 'Maria Santos']);
+
+        $this->asUser($this->makeUser(Role::Clinic))->patchJson("/api/admin/applicants/{$number}/documents/psa/photocopy", ['received' => true])->assertForbidden();
+        $this->asUser($staff)->patchJson("/api/admin/applicants/{$number}/documents/psa/photocopy", ['received' => true])
+            ->assertOk()->assertJsonStructure(['data' => ['docs' => ['psa' => ['photocopyAt']]]]);
+        $this->assertDatabaseHas('audit_logs', ['description' => 'Received the photocopy of "PSA Birth Certificate"']);
+        $this->assertNotNull(ApplicationDocument::first()->photocopy_received_by);
+    }
+
+    /** Uploads are virus-scanned; an infected file is refused and nothing is stored */
+    public function test_infected_upload_is_refused(): void
+    {
+        $this->app->instance(MalwareScanner::class, new class implements MalwareScanner
+        {
+            public function scan(string $path): string
+            {
+                throw new BusinessRuleException('This file was rejected by the virus scan. Upload a different copy.');
+            }
+        });
+        $user = $this->makeApplicant(true);
+
+        $this->upload($user, 'psa')->assertStatus(422)->assertJsonPath('message', 'This file was rejected by the virus scan. Upload a different copy.');
+        $this->assertSame(0, ApplicationDocument::count());
+    }
+
+    /** §9.1/§9.3: files go straight to the DMS; a replacement is a new version of the same document */
     public function test_dms_store(): void
     {
-        config(['admission.documents.driver' => 'dms', 'admission.documents.dms.base_url' => 'https://dms.test/api', 'admission.documents.dms.api_key' => 'k-123']);
-        Http::fake(['dms.test/api/documents' => Http::response(['id' => 'DMS-778'], 201)]);
+        config(['admission.documents.driver' => 'dms', 'admission.dms.base_url' => 'https://dms.test/api', 'admission.dms.api_key' => 'k-123']);
+        Http::fake([
+            'dms.test/api/documents' => Http::response(['id' => 'DMS-778'], 201),
+            'dms.test/api/documents/DMS-778/versions' => Http::response(['id' => 'DMS-778'], 201),
+            'dms.test/api/documents/DMS-778/download-url' => Http::response(['url' => 'https://files.dms.test/tmp/abc'], 200),
+            'files.dms.test/*' => Http::response('%PDF-1.4 test', 200),
+        ]);
         $user = $this->makeApplicant(true);
 
         $this->upload($user, 'psa')->assertCreated();
-
         $doc = ApplicationDocument::first();
         $this->assertSame(['dms', 'DMS-778'], [$doc->storage_driver, $doc->storage_ref]);
         Http::assertSent(fn (HttpRequest $r) => $r->hasHeader('X-API-Key', 'k-123') && $r->hasHeader('Idempotency-Key'));
+
+        // Replaced in the draft: sent as a new version
+        $this->upload($user, 'psa', UploadedFile::fake()->create('psa2.pdf', 150, 'application/pdf'))->assertCreated();
+        Http::assertSent(fn (HttpRequest $r) => str_ends_with($r->url(), '/documents/DMS-778/versions'));
+
+        // Opened through the OAS: the 5-minute link never reaches the browser
+        $this->asUser($user)->get('/api/applicant/documents/psa/file')->assertOk();
+        Http::assertSent(fn (HttpRequest $r) => str_ends_with($r->url(), '/download-url'));
     }
 
-    /** Stand-in for Phases 6–7: a released passing result. */
-    private function releasePass(Application $application): void
+    /** Stand-in for Phases 6–9: a released pass whose slot the applicant accepted. */
+    private function acceptedSlot(Application $application): void
     {
         $staff = $this->makeUser(Role::Admission);
-        $application->forceFill(['status' => ApplicationStatus::Passed])->save();
+        $application->forceFill(['status' => ApplicationStatus::ForMedical, 'offered_program_id' => $application->firstChoice()->id, 'offered_at' => now(), 'offer_accepted_at' => now()])->save();
         ExamResult::create(['application_id' => $application->id, 'score' => 80, 'decision' => 'passed', 'recorded_by' => $staff->id, 'recorded_at' => now(), 'is_released' => true, 'released_by' => $staff->id, 'released_at' => now()]);
     }
 }

@@ -23,13 +23,14 @@ class AuditLogger
         ?Application $application = null,
         array $meta = [],
         ?User $actor = null,
+        ?string $actorName = null,          // a system caller, e.g. "API · enrollment"
     ): AuditLog {
         // auth() rather than $request->user(): the latter is always null in console runs
-        $actor ??= auth()->user();
+        $actor ??= $actorName ? null : auth()->user();
 
         return AuditLog::create([
             'user_id' => $actor?->id,
-            'actor_name' => $this->actorName($actor),
+            'actor_name' => $actorName ?? $this->actorName($actor),
             'action' => $action,
             'subject_type' => $subject ? class_basename($subject) : null,
             'subject_id' => $subject?->getKey(),

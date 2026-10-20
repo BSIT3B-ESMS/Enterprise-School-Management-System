@@ -26,7 +26,7 @@ class AdmissionSetupService
             }
             $filled = $program->filledSlots();
             if ($slots < $filled) {
-                throw new BusinessRuleException("{$program->code} already has {$filled} admitted applicants. Slots can't go below that.");
+                throw new BusinessRuleException("{$program->code} already has {$filled} accepted slots. Slots can't go below that.");
             }
 
             $this->audit->record('program.slots', "Changed {$program->code} slots from {$program->slots} to {$slots}", $program, meta: ['from' => $program->slots, 'to' => $slots]);

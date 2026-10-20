@@ -27,6 +27,7 @@ class User extends Authenticatable implements JWTSubject
     {
         return [
             'email_verified_at' => 'datetime',
+            'privacy_accepted_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
             'two_factor_secret' => 'encrypted',
@@ -38,6 +39,12 @@ class User extends Authenticatable implements JWTSubject
     public function applicant(): HasOne
     {
         return $this->hasOne(Applicant::class);
+    }
+
+    /** The college a dean heads (FR-17). */
+    public function deanOf(): HasOne
+    {
+        return $this->hasOne(College::class, 'dean_user_id');
     }
 
     /** The user's single role (each account has exactly one). */

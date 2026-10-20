@@ -14,9 +14,13 @@ use InvalidArgumentException;
  */
 class DocumentStorage
 {
-    public function store(UploadedFile $file, Application $application, Requirement $requirement): StoredFile
+    /** $previous: the version being replaced; a replacement in the same store becomes a new version of it. */
+    public function store(UploadedFile $file, Application $application, Requirement $requirement, ?ApplicationDocument $previous = null): StoredFile
     {
-        return $this->driver(config('admission.documents.driver'))->put($file, $application, $requirement);
+        $driver = config('admission.documents.driver');
+        $previousRef = $previous?->storage_driver === $driver ? $previous->storage_ref : null;
+
+        return $this->driver($driver)->put($file, $application, $requirement, $previousRef);
     }
 
     /** @return resource */
@@ -30,9 +34,9 @@ class DocumentStorage
         return match ($name) {
             'local' => new LocalDocumentStore(config('admission.documents.local_disk')),
             'dms' => new DmsDocumentStore(
-                (string) config('admission.documents.dms.base_url'),
-                (string) config('admission.documents.dms.api_key'),
-                (int) config('admission.documents.dms.timeout'),
+                (string) config('admission.dms.base_url'),
+                (string) config('admission.dms.api_key'),
+                (int) config('admission.dms.timeout'),
             ),
             default => throw new InvalidArgumentException("Unknown document store [{$name}]."),
         };
