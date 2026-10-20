@@ -16,7 +16,7 @@
 {{--
     Current employees from the database, in two tabs: Faculty and Non-Teaching Staff. Search, filters, sorting, and
     pages are done by the server and live in the address, so a filtered list can be bookmarked and the report opens
-    with the same filters. Archived employees are on their own page (HR Head).
+    with the same filters. Archived employees are on their own page (HR Admin).
 --}}
 @section('content')
     <div class="d-grid gap-4" data-page="employees">
@@ -24,7 +24,7 @@
             <h1 class="page-title">Employees</h1>
 
             <div class="d-flex gap-2 flex-wrap">
-                @if (auth()->user()->isHrHead())
+                @if (auth()->user()->isHrAdmin())
                     <a class="btn btn-outline-secondary d-inline-flex align-items-center gap-2"
                         href="{{ route('employees.report', request()->query()) }}" data-employee-report-link>
                         <x-icon name="report" />
@@ -122,12 +122,13 @@
                     </thead>
                     <tbody>
                         @forelse ($employees as $employee)
-                            <tr class="employee-row">
+                            <tr class="employee-row" data-row-href="{{ route('employees.show', $employee) }}" style="cursor: pointer">
                                 <td class="tabular-nums">{{ $employee->employee_no }}</td>
                                 <td>
                                     <div class="d-flex align-items-center gap-2 fw-medium">
                                         <span class="ems-avatar-sm" aria-hidden="true">{{ mb_substr($employee->first_name, 0, 1) }}{{ mb_substr($employee->last_name, 0, 1) }}</span>
                                         <a class="text-reset text-decoration-none" href="{{ route('employees.show', $employee) }}">{{ $employee->last_name }}, {{ $employee->first_name }} {{ $employee->middle_name }} {{ $employee->suffix }}</a>
+                                        @if ($employee->is_on_leave) <span class="ems-chip">On leave</span> @endif
                                     </div>
                                 </td>
                                 <td>{{ collect([$employee->college?->code, $employee->office?->code])->filter()->implode(' · ') }}</td>
@@ -154,7 +155,7 @@
         </div>
 
         {{-- The archive holds records that are no longer active; nothing is ever deleted. --}}
-        @if (auth()->user()->isHrHead())
+        @if (auth()->user()->isHrAdmin())
             <div class="d-flex justify-content-end">
                 <a class="btn btn-outline-secondary d-inline-flex align-items-center gap-2" href="{{ route('employees.archived') }}">
                     <x-icon name="folder" />

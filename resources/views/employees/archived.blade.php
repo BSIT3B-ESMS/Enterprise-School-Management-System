@@ -2,7 +2,7 @@
 
 @section('title', 'Archived Employees · '.config('app.name'))
 
-{{-- Employees who are no longer active (Inactive, Resigned, Retired, or Terminated). Nothing is deleted; the HR Head can restore a record. --}}
+{{-- Employees who are no longer active (Inactive, Resigned, Retired, or Terminated). Nothing is deleted; the HR Admin can restore a record. --}}
 @section('content')
     <div class="d-grid gap-4" data-page="archived-employees">
         <div class="d-flex align-items-center gap-3">

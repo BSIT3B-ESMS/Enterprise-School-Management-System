@@ -7,16 +7,16 @@ use App\Models\Employee;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 
-it('shows the accounts page to the HR Head only', function () {
-    $this->actingAs(hrHead())->get(route('accounts.index'))->assertOk()->assertSee('Create an account');
+it('shows the accounts page to the HR Admin only', function () {
+    $this->actingAs(hrAdmin())->get(route('accounts.index'))->assertOk()->assertSee('Create an account');
 
     $this->actingAs(hrStaff())->get(route('accounts.index'))->assertForbidden();
     $this->actingAs(employeeUser())->get(route('accounts.index'))->assertForbidden();
 });
 
 describe('creating an account', function () {
-    it('issues a login with a one-time temporary password that expires in 72 hours', function () {
-        $head = hrHead();
+    it('issues a login whose first password is the employee number, with first-login setup pending', function () {
+        $head = hrAdmin();
         $employee = Employee::factory()->create();
 
         $response = $this->actingAs($head)->post(route('accounts.store'), ['employee_id' => $employee->id, 'role' => 'employee']);
@@ -29,15 +29,16 @@ describe('creating an account', function () {
             ->and($user->role)->toBe(Role::Employee)
             ->and($user->must_change_password)->toBeTrue()
             ->and($user->name)->toBe($employee->full_name)
-            ->and($user->temp_password_expires_at->diffInHours(now(), absolute: true))->toBeBetween(71, 72)
-            ->and($issued['password'])->toHaveLength(16)
+            ->and($user->temp_password_expires_at)->toBeNull()
+            ->and($user->onboarding_completed_at)->toBeNull()
+            ->and($issued['password'])->toBe($employee->employee_no)
             ->and(Hash::check($issued['password'], $user->password))->toBeTrue()
             ->and($user->password)->not->toContain($issued['password']);
     });
 
     it('lets the issued password sign in and then forces a change', function () {
         $employee = Employee::factory()->create();
-        $this->actingAs(hrHead())->post(route('accounts.store'), ['employee_id' => $employee->id, 'role' => 'hr_staff']);
+        $this->actingAs(hrAdmin())->post(route('accounts.store'), ['employee_id' => $employee->id, 'role' => 'hr_staff']);
         $password = session('issued_password')['password'];
         auth()->logout();
 
@@ -49,7 +50,7 @@ describe('creating an account', function () {
     });
 
     it('audits the new account without recording the password', function () {
-        $head = hrHead();
+        $head = hrAdmin();
         $employee = Employee::factory()->create();
 
         $this->actingAs($head)->post(route('accounts.store'), ['employee_id' => $employee->id, 'role' => 'employee']);
@@ -65,7 +66,7 @@ describe('creating an account', function () {
         $employee = Employee::factory()->create();
         User::factory()->create(['employee_id' => $employee->id, 'email' => $employee->official_email]);
 
-        $this->actingAs(hrHead())
+        $this->actingAs(hrAdmin())
             ->post(route('accounts.store'), ['employee_id' => $employee->id, 'role' => 'employee'])
             ->assertSessionHas('error');
 
@@ -73,7 +74,7 @@ describe('creating an account', function () {
     });
 
     it('rejects an unknown employee or role', function () {
-        $this->actingAs(hrHead())
+        $this->actingAs(hrAdmin())
             ->post(route('accounts.store'), ['employee_id' => 999999, 'role' => 'superuser'])
             ->assertSessionHasErrors(['employee_id', 'role']);
     });
@@ -97,7 +98,7 @@ describe('resetting a password', function () {
         $target = User::factory()->state(['password' => 'old-password-long-enough'])->create();
         $target->forceFill(['remember_token' => 'old-token'])->save();
 
-        $this->actingAs(hrHead())->post(route('accounts.reset-password', $target))->assertSessionHas('issued_password');
+        $this->actingAs(hrAdmin())->post(route('accounts.reset-password', $target))->assertSessionHas('issued_password');
 
         $target->refresh();
         $new = session('issued_password')['password'];
@@ -109,9 +110,9 @@ describe('resetting a password', function () {
             ->and($target->remember_token)->not->toBe('old-token');
     });
 
-    it('lets one HR Head reset another HR Head, but nobody reset their own account here', function () {
-        $first = hrHead();
-        $second = hrHead();
+    it('lets one HR Admin reset another HR Admin, but nobody reset their own account here', function () {
+        $first = hrAdmin();
+        $second = hrAdmin();
 
         $this->actingAs($first)->post(route('accounts.reset-password', $second))->assertSessionHas('issued_password');
         $this->actingAs($first)->post(route('accounts.reset-password', $first))->assertForbidden();
@@ -127,7 +128,7 @@ describe('resetting a password', function () {
 
 describe('deactivating an account', function () {
     it('blocks sign-in, audits it, and can be undone', function () {
-        $head = hrHead();
+        $head = hrAdmin();
         $target = User::factory()->state(['password' => 'correct-horse-battery'])->create();
 
         $this->actingAs($head)->post(route('accounts.deactivate', $target))->assertSessionHas('success');
@@ -142,24 +143,24 @@ describe('deactivating an account', function () {
     });
 
     it('refuses to deactivate your own account', function () {
-        $head = hrHead();
+        $head = hrAdmin();
 
         $this->actingAs($head)->post(route('accounts.deactivate', $head))->assertForbidden();
     });
 
-    it('refuses to leave fewer than two active HR Heads', function () {
-        $first = hrHead();
-        $second = hrHead();
+    it('refuses to leave fewer than two active HR Admins', function () {
+        $first = hrAdmin();
+        $second = hrAdmin();
 
         $this->actingAs($first)->post(route('accounts.deactivate', $second))->assertSessionHas('error');
 
         expect($second->fresh()->is_active)->toBeTrue();
     });
 
-    it('allows deactivating an HR Head when two others remain', function () {
-        $first = hrHead();
-        hrHead();
-        $third = hrHead();
+    it('allows deactivating an HR Admin when two others remain', function () {
+        $first = hrAdmin();
+        hrAdmin();
+        $third = hrAdmin();
 
         $this->actingAs($first)->post(route('accounts.deactivate', $third))->assertSessionHas('success');
 
@@ -172,8 +173,8 @@ describe('deactivating an account', function () {
 });
 
 describe('changing a role', function () {
-    it('lets the HR Head change a role and audits the old and new role', function () {
-        $head = hrHead();
+    it('lets the HR Admin change a role and audits the old and new role', function () {
+        $head = hrAdmin();
         $target = User::factory()->create();
 
         $this->actingAs($head)->put(route('accounts.role', $target), ['role' => 'hr_staff'])->assertSessionHas('success');
@@ -184,26 +185,26 @@ describe('changing a role', function () {
     });
 
     it('refuses to change your own role', function () {
-        $head = hrHead();
+        $head = hrAdmin();
 
         $this->actingAs($head)->put(route('accounts.role', $head), ['role' => 'employee'])->assertForbidden();
     });
 
-    it('refuses to demote an HR Head when that leaves fewer than two', function () {
-        $first = hrHead();
-        $second = hrHead();
+    it('refuses to demote an HR Admin when that leaves fewer than two', function () {
+        $first = hrAdmin();
+        $second = hrAdmin();
 
         $this->actingAs($first)->put(route('accounts.role', $second), ['role' => 'hr_staff'])->assertSessionHas('error');
 
-        expect($second->fresh()->role)->toBe(Role::HrHead);
+        expect($second->fresh()->role)->toBe(Role::HrAdmin);
     });
 
     it('rejects an unknown role', function () {
-        $this->actingAs(hrHead())->put(route('accounts.role', User::factory()->create()), ['role' => 'owner'])
+        $this->actingAs(hrAdmin())->put(route('accounts.role', User::factory()->create()), ['role' => 'owner'])
             ->assertSessionHasErrors('role');
     });
 
     it('is forbidden to HR Staff', function () {
-        $this->actingAs(hrStaff())->put(route('accounts.role', User::factory()->create()), ['role' => 'hr_head'])->assertForbidden();
+        $this->actingAs(hrStaff())->put(route('accounts.role', User::factory()->create()), ['role' => 'hr_admin'])->assertForbidden();
     });
 });

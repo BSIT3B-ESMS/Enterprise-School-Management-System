@@ -11,14 +11,7 @@ use App\Models\RateTier;
 
 function seedPayBand(int $grade, float $first = 30000, float $last = 37000, string $date = '2026-01-01'): void
 {
-    foreach (range(1, 8) as $step) {
-        RateTier::factory()->create([
-            'salary_grade' => $grade,
-            'step' => $step,
-            'monthly_amount' => $first + ($last - $first) * ($step - 1) / 7,
-            'effective_date' => $date,
-        ]);
-    }
+    RateTier::factory()->create(['salary_grade' => $grade, 'monthly_amount' => $first, 'effective_date' => $date]);
 }
 
 function jobTitleInput(array $overrides = []): array
@@ -26,7 +19,7 @@ function jobTitleInput(array $overrides = []): array
     return [
         'title' => 'Lecturer',
         'category' => 'faculty',
-        'unit' => 'college:'.College::factory()->create()->id,
+        'units' => ['college:'.College::factory()->create()->id],
         'salary_grade' => 5,
         'is_active' => '1',
         ...$overrides,
@@ -36,7 +29,7 @@ function jobTitleInput(array $overrides = []): array
 beforeEach(fn () => seedPayBand(5));
 
 describe('the list', function () {
-    it('shows each title with its college or office and its base pay from step 1 to step 8', function () {
+    it('shows each title with its college or office and its salary grade and pay', function () {
         $college = College::factory()->create(['name' => 'College of Nursing']);
         JobTitle::factory()->create(['title' => 'Instructor I', 'college_id' => $college->id, 'salary_grade' => 5]);
 
@@ -44,7 +37,7 @@ describe('the list', function () {
             ->assertOk()
             ->assertSee('Instructor I')
             ->assertSee('College of Nursing')
-            ->assertSee('₱30,000 to ₱37,000');
+            ->assertSee('SG 5 · ₱30,000.00');
     });
 
     it('filters by search term, college or office, and category', function () {
@@ -53,7 +46,7 @@ describe('the list', function () {
         JobTitle::factory()->create(['title' => 'Dean of Nursing', 'college_id' => $college->id]);
         JobTitle::factory()->nonTeaching()->create(['title' => 'Records Clerk', 'office_id' => $office->id]);
 
-        $this->actingAs(hrHead());
+        $this->actingAs(hrAdmin());
 
         $this->get(route('job-titles.index', ['q' => 'Nursing']))->assertSee('Dean of Nursing')->assertDontSee('Records Clerk');
         $this->get(route('job-titles.index', ['unit' => "office:{$office->id}"]))->assertSee('Records Clerk')->assertDontSee('Dean of Nursing');
@@ -64,13 +57,13 @@ describe('the list', function () {
         $title = JobTitle::factory()->create(['title' => 'Lecturer']);
         Employee::factory()->count(3)->create(['job_title_id' => $title->id]);
 
-        $this->actingAs(hrHead())->get(route('job-titles.index'))->assertSeeInOrder(['Lecturer', '3']);
+        $this->actingAs(hrAdmin())->get(route('job-titles.index'))->assertSeeInOrder(['Lecturer', '3']);
     });
 
-    it('shows the add and edit controls to the HR Head only', function () {
+    it('shows the add and edit controls to the HR Admin only', function () {
         $title = JobTitle::factory()->create();
 
-        $this->actingAs(hrHead())->get(route('job-titles.index'))
+        $this->actingAs(hrAdmin())->get(route('job-titles.index'))
             ->assertSee('Add Job Title')
             ->assertSee(route('job-titles.edit', $title), escape: false);
 
@@ -84,7 +77,7 @@ describe('adding a job title', function () {
     it('saves it to the chosen college and records it in the audit log', function () {
         $college = College::factory()->create();
 
-        $this->actingAs(hrHead())->post(route('job-titles.store'), jobTitleInput(['unit' => "college:{$college->id}"]))
+        $this->actingAs(hrAdmin())->post(route('job-titles.store'), jobTitleInput(['units' => ["college:{$college->id}"]]))
             ->assertRedirect(route('job-titles.index'));
 
         $title = JobTitle::query()->where('title', 'Lecturer')->sole();
@@ -98,7 +91,7 @@ describe('adding a job title', function () {
     it('saves a title that belongs to an office', function () {
         $office = Office::factory()->create();
 
-        $this->actingAs(hrHead())->post(route('job-titles.store'), jobTitleInput(['unit' => "office:{$office->id}", 'category' => 'non_teaching']));
+        $this->actingAs(hrAdmin())->post(route('job-titles.store'), jobTitleInput(['units' => ["office:{$office->id}"], 'category' => 'non_teaching']));
 
         $title = JobTitle::query()->where('title', 'Lecturer')->sole();
 
@@ -106,14 +99,15 @@ describe('adding a job title', function () {
     });
 
     it('rejects :scenario', function (array $override, string $field) {
-        $this->actingAs(hrHead())->post(route('job-titles.store'), jobTitleInput($override))->assertSessionHasErrors($field);
+        $this->actingAs(hrAdmin())->post(route('job-titles.store'), jobTitleInput($override))->assertSessionHasErrors($field);
 
         expect(JobTitle::query()->count())->toBe(0);
     })->with([
         'a missing title' => [['title' => ''], 'title'],
         'an unknown category' => [['category' => 'janitor'], 'category'],
-        'a malformed college or office' => [['unit' => 'everywhere'], 'unit'],
-        'a college that does not exist' => [['unit' => 'college:999999'], 'unit'],
+        'no college or office' => [['units' => []], 'units'],
+        'a malformed college or office' => [['units' => ['everywhere']], 'units.0'],
+        'a college that does not exist' => [['units' => ['college:999999']], 'units'],
         'a pay band that does not exist' => [['salary_grade' => 77], 'salary_grade'],
     ]);
 
@@ -121,7 +115,7 @@ describe('adding a job title', function () {
         $college = College::factory()->create();
         JobTitle::factory()->create(['title' => 'Lecturer', 'college_id' => $college->id]);
 
-        $this->actingAs(hrHead())->post(route('job-titles.store'), jobTitleInput(['unit' => "college:{$college->id}"]))
+        $this->actingAs(hrAdmin())->post(route('job-titles.store'), jobTitleInput(['units' => ["college:{$college->id}"]]))
             ->assertSessionHasErrors('title');
 
         $this->post(route('job-titles.store'), jobTitleInput())->assertSessionHasNoErrors();
@@ -140,8 +134,8 @@ describe('editing a job title', function () {
         seedPayBand(6, 40000, 47000);
         $title = JobTitle::factory()->create(['title' => 'Lecturer', 'salary_grade' => 5]);
 
-        $this->actingAs(hrHead())->put(route('job-titles.update', $title), [
-            'title' => 'Lecturer', 'category' => 'faculty', 'unit' => "college:{$title->college_id}", 'salary_grade' => 6, 'is_active' => '1',
+        $this->actingAs(hrAdmin())->put(route('job-titles.update', $title), [
+            'title' => 'Lecturer', 'category' => 'faculty', 'units' => ["college:{$title->college_id}"], 'salary_grade' => 6, 'is_active' => '1',
         ])->assertRedirect(route('job-titles.index'));
 
         $entry = AuditLog::query()->where('action', AuditAction::Update)->where('entity_id', $title->id)->sole();
@@ -153,7 +147,7 @@ describe('editing a job title', function () {
     it('lets a title keep its own name', function () {
         $title = JobTitle::factory()->create(['salary_grade' => 5]);
 
-        $this->actingAs(hrHead())->put(route('job-titles.update', $title), jobTitleInput(['title' => $title->title, 'unit' => "college:{$title->college_id}"]))
+        $this->actingAs(hrAdmin())->put(route('job-titles.update', $title), jobTitleInput(['title' => $title->title, 'units' => ["college:{$title->college_id}"]]))
             ->assertSessionHasNoErrors();
     });
 
@@ -170,6 +164,50 @@ it('shows how many openings a title has and whether they are published', functio
     JobTitle::factory()->create(['title' => 'Draft Instructor', 'openings' => 1, 'is_published' => false]);
 
     $this->actingAs(hrStaff())->get(route('job-titles.index'))
-        ->assertSeeInOrder(['Open Instructor', '2 · Published'])
-        ->assertSeeInOrder(['Draft Instructor', '1 · Not published']);
+        ->assertSeeInOrder(['Open Instructor', '2 open'])
+        ->assertSeeInOrder(['Draft Instructor', '1 open']);
+});
+
+describe('a shared job title', function () {
+    it('is added once for several colleges and offices and listed as one row', function () {
+        $colleges = College::factory()->count(2)->create();
+        $this->actingAs(hrAdmin())->post(route('job-titles.store'), jobTitleInput(['title' => 'Instructor I', 'units' => $colleges->map(fn ($college) => "college:{$college->id}")->all()]))->assertSessionHasNoErrors();
+
+        expect(JobTitle::query()->where('title', 'Instructor I')->count())->toBe(2);
+
+        $this->get(route('job-titles.index'))->assertSee('2 units')->assertSee($colleges[0]->code)->assertSee($colleges[1]->code);
+    });
+
+    it('changes the name, salary grade, and status in every college when edited once', function () {
+        seedPayBand(6, 40000, 47000);
+        $first = JobTitle::factory()->create(['title' => 'Instructor I', 'salary_grade' => 5]);
+        $second = JobTitle::factory()->create(['title' => 'Instructor I', 'salary_grade' => 5]);
+
+        $this->actingAs(hrAdmin())->put(route('job-titles.update', $first), [
+            'title' => 'Instructor One', 'category' => 'faculty', 'salary_grade' => 6, 'units' => ["college:{$first->college_id}", "college:{$second->college_id}"],
+        ])->assertRedirect(route('job-titles.index'));
+
+        expect($first->fresh()->title)->toBe('Instructor One')
+            ->and($second->fresh()->title)->toBe('Instructor One')
+            ->and($second->fresh()->salary_grade)->toBe(6)
+            ->and($second->fresh()->is_active)->toBeFalse();
+    });
+
+    it('adds a college by ticking it and refuses to remove one that has people', function () {
+        $first = JobTitle::factory()->create(['title' => 'Instructor I', 'salary_grade' => 5]);
+        $second = JobTitle::factory()->create(['title' => 'Instructor I', 'salary_grade' => 5]);
+        $third = College::factory()->create();
+        Employee::factory()->create(['job_title_id' => $second->id]);
+        $this->actingAs(hrAdmin());
+        $base = ['title' => 'Instructor I', 'category' => 'faculty', 'salary_grade' => 5, 'is_active' => '1'];
+
+        $this->put(route('job-titles.update', $first), $base + ['units' => ["college:{$first->college_id}", "college:{$third->id}"]])->assertSessionHasErrors('units');
+        expect(JobTitle::query()->where('title', 'Instructor I')->count())->toBe(2);
+
+        $this->put(route('job-titles.update', $first), $base + ['units' => ["college:{$first->college_id}", "college:{$second->college_id}", "college:{$third->id}"]])->assertSessionHasNoErrors();
+        expect(JobTitle::query()->where('title', 'Instructor I')->count())->toBe(3);
+
+        $this->put(route('job-titles.update', $first), $base + ['units' => ["college:{$second->college_id}", "college:{$third->id}"]])->assertSessionHasNoErrors();
+        expect(JobTitle::query()->where('title', 'Instructor I')->count())->toBe(2);
+    });
 });

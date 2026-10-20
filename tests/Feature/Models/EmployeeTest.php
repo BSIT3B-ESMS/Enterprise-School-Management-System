@@ -6,17 +6,20 @@ use App\Models\JobTitle;
 use App\Models\Office;
 use App\Models\RateTier;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
-it('numbers the first employee EMP-1001', function () {
-    expect(Employee::nextEmployeeNo())->toBe('EMP-1001');
+it('numbers the first employee of a year YY-00001', function () {
+    expect(Employee::nextEmployeeNo(Carbon::parse('2026-03-02')))->toBe('26-00001');
 });
 
-it('numbers the next employee one past the highest number, comparing numerically', function () {
-    Employee::factory()->create(['employee_no' => 'EMP-1009']);
-    Employee::factory()->create(['employee_no' => 'EMP-10010']);
+it('numbers the next employee of the same year one past the highest number, and restarts each year', function () {
+    Employee::factory()->create(['employee_no' => '26-00009']);
+    Employee::factory()->create(['employee_no' => '26-00010']);
+    Employee::factory()->create(['employee_no' => '25-00200']);
 
-    expect(Employee::nextEmployeeNo())->toBe('EMP-10011');
+    expect(Employee::nextEmployeeNo(Carbon::parse('2026-09-01')))->toBe('26-00011')
+        ->and(Employee::nextEmployeeNo(Carbon::parse('2027-01-04')))->toBe('27-00001');
 });
 
 it('builds the official email as surname_givenname with no spaces or punctuation', function () {
@@ -36,18 +39,18 @@ it('reads the full name in natural order', function () {
 });
 
 describe('base rate', function () {
-    it('uses the newest rate that is already in effect for the job title grade and the salary step', function () {
-        RateTier::factory()->create(['salary_grade' => 12, 'step' => 2, 'monthly_amount' => 30000, 'effective_date' => '2025-01-01']);
-        RateTier::factory()->create(['salary_grade' => 12, 'step' => 2, 'monthly_amount' => 34069, 'effective_date' => '2026-01-01']);
-        RateTier::factory()->create(['salary_grade' => 12, 'step' => 2, 'monthly_amount' => 99999, 'effective_date' => '2099-01-01']);
-        $employee = Employee::factory()->for(JobTitle::factory()->state(['salary_grade' => 12]))->create(['salary_step' => 2]);
+    it('uses the newest rate that is already in effect for the job title salary grade (Step 1)', function () {
+        RateTier::factory()->create(['salary_grade' => 12, 'monthly_amount' => 30000, 'effective_date' => '2025-01-01']);
+        RateTier::factory()->create(['salary_grade' => 12, 'monthly_amount' => 34069, 'effective_date' => '2026-01-01']);
+        RateTier::factory()->create(['salary_grade' => 12, 'monthly_amount' => 99999, 'effective_date' => '2099-01-01']);
+        $employee = Employee::factory()->for(JobTitle::factory()->state(['salary_grade' => 12]))->create();
 
         expect($employee->baseRate(now()->setDate(2026, 6, 1))->monthly_amount)->toBe('34069.00')
             ->and($employee->baseRate(now()->setDate(2025, 6, 1))->monthly_amount)->toBe('30000.00');
     });
 
-    it('is null when no rate exists for the grade and step', function () {
-        $employee = Employee::factory()->create(['salary_step' => 5]);
+    it('is null when no rate exists for the grade', function () {
+        $employee = Employee::factory()->create();
 
         expect($employee->baseRate())->toBeNull();
     });

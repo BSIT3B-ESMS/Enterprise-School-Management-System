@@ -4,16 +4,18 @@ namespace App\Http\Requests;
 
 use App\Enums\MaritalStatus;
 use App\Enums\Sex;
-use Closure;
+use App\Http\Requests\Concerns\GovernmentIdRules;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 /**
- * The fields of an employee record that HR Staff and the HR Head both enter: name, personal details, contact details,
+ * The fields of an employee record that HR Staff and the HR Admin both enter: name, personal details, contact details,
  * and government ID numbers. Subclasses add what they need (the job assignment when creating).
  */
 abstract class EmployeeRequest extends FormRequest
 {
+    use GovernmentIdRules;
+
     /**
      * @return array<string, mixed>
      */
@@ -28,15 +30,11 @@ abstract class EmployeeRequest extends FormRequest
             'sex' => ['nullable', Rule::enum(Sex::class)],
             'marital_status' => ['nullable', Rule::enum(MaritalStatus::class)],
             'hired_on' => ['nullable', 'date'],
+            'weekly_hours' => ['nullable', 'integer', 'between:1,40'],
             'personal_email' => ['nullable', 'email', 'max:255'],
             'phone' => ['nullable', 'regex:/^(09\d{9}|\+639\d{9})$/'],
             'address' => ['nullable', 'string', 'max:255'],
-            'tin' => ['nullable', $this->digits([9, 12], 'TIN must be 9 digits, or 12 with a branch code.')],
-            'gsis' => ['nullable', $this->digits([11], 'GSIS number must be 11 digits.')],
-            'sss' => ['nullable', $this->digits([10], 'SSS number must be 10 digits.')],
-            'philhealth' => ['nullable', $this->digits([12], 'PhilHealth number must be 12 digits.')],
-            'pagibig' => ['nullable', $this->digits([12], 'Pag-IBIG MID number must be 12 digits.')],
-            'bir' => ['nullable', $this->digits([9, 10, 11, 12, 13], 'BIR number must be 9 to 13 digits.')],
+            ...$this->governmentIdRules(),
         ];
     }
 
@@ -70,20 +68,7 @@ abstract class EmployeeRequest extends FormRequest
     {
         return collect($this->safe()->except(['tin', 'gsis', 'sss', 'philhealth', 'pagibig', 'bir']))
             ->map(fn ($value) => is_string($value) ? (trim($value) === '' ? null : trim($value)) : $value)
+            ->reject(fn ($value, string $key) => $key === 'weekly_hours' && $value === null)
             ->all();
-    }
-
-    /**
-     * A number made of digits, dashes, and spaces with one of the allowed digit counts.
-     *
-     * @param  list<int>  $counts
-     */
-    private function digits(array $counts, string $message): Closure
-    {
-        return function (string $attribute, mixed $value, Closure $fail) use ($counts, $message): void {
-            if (! preg_match('/^[\d\s-]+$/', (string) $value) || ! in_array(strlen((string) preg_replace('/\D/', '', (string) $value)), $counts, true)) {
-                $fail($message);
-            }
-        };
     }
 }

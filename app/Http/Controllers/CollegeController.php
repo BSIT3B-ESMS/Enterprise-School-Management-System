@@ -11,7 +11,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Colleges (the academic units). Everyone in HR can read them; only the HR Head changes them.
+ * Colleges (the academic units). Everyone in HR can read them; only the HR Admin changes them.
  */
 class CollegeController extends Controller
 {
@@ -38,7 +38,7 @@ class CollegeController extends Controller
 
     public function edit(College $college): View
     {
-        abort_unless(auth()->user()->isHrHead(), 403);
+        abort_unless(auth()->user()->isHrAdmin(), 403);
 
         return view('units.edit', [
             'unit' => $college,

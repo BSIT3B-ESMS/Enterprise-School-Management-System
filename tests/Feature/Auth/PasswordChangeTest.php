@@ -8,7 +8,7 @@ use Illuminate\Testing\TestResponse;
 
 function userWithTemporaryPassword(): User
 {
-    return User::factory()->hrHead()->state([
+    return User::factory()->hrAdmin()->state([
         'password' => 'temporary-password-1',
         'must_change_password' => true,
         'temp_password_expires_at' => now()->addHours(10),
@@ -19,8 +19,8 @@ function changePassword(User $user, array $input = []): TestResponse
 {
     return test()->actingAs($user)->put(route('password.change.update'), [
         'current_password' => 'temporary-password-1',
-        'password' => 'my-own-long-password',
-        'password_confirmation' => 'my-own-long-password',
+        'password' => 'My0wnLongPass',
+        'password_confirmation' => 'My0wnLongPass',
         ...$input,
     ]);
 }
@@ -32,7 +32,7 @@ it('lets a user replace a temporary password with their own', function () {
 
     $user->refresh();
 
-    expect(Hash::check('my-own-long-password', $user->password))->toBeTrue()
+    expect(Hash::check('My0wnLongPass', $user->password))->toBeTrue()
         ->and($user->must_change_password)->toBeFalse()
         ->and($user->temp_password_expires_at)->toBeNull()
         ->and($user->password_changed_at)->not->toBeNull();
@@ -52,7 +52,7 @@ it('audits the change without recording any password', function () {
     $entry = AuditLog::query()->where('user_id', $user->id)->latest('id')->first();
 
     expect($entry->changes)->toBe(['event' => 'password_changed'])
-        ->and(json_encode($entry->changes))->not->toContain('my-own-long-password');
+        ->and(json_encode($entry->changes))->not->toContain('My0wnLongPass');
 });
 
 it('keeps this session signed in, because it carries the new password hash', function () {
@@ -73,14 +73,17 @@ it('rejects :scenario', function (array $input, string $field) {
     expect(Hash::check('temporary-password-1', $user->fresh()->password))->toBeTrue();
 })->with([
     'a wrong current password' => [['current_password' => 'not-my-password'], 'current_password'],
-    'a password shorter than 12 characters' => [['password' => 'short-pass1', 'password_confirmation' => 'short-pass1'], 'password'],
+    'a password shorter than 8 characters' => [['password' => 'Short1a', 'password_confirmation' => 'Short1a'], 'password'],
+    'a password with no uppercase letter' => [['password' => 'myownlongpass1', 'password_confirmation' => 'myownlongpass1'], 'password'],
+    'a password with no number' => [['password' => 'MyOwnLongPass', 'password_confirmation' => 'MyOwnLongPass'], 'password'],
+    'an easy password' => [['password' => 'Password1', 'password_confirmation' => 'Password1'], 'password'],
     'a confirmation that does not match' => [['password_confirmation' => 'something-different'], 'password'],
     'the same password as before' => [['password' => 'temporary-password-1', 'password_confirmation' => 'temporary-password-1'], 'password'],
 ]);
 
 it('rejects a password found in a known breach when the check is on', function () {
     config(['ems.check_breached_passwords' => true]);
-    $hash = strtoupper(sha1('my-own-long-password'));
+    $hash = strtoupper(sha1('My0wnLongPass'));
     Http::fake(['api.pwnedpasswords.com/range/*' => Http::response(substr($hash, 5).':48210')]);
 
     changePassword(userWithTemporaryPassword())->assertSessionHasErrors('password');

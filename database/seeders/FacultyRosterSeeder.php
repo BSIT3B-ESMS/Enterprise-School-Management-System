@@ -2,13 +2,10 @@
 
 namespace Database\Seeders;
 
-use App\Enums\EmployeeStatus;
 use App\Enums\EmploymentType;
 use App\Models\College;
-use App\Models\CollegeDean;
 use App\Models\Employee;
 use App\Models\JobTitle;
-use Illuminate\Database\Seeder;
 
 /**
  * PLP's faculty and college secretaries, by name, as the owner supplied them. Only the name, college, and full-time or
@@ -18,7 +15,7 @@ use Illuminate\Database\Seeder;
  * list stays empty. Entries marked (Dean) become the college's dean; (College Secretary) entries get the College
  * Secretary title.
  */
-class FacultyRosterSeeder extends Seeder
+class FacultyRosterSeeder
 {
     /**
      * Raw names as supplied, by college code, then full-time (ft) and part-time (pt).
@@ -90,60 +87,58 @@ class FacultyRosterSeeder extends Seeder
     ];
 
     /**
-     * Placeholder ranks for full-time and part-time faculty, until HR records the real ones.
+     * Placeholder titles for full-time and part-time faculty, until HR records the real ones. The dean's title is Dean.
      */
     private const FULL_TIME_RANKS = ['Instructor I', 'Instructor II', 'Instructor III', 'Assistant Professor I', 'Assistant Professor II', 'Assistant Professor III', 'Associate Professor I'];
 
     private const PART_TIME_RANKS = ['Instructor I', 'Instructor II', 'Instructor III', 'Assistant Professor I'];
 
-    private const DEAN_RANK = 'Professor II';
-
     private const NAME_PARTICLES = ['dela', 'de', 'del', 'delos', 'san', 'santa'];
 
-    public function run(): void
+    /**
+     * Everyone on the list, one entry per person, ready for EmployeeSeeder to give a hire date, details, and a login.
+     *
+     * @return list<array{first: string, middle: ?string, last: string, suffix: ?string, college: College, office: null, jobTitle: JobTitle, type: EmploymentType, kind: string, isDean: bool}>
+     */
+    public static function specs(): array
     {
-        fake()->seed(20261020);
+        $specs = [];
 
         foreach (self::ROSTER as $collegeCode => $groups) {
             $college = College::query()->where('code', $collegeCode)->firstOrFail();
 
-            foreach ($groups as $type => $names) {
+            foreach ($groups as $group => $names) {
+                $type = $group === 'ft' ? EmploymentType::FullTime : EmploymentType::PartTime;
+
                 foreach ($names as $raw) {
-                    $this->createPerson($college, $raw, $type === 'ft' ? EmploymentType::FullTime : EmploymentType::PartTime);
+                    $person = self::parseName($raw);
+                    $titleName = match (true) {
+                        $person['isSecretary'] => 'College Secretary',
+                        $person['isDean'] => 'Dean',
+                        default => fake()->randomElement($type === EmploymentType::FullTime ? self::FULL_TIME_RANKS : self::PART_TIME_RANKS),
+                    };
+
+                    $specs[] = [
+                        'first' => $person['first'],
+                        'middle' => $person['middle'],
+                        'last' => $person['last'],
+                        'suffix' => $person['suffix'],
+                        'college' => $college,
+                        'office' => null,
+                        'jobTitle' => JobTitle::query()->where('college_id', $college->id)->where('title', $titleName)->firstOrFail(),
+                        'type' => $type,
+                        'kind' => match (true) {
+                            $person['isDean'] => 'dean',
+                            $person['isSecretary'] => 'secretary',
+                            default => $type === EmploymentType::FullTime ? 'full_time' : 'part_time',
+                        },
+                        'isDean' => $person['isDean'],
+                    ];
                 }
             }
         }
-    }
 
-    private function createPerson(College $college, string $raw, EmploymentType $type): void
-    {
-        $person = self::parseName($raw);
-
-        $titleName = match (true) {
-            $person['isSecretary'] => 'College Secretary',
-            $person['isDean'] => self::DEAN_RANK,
-            default => fake()->randomElement($type === EmploymentType::FullTime ? self::FULL_TIME_RANKS : self::PART_TIME_RANKS),
-        };
-        $title = JobTitle::query()->where('college_id', $college->id)->where('title', $titleName)->firstOrFail();
-
-        $employee = new Employee;
-        $employee->forceFill([
-            'employee_no' => Employee::nextEmployeeNo(),
-            'last_name' => $person['last'],
-            'first_name' => $person['first'],
-            'middle_name' => $person['middle'],
-            'suffix' => $person['suffix'],
-            'employment_type' => $type,
-            'college_id' => $college->id,
-            'job_title_id' => $title->id,
-            'salary_step' => 1,
-            'official_email' => Employee::officialEmailFor($person['last'], $person['first']),
-            'status' => EmployeeStatus::Active,
-        ])->save();
-
-        if ($person['isDean']) {
-            CollegeDean::query()->create(['college_id' => $college->id, 'employee_id' => $employee->id]);
-        }
+        return $specs;
     }
 
     /**

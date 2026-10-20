@@ -1,24 +1,12 @@
 @extends('layouts.applicant')
 
-@section('title', 'Applications · '.config('app.name'))
+@section('title', 'My Applications · '.config('app.name'))
 
-{{--
-    The signed-in applicant's applications, filled in by resources/js/applicant-applications.js from the same Recruitment
-    data the HR pages use, so each status and schedule follows what HR does. Each row opens that application's details.
-    Nothing here changes a recruitment status.
---}}
 @section('content')
-    <div class="d-grid gap-4" data-page="applicant-applications" data-details-url="{{ route('applicant.applications') }}">
-        <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
-            <div>
-                <h1 class="page-title">Applications</h1>
-                <p class="text-body-secondary mt-1 mb-0">The positions you have applied for.</p>
-            </div>
-
-            <a class="btn btn-primary d-inline-flex align-items-center gap-2" href="{{ route('applicant.positions') }}">
-                <x-icon name="plus" />
-                Apply for a Position
-            </a>
+    <div class="d-grid gap-4">
+        <div>
+            <h1 class="page-title">My Applications</h1>
+            <p class="text-body-secondary mt-1 mb-0">Follow each application from Applied to Hired.</p>
         </div>
 
         <div class="card overflow-hidden">
@@ -27,22 +15,38 @@
                     <thead>
                         <tr>
                             <th scope="col">Position</th>
-                            <th scope="col">Submitted</th>
+                            <th scope="col">Applied On</th>
                             <th scope="col">Status</th>
-                            <th scope="col">Next Step</th>
+                            <th scope="col">Next</th>
                         </tr>
                     </thead>
-                    <tbody data-applications-rows></tbody>
+                    <tbody>
+                        @forelse ($applications as $application)
+                            @php($interview = $application->activeInterview())
+                            <tr>
+                                <td>
+                                    <a class="text-reset fw-medium" href="{{ route('applicant.applications.show', $application) }}">{{ $application->jobTitle->title }}</a>
+                                    <small class="d-block text-body-secondary">{{ $application->jobTitle->college?->name ?? $application->jobTitle->office?->name }}</small>
+                                </td>
+                                <td class="text-nowrap">{{ $application->applied_on->format('M j, Y') }}</td>
+                                <td><span class="status-pill {{ $application->status->cssClass() }}">{{ $application->status->label() }}</span></td>
+                                <td>
+                                    @if ($interview)
+                                        Demo interview {{ $interview->starts_at->format('M j, Y g:i A') }}
+                                    @elseif ($application->status === \App\Enums\ApplicationStatus::Offered)
+                                        <strong>Answer your offer</strong>
+                                    @elseif ($application->status === \App\Enums\ApplicationStatus::Applied)
+                                        HR is reviewing your documents
+                                    @else
+                                        <span class="text-body-secondary">None</span>
+                                    @endif
+                                </td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="4" class="employees-empty text-center"><strong>No applications yet</strong> <a href="{{ route('applicant.positions') }}">Browse the open positions</a>.</td></tr>
+                        @endforelse
+                    </tbody>
                 </table>
-            </div>
-
-            <div class="employees-empty d-none" data-applications-empty>
-                <strong>No applications yet</strong>
-                Browse the open positions and apply. Your applications will appear here.
-            </div>
-
-            <div class="employees-footer d-flex justify-content-between align-items-center gap-3 flex-wrap">
-                <span aria-live="polite" data-applications-summary></span>
             </div>
         </div>
     </div>

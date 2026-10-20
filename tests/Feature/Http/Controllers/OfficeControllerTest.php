@@ -17,8 +17,8 @@ it('lists each office with its job title and staff counts', function () {
         ->assertDontSee('Add an office');
 });
 
-it('lets the HR Head add and edit an office, with an audit entry for each', function () {
-    $head = hrHead();
+it('lets the HR Admin add and edit an office, with an audit entry for each', function () {
+    $head = hrAdmin();
 
     $this->actingAs($head)->post(route('offices.store'), ['code' => 'REG', 'name' => 'Registrar'])
         ->assertRedirect(route('offices.index'));
@@ -36,7 +36,7 @@ it('lets the HR Head add and edit an office, with an audit entry for each', func
 it('rejects a duplicate office code', function () {
     Office::factory()->create(['code' => 'HR']);
 
-    $this->actingAs(hrHead())->post(route('offices.store'), ['code' => 'HR', 'name' => 'Another'])->assertSessionHasErrors('code');
+    $this->actingAs(hrAdmin())->post(route('offices.store'), ['code' => 'HR', 'name' => 'Another'])->assertSessionHasErrors('code');
 });
 
 it('forbids HR Staff from adding or editing an office', function () {

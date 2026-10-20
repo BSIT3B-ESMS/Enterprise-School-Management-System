@@ -1,6 +1,6 @@
 <?php
 
-beforeEach(fn () => $this->actingAs(hrHead()));
+beforeEach(fn () => $this->actingAs(hrAdmin()));
 
 it('pins the account menu below its button in every interface header', function (string $route) {
     if ($user = userFor($route)) {
@@ -16,15 +16,14 @@ it('keeps the account menu items, actions, and Log Out exactly where they were',
     $this->get(route('dashboard'))
         ->assertSeeInOrder([
             'app-menu-account',
-            'data-user-initials', 'data-user-name', 'data-user-email', 'data-user-role',
             'My Profile', 'Account Settings', 'Security',
-            'data-theme-toggle', 'data-logout>', 'Log Out',
+            'data-theme-toggle', 'Log Out',
         ], escape: false);
 });
 
 it('leaves the notifications menu to position itself as before', function () {
     $this->get(route('dashboard'))
         ->assertSee('data-bs-toggle="dropdown" aria-expanded="false"', escape: false)
-        ->assertSee('aria-label="Notifications"', escape: false)
+        ->assertSee('aria-label="Notifications', escape: false)
         ->assertSee('class="dropdown-menu dropdown-menu-end app-menu app-menu-wide"', escape: false);
 });

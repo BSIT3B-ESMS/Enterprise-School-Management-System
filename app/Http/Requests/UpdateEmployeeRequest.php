@@ -13,7 +13,7 @@ class UpdateEmployeeRequest extends EmployeeRequest
 
     /**
      * Editing changes personal and contact details only. The job title, college, office, salary step, and status are
-     * changed by the HR Head through their own forms.
+     * changed by the HR Admin through their own forms.
      *
      * @return array<string, mixed>
      */

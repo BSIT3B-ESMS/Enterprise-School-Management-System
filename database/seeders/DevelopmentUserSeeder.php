@@ -10,7 +10,7 @@ use Illuminate\Database\Seeder;
 class DevelopmentUserSeeder extends Seeder
 {
     /**
-     * The two development HR Head accounts. They exist for local, testing, and staging use only and must be removed
+     * The two development HR Admin accounts. They exist for local, testing, and staging use only and must be removed
      * before production. The seeder stores the password directly, so the 12-character rule (which applies when a user
      * sets a password) does not apply to it.
      *
@@ -22,7 +22,7 @@ class DevelopmentUserSeeder extends Seeder
     ];
 
     /**
-     * Where the development HR Head accounts get their password from; see the note above.
+     * Where the development HR Admin accounts get their password from; see the note above.
      */
     private const DEVELOPMENT_PASSWORD = 'password';
 
@@ -33,18 +33,13 @@ class DevelopmentUserSeeder extends Seeder
         }
 
         foreach (self::HR_HEADS as $email => $name) {
-            $this->saveAccount(['email' => $email, 'name' => $name], Role::HrHead);
+            $this->saveAccount(['email' => $email, 'name' => $name], Role::HrAdmin);
         }
 
-        // One HR Staff and one Employee login on fictional office staff (never on the real faculty roster), so every role can be tried out locally.
+        // The HR office officer becomes HR Staff so every role can be tried locally. Their password stays the employee number like everyone else's.
         $hrOfficer = Employee::query()->whereHas('office', fn ($offices) => $offices->where('code', 'HR'))->first();
-        $faculty = Employee::query()->whereHas('jobTitle', fn ($titles) => $titles->where('title', 'Administrative Assistant I'))->first();
 
-        foreach ([[$hrOfficer, Role::HrStaff], [$faculty, Role::Employee]] as [$employee, $role]) {
-            if ($employee) {
-                $this->saveAccount(['email' => $employee->official_email, 'name' => $employee->full_name, 'employee_id' => $employee->id], $role);
-            }
-        }
+        $hrOfficer?->user()->update(['role' => Role::HrStaff]);
     }
 
     /**
@@ -60,6 +55,7 @@ class DevelopmentUserSeeder extends Seeder
             'role' => $role,
             'is_active' => true,
             'must_change_password' => false,
+            'onboarding_completed_at' => now(),
         ])->save();
     }
 }

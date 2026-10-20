@@ -3,7 +3,7 @@
 @section('title', 'Accounts · '.config('app.name'))
 
 {{--
-    HR Head account administration: issue a login to an employee (with a one-time temporary password), reset a password,
+    HR Admin account administration: issue a login to an employee (with a one-time temporary password), reset a password,
     deactivate or reactivate an account, and assign roles. Accounts are deactivated, never deleted, so history stays.
 --}}
 @section('content')
@@ -25,6 +25,14 @@
                 </div>
             </div>
         @endif
+
+        <form method="get" class="card employees-filters" data-auto-submit>
+            <div class="row g-3">
+                <div class="col-md-6"><label for="account-search" class="visually-hidden">Search accounts</label><div class="search-field"><x-icon name="search" /><input type="search" class="form-control" id="account-search" name="q" value="{{ $filters['q'] ?? '' }}" placeholder="Search by name or email..." autocomplete="off"></div></div>
+                <div class="col-md-3"><label for="account-role" class="visually-hidden">Role</label><select class="form-select" id="account-role" name="role"><option value="">All roles</option>@foreach ($roles as $role)<option value="{{ $role->value }}" @selected(($filters['role'] ?? '') === $role->value)>{{ ucfirst(str_replace('_', ' ', $role->value)) }}</option>@endforeach</select></div>
+                <div class="col-md-3"><label for="account-status" class="visually-hidden">Status</label><select class="form-select" id="account-status" name="status"><option value="">Active and inactive</option><option value="active" @selected(($filters['status'] ?? '') === 'active')>Active</option><option value="inactive" @selected(($filters['status'] ?? '') === 'inactive')>Inactive</option></select></div>
+            </div>
+        </form>
 
         <section class="card employee-form-card" aria-labelledby="create-account-title">
             <h2 class="fs-5" id="create-account-title">Create an account</h2>

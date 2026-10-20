@@ -17,7 +17,6 @@ class RateTierFactory extends Factory
     {
         return [
             'salary_grade' => 12,
-            'step' => 1,
             'monthly_amount' => 33947,
             'effective_date' => '2026-01-01',
         ];

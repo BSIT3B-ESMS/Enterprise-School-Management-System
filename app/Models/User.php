@@ -9,12 +9,13 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 
 /**
- * A staff login (HR Head, HR Staff, or Employee). The role and account state are never mass assignable: only HR Head
+ * A login: HR Admin, HR Staff, Employee, or Applicant. The role and account state are never mass assignable: only HR Admin
  * account actions change them.
  */
 #[Fillable(['name', 'email', 'password'])]
@@ -41,6 +42,7 @@ class User extends Authenticatable
             'password_changed_at' => 'datetime',
             'last_login_at' => 'datetime',
             'privacy_acknowledged_at' => 'datetime',
+            'onboarding_completed_at' => 'datetime',
             'two_factor_confirmed_at' => 'datetime',
         ];
     }
@@ -51,6 +53,31 @@ class User extends Authenticatable
     public function employee(): BelongsTo
     {
         return $this->belongsTo(Employee::class);
+    }
+
+    /**
+     * @return HasOne<ApplicantProfile, $this>
+     */
+    public function applicantProfile(): HasOne
+    {
+        return $this->hasOne(ApplicantProfile::class);
+    }
+
+    /**
+     * The Blade layout this person's pages use.
+     */
+    public function layoutName(): string
+    {
+        return match ($this->role) {
+            Role::HrAdmin, Role::HrStaff => 'layouts.admin',
+            Role::Employee => 'layouts.employee',
+            Role::Applicant => 'layouts.applicant',
+        };
+    }
+
+    public function isApplicant(): bool
+    {
+        return $this->role === Role::Applicant;
     }
 
     public function isHr(): bool
@@ -71,15 +98,16 @@ class User extends Authenticatable
     public function roleLabel(): string
     {
         return match ($this->role) {
-            Role::HrHead => 'HR Head',
+            Role::HrAdmin => 'HR Admin',
             Role::HrStaff => 'HR Staff',
             Role::Employee => 'Employee',
+            Role::Applicant => 'Applicant',
         };
     }
 
-    public function isHrHead(): bool
+    public function isHrAdmin(): bool
     {
-        return $this->role === Role::HrHead;
+        return $this->role === Role::HrAdmin;
     }
 
     /**
@@ -87,6 +115,10 @@ class User extends Authenticatable
      */
     public function homeUrl(): string
     {
-        return $this->isHr() ? route('dashboard') : route('employee.dashboard');
+        return match ($this->role) {
+            Role::HrAdmin, Role::HrStaff => route('dashboard'),
+            Role::Employee => route('employee.dashboard'),
+            Role::Applicant => route('applicant.dashboard'),
+        };
     }
 }

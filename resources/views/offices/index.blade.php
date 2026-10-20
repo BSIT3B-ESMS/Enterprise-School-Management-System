@@ -2,7 +2,7 @@
 
 @section('title', 'Offices · '.config('app.name'))
 
-{{-- The non-teaching offices. Everyone in HR reads this page; only the HR Head adds or edits. --}}
+{{-- The non-teaching offices. Everyone in HR reads this page; only the HR Admin adds or edits. --}}
 @section('content')
     <div class="d-grid gap-4" data-page="offices">
         <div>

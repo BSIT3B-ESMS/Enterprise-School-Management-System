@@ -25,13 +25,13 @@ it('does not list a dean whose term has ended', function () {
     $former = Employee::factory()->create(['college_id' => $college->id, 'first_name' => 'Former', 'last_name' => 'Dean']);
     CollegeDean::factory()->create(['college_id' => $college->id, 'employee_id' => $former->id, 'ended_on' => '2024-01-01']);
 
-    $this->actingAs(hrHead())->get(route('colleges.index'))->assertDontSee('Former Dean');
+    $this->actingAs(hrAdmin())->get(route('colleges.index'))->assertDontSee('Former Dean');
 });
 
-it('shows the add and edit controls to the HR Head only', function () {
+it('shows the add and edit controls to the HR Admin only', function () {
     $college = College::factory()->create();
 
-    $this->actingAs(hrHead())->get(route('colleges.index'))
+    $this->actingAs(hrAdmin())->get(route('colleges.index'))
         ->assertSee('Add a college')
         ->assertSee(route('colleges.edit', $college), escape: false);
 
@@ -42,7 +42,7 @@ it('shows the add and edit controls to the HR Head only', function () {
 
 describe('adding a college', function () {
     it('saves it and records it in the audit log', function () {
-        $head = hrHead();
+        $head = hrAdmin();
 
         $this->actingAs($head)->post(route('colleges.store'), ['code' => 'CAHS', 'name' => 'College of Allied Health'])
             ->assertRedirect(route('colleges.index'));
@@ -57,7 +57,7 @@ describe('adding a college', function () {
     it('rejects a duplicate code or name and a missing field', function () {
         College::factory()->create(['code' => 'CCS', 'name' => 'College of Computer Studies']);
 
-        $this->actingAs(hrHead())->post(route('colleges.store'), ['code' => 'CCS', 'name' => 'College of Computer Studies'])
+        $this->actingAs(hrAdmin())->post(route('colleges.store'), ['code' => 'CCS', 'name' => 'College of Computer Studies'])
             ->assertSessionHasErrors(['code', 'name']);
 
         $this->post(route('colleges.store'), [])->assertSessionHasErrors(['code', 'name']);
@@ -74,7 +74,7 @@ describe('editing a college', function () {
     it('changes the name and records the old and new value', function () {
         $college = College::factory()->create(['code' => 'CCS', 'name' => 'Old Name']);
 
-        $this->actingAs(hrHead())->put(route('colleges.update', $college), ['code' => 'CCS', 'name' => 'New Name', 'is_active' => '1'])
+        $this->actingAs(hrAdmin())->put(route('colleges.update', $college), ['code' => 'CCS', 'name' => 'New Name', 'is_active' => '1'])
             ->assertRedirect(route('colleges.index'));
 
         $entry = AuditLog::query()->where('action', AuditAction::Update)->where('entity_id', $college->id)->sole();
@@ -86,7 +86,7 @@ describe('editing a college', function () {
     it('deactivates a college when the active box is cleared', function () {
         $college = College::factory()->create();
 
-        $this->actingAs(hrHead())->put(route('colleges.update', $college), ['code' => $college->code, 'name' => $college->name]);
+        $this->actingAs(hrAdmin())->put(route('colleges.update', $college), ['code' => $college->code, 'name' => $college->name]);
 
         expect($college->fresh()->is_active)->toBeFalse();
     });
@@ -94,7 +94,7 @@ describe('editing a college', function () {
     it('lets the college keep its own code and name', function () {
         $college = College::factory()->create();
 
-        $this->actingAs(hrHead())->put(route('colleges.update', $college), ['code' => $college->code, 'name' => $college->name, 'is_active' => '1'])
+        $this->actingAs(hrAdmin())->put(route('colleges.update', $college), ['code' => $college->code, 'name' => $college->name, 'is_active' => '1'])
             ->assertSessionHasNoErrors();
     });
 

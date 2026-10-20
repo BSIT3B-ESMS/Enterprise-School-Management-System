@@ -12,7 +12,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 
 /**
- * The Employees report page (HR Head only). It starts from the same search, tab, and filters as the Employees list and
+ * The Employees report page (HR Admin only). It starts from the same search, tab, and filters as the Employees list and
  * hands the matching rows to the browser, which builds the PDF, Excel, or CSV file. Government IDs appear only as their
  * last four digits. Every export is logged through ExportLogController.
  */
@@ -25,7 +25,7 @@ class EmployeeReportController extends Controller
             'q' => ['nullable', 'string', 'max:100'],
             'college' => ['nullable', 'integer'],
             'office' => ['nullable', 'integer'],
-            'job_title' => ['nullable', 'integer'],
+            'job_title' => ['nullable', 'string', 'max:150'],
             'employment_type' => ['nullable', 'in:full_time,part_time'],
             'sort' => ['nullable', 'in:name,number,hired'],
             'dir' => ['nullable', 'in:asc,desc'],
@@ -57,9 +57,7 @@ class EmployeeReportController extends Controller
                 'personalEmail' => $employee->personal_email ?? '',
                 'phone' => $employee->phone ?? '',
                 'address' => $employee->address ?? '',
-                'basePay' => isset($schedule[$employee->jobTitle->salary_grade][$employee->salary_step])
-                    ? (float) $schedule[$employee->jobTitle->salary_grade][$employee->salary_step]
-                    : null,
+                'basePay' => isset($schedule[$employee->jobTitle->salary_grade]) ? (float) $schedule[$employee->jobTitle->salary_grade] : null,
                 'ids' => collect(Employee::GOVERNMENT_ID_KEYS)->mapWithKeys(
                     fn (string $key) => [$key => isset($employee->maskedGovernmentIds()[$key]) ? '•••• '.$employee->maskedGovernmentIds()[$key] : ''],
                 )->all(),
@@ -99,7 +97,7 @@ class EmployeeReportController extends Controller
         }
 
         if (filled($filters['job_title'] ?? null)) {
-            $lines[] = 'Job title: '.(JobTitle::query()->whereKey($filters['job_title'])->value('title') ?? $filters['job_title']);
+            $lines[] = 'Job title: '.$filters['job_title'];
         }
 
         if (filled($filters['employment_type'] ?? null)) {

@@ -6,7 +6,7 @@
 
 {{--
     Add or edit an employee. Adding chooses the job title (which sets the college or office), the employment type, and the
-    salary step; editing changes personal and contact details only, because the HR Head changes assignments through a
+    salary step; editing changes personal and contact details only, because the HR Admin changes assignments through a
     transfer on the profile. Government ID numbers are write-only: they are never shown here, and a blank box keeps the
     number on file.
 --}}
@@ -44,8 +44,8 @@
                             <x-select-field name="job_title_id" label="Job title" :options="$jobTitleOptions" placeholder="Select job title" grouped required
                                 hint="The job title sets the employee's college or office." />
                         </div>
+                        <div class="col-md-3"><x-field name="weekly_hours" type="number" min="1" max="40" label="Weekly hours" :value="$employee->weekly_hours ?? null" hint="Part-time: leave credits follow it. Blank means 20." /></div>
                         <div class="col-md-3"><x-select-field name="employment_type" label="Employment type" :options="$employmentTypes" value="full_time" required /></div>
-                        <div class="col-md-3"><x-select-field name="salary_step" label="Salary step" :options="array_combine(range(1, 8), range(1, 8))" :value="1" required /></div>
                         <div class="col-md-6">
                             <x-select-field name="extra_college_id" label="Also teaches in (optional)" :options="$colleges" placeholder="None"
                                 hint="For office staff who also teach. Ignored when the job title already belongs to a college." />
@@ -55,11 +55,11 @@
                                 hint="For teachers who also work in an office. Ignored when the job title already belongs to an office." />
                         </div>
                     @endunless
-                    <div class="col-md-4"><x-field name="hired_on" type="date" label="Date hired" :value="$employee->hired_on?->toDateString()" /></div>
+                    <div class="col-md-4"><x-field name="hired_on" type="date" label="Date hired" :value="$employee->hired_on?->toDateString()" :required="! $isEditing" :hint="$isEditing ? null : 'The year of this date is the first part of the employee number.'" /></div>
                     @if ($isEditing)
                         <p class="form-text mb-0">
                             {{ $employee->jobTitle->title }} · {{ collect([$employee->college?->name, $employee->office?->name])->filter()->implode(' · ') }}.
-                            The HR Head changes the job title, college, office, and salary step with a transfer on the profile.
+                            The HR Admin changes the job title, college, office, and salary step with a transfer on the profile.
                         </p>
                     @endif
                 </div>

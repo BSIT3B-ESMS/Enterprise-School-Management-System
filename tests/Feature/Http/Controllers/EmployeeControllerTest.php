@@ -11,6 +11,7 @@ use App\Models\Office;
 use App\Models\RateTier;
 use App\Models\User;
 use Database\Seeders\LeavePolicySeeder;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 
 function newEmployeeInput(JobTitle $title, array $overrides = []): array
@@ -21,7 +22,7 @@ function newEmployeeInput(JobTitle $title, array $overrides = []): array
         'middle_name' => 'S.',
         'employment_type' => 'full_time',
         'job_title_id' => $title->id,
-        'salary_step' => 2,
+        'hired_on' => '2026-03-02',
         ...$overrides,
     ];
 }
@@ -46,14 +47,14 @@ describe('the list', function () {
         Employee::factory()->create(['last_name' => 'Currentperson']);
         Employee::factory()->inactive()->create(['last_name' => 'Archivedperson']);
 
-        $this->actingAs(hrHead())->get(route('employees.index'))->assertSee('Currentperson')->assertDontSee('Archivedperson');
+        $this->actingAs(hrAdmin())->get(route('employees.index'))->assertSee('Currentperson')->assertDontSee('Archivedperson');
     });
 
     it('searches by name, employee number, and official email', function (string $term) {
-        Employee::factory()->create(['last_name' => 'Marimon', 'first_name' => 'Realiza', 'employee_no' => 'EMP-1234', 'official_email' => 'marimon_realiza@plpasig.edu.ph']);
+        Employee::factory()->create(['last_name' => 'Marimon', 'first_name' => 'Realiza', 'employee_no' => '20-01234', 'official_email' => 'marimon_realiza@plpasig.edu.ph']);
         Employee::factory()->create(['last_name' => 'Othername']);
 
-        $this->actingAs(hrHead())->get(route('employees.index', ['q' => $term]))
+        $this->actingAs(hrAdmin())->get(route('employees.index', ['q' => $term]))
             ->assertSee('Marimon')
             ->assertDontSee('Othername');
     })->with(['last name' => 'Marim', 'first and last name' => 'Realiza Marimon', 'employee number' => '1234', 'email' => 'marimon_realiza@']);
@@ -64,36 +65,36 @@ describe('the list', function () {
         Employee::factory()->for($title)->create(['last_name' => 'Inthecollege']);
         Employee::factory()->partTime()->create(['last_name' => 'Parttimeperson']);
 
-        $this->actingAs(hrHead());
+        $this->actingAs(hrAdmin());
 
         $this->get(route('employees.index', ['college' => $college->id]))->assertSee('Inthecollege')->assertDontSee('Parttimeperson');
-        $this->get(route('employees.index', ['job_title' => $title->id]))->assertSee('Inthecollege')->assertDontSee('Parttimeperson');
+        $this->get(route('employees.index', ['job_title' => $title->title]))->assertSee('Inthecollege')->assertDontSee('Parttimeperson');
         $this->get(route('employees.index', ['employment_type' => 'part_time']))->assertSee('Parttimeperson')->assertDontSee('Inthecollege');
     });
 
     it('sorts by name in either direction and paginates 15 to a page', function () {
         Employee::factory()->count(16)->sequence(fn ($sequence) => ['last_name' => 'Surname'.str_pad((string) $sequence->index, 2, '0', STR_PAD_LEFT)])->create();
 
-        $this->actingAs(hrHead());
+        $this->actingAs(hrAdmin());
 
         $this->get(route('employees.index'))->assertSee('Surname00')->assertDontSee('Surname15')->assertSee('Showing 1 to 15 of 16');
         $this->get(route('employees.index', ['sort' => 'name', 'dir' => 'desc']))->assertSee('Surname15')->assertDontSee('Surname00');
         $this->get(route('employees.index', ['page' => 2]))->assertSee('Surname15');
     });
 
-    it('shows Generate Report and Archived Employees to the HR Head only', function () {
-        $this->actingAs(hrHead())->get(route('employees.index'))->assertSee('Generate Report')->assertSee('Archived Employees');
+    it('shows Generate Report and Archived Employees to the HR Admin only', function () {
+        $this->actingAs(hrAdmin())->get(route('employees.index'))->assertSee('Generate Report')->assertSee('Archived Employees');
         $this->actingAs(hrStaff())->get(route('employees.index'))->assertDontSee('Generate Report')->assertDontSee('Archived Employees');
     });
 
     it('rejects an unknown tab or sort', function () {
-        $this->actingAs(hrHead())->get(route('employees.index', ['type' => 'visitors']))->assertSessionHasErrors('type');
+        $this->actingAs(hrAdmin())->get(route('employees.index', ['type' => 'visitors']))->assertSessionHasErrors('type');
     });
 });
 
 describe('adding an employee', function () {
     it('creates the next employee number, the official email, and the college from the job title', function () {
-        Employee::factory()->create(['employee_no' => 'EMP-1041']);
+        Employee::factory()->create(['employee_no' => '26-00041']);
         $title = JobTitle::factory()->create();
 
         $response = $this->actingAs(hrStaff())->post(route('employees.store'), newEmployeeInput($title));
@@ -101,13 +102,12 @@ describe('adding an employee', function () {
         $employee = Employee::query()->where('last_name', 'Dela Cruz')->sole();
 
         $response->assertRedirect(route('employees.show', $employee));
-        expect($employee->employee_no)->toBe('EMP-1042')
+        expect($employee->employee_no)->toBe('26-00042')
             ->and($employee->official_email)->toBe('delacruz_mariaclara@plpasig.edu.ph')
             ->and($employee->college_id)->toBe($title->college_id)
             ->and($employee->office_id)->toBeNull()
             ->and($employee->employment_type)->toBe(EmploymentType::FullTime)
-            ->and($employee->status)->toBe(EmployeeStatus::Active)
-            ->and($employee->salary_step)->toBe(2);
+            ->and($employee->status)->toBe(EmployeeStatus::Active);
     });
 
     it('lets office staff also teach in a college, and ignores an extra unit on the title side', function () {
@@ -117,7 +117,7 @@ describe('adding an employee', function () {
         $officeTitle = JobTitle::factory()->nonTeaching()->create(['office_id' => $office->id]);
         $collegeTitle = JobTitle::factory()->create(['college_id' => $college->id]);
 
-        $this->actingAs(hrHead())->post(route('employees.store'), newEmployeeInput($officeTitle, ['last_name' => 'Both', 'extra_college_id' => $college->id]));
+        $this->actingAs(hrAdmin())->post(route('employees.store'), newEmployeeInput($officeTitle, ['last_name' => 'Both', 'extra_college_id' => $college->id]));
         $this->post(route('employees.store'), newEmployeeInput($collegeTitle, ['last_name' => 'Single', 'extra_college_id' => $otherCollege->id]));
 
         $both = Employee::query()->where('last_name', 'Both')->sole();
@@ -130,7 +130,7 @@ describe('adding an employee', function () {
     it('stores government IDs encrypted, shows only the last four, and keeps them out of the audit log', function () {
         $title = JobTitle::factory()->create();
 
-        $this->actingAs(hrHead())->post(route('employees.store'), newEmployeeInput($title, ['tin' => '123-456-789-000', 'sss' => '34-1234567-8']));
+        $this->actingAs(hrAdmin())->post(route('employees.store'), newEmployeeInput($title, ['tin' => '123-456-789-000', 'sss' => '34-1234567-8']));
 
         $employee = Employee::query()->where('last_name', 'Dela Cruz')->sole();
         $raw = DB::table('employees')->where('id', $employee->id)->value('government_ids');
@@ -145,7 +145,7 @@ describe('adding an employee', function () {
     it('rejects :scenario and saves nothing', function (array $override, string $field) {
         $title = JobTitle::factory()->create();
 
-        $this->actingAs(hrHead())->post(route('employees.store'), newEmployeeInput($title, $override))->assertSessionHasErrors($field);
+        $this->actingAs(hrAdmin())->post(route('employees.store'), newEmployeeInput($title, $override))->assertSessionHasErrors($field);
 
         expect(Employee::query()->count())->toBe(0);
     })->with([
@@ -155,7 +155,7 @@ describe('adding an employee', function () {
         'a TIN with the wrong digit count' => [['tin' => '123-45'], 'tin'],
         'an SSS number with letters' => [['sss' => 'ab-1234567-8'], 'sss'],
         'a PhilHealth number that is too short' => [['philhealth' => '12-123456789'], 'philhealth'],
-        'a salary step of 9' => [['salary_step' => 9], 'salary_step'],
+        'a missing hire date' => [['hired_on' => ''], 'hired_on'],
         'an unknown employment type' => [['employment_type' => 'contractual'], 'employment_type'],
         'a birthdate in the future' => [['birthdate' => '2999-01-01'], 'birthdate'],
         'a missing job title' => [['job_title_id' => ''], 'job_title_id'],
@@ -164,13 +164,13 @@ describe('adding an employee', function () {
     it('rejects an inactive job title', function () {
         $title = JobTitle::factory()->create(['is_active' => false]);
 
-        $this->actingAs(hrHead())->post(route('employees.store'), newEmployeeInput($title))->assertSessionHasErrors('job_title_id');
+        $this->actingAs(hrAdmin())->post(route('employees.store'), newEmployeeInput($title))->assertSessionHasErrors('job_title_id');
     });
 
     it('gives a second person with the same name a numbered email', function () {
         $title = JobTitle::factory()->create();
 
-        $this->actingAs(hrHead());
+        $this->actingAs(hrAdmin());
         $this->post(route('employees.store'), newEmployeeInput($title));
         $this->post(route('employees.store'), newEmployeeInput($title));
 
@@ -188,10 +188,8 @@ describe('adding an employee', function () {
 describe('the profile', function () {
     it('shows the details, the masked IDs, the base rate, and the yearly leave credits', function () {
         $this->seed(LeavePolicySeeder::class);
-        foreach (range(1, 8) as $step) {
-            RateTier::factory()->create(['salary_grade' => 12, 'step' => $step, 'monthly_amount' => 30000 + $step * 100, 'effective_date' => '2020-01-01']);
-        }
-        $employee = Employee::factory()->create(['first_name' => 'Maila', 'middle_name' => null, 'last_name' => 'Unsay', 'salary_step' => 2]);
+        RateTier::factory()->create(['salary_grade' => 12, 'monthly_amount' => 30200, 'effective_date' => '2020-01-01']);
+        $employee = Employee::factory()->create(['first_name' => 'Maila', 'middle_name' => null, 'last_name' => 'Unsay', 'hired_on' => now()->subYear()->toDateString()]);
         $employee->setGovernmentIds(['tin' => '123-456-789-000']);
         $employee->save();
 
@@ -203,33 +201,33 @@ describe('the profile', function () {
             ->assertDontSee('123-456-789-000')
             ->assertSee('₱30,200.00')
             ->assertSee('Vacation Leave')
-            ->assertSee('15 days');
+            ->assertSeeInOrder(['Vacation Leave', '15', '0', '0', '15']);
     });
 
-    it('lists no leave credits for part-time staff', function () {
+    it('lists only vacation and sick credits for part-time staff', function () {
         $this->seed(LeavePolicySeeder::class);
-        $employee = Employee::factory()->partTime()->create();
+        $employee = Employee::factory()->partTime()->create(['hired_on' => now()->subYear()->toDateString()]);
 
-        $this->actingAs(hrHead())->get(route('employees.show', $employee))->assertSee('earns no leave credits');
+        $this->actingAs(hrAdmin())->get(route('employees.show', $employee))->assertSee('Vacation Leave')->assertSee('7.5')->assertDontSee('Special Privilege Leave');
     });
 
-    it('shows the HR Head the transfer, step, archive, and reveal controls but not HR Staff', function () {
+    it('shows the HR Admin the transfer, step, archive, and reveal controls but not HR Staff', function () {
         $employee = Employee::factory()->create();
 
-        $this->actingAs(hrHead())->get(route('employees.show', $employee))
-            ->assertSee('Transfer this employee')
+        $this->actingAs(hrAdmin())->get(route('employees.show', $employee))
+            ->assertSee('Edit the contract')
             ->assertSee('Archive Employee')
             ->assertSee('Reveal');
 
         $this->actingAs(hrStaff())->get(route('employees.show', $employee))
             ->assertOk()
-            ->assertDontSee('Transfer this employee')
+            ->assertDontSee('Edit the contract')
             ->assertDontSee('Archive Employee')
             ->assertDontSee('Reveal');
     });
 
     it('is not found for an unknown or malformed employee number', function () {
-        $this->actingAs(hrHead())->get('/employees/EMP-999999')->assertNotFound();
+        $this->actingAs(hrAdmin())->get('/employees/99-99999')->assertNotFound();
         $this->get('/employees/not-an-id')->assertNotFound();
     });
 });
@@ -257,7 +255,7 @@ describe('editing an employee', function () {
         $employee->setGovernmentIds(['tin' => '111-111-111-000', 'sss' => '11-1111111-1']);
         $employee->save();
 
-        $this->actingAs(hrHead())->put(route('employees.update', $employee), [
+        $this->actingAs(hrAdmin())->put(route('employees.update', $employee), [
             'last_name' => $employee->last_name, 'first_name' => $employee->first_name, 'tin' => '', 'sss' => '22-2222222-2',
         ]);
 
@@ -268,15 +266,14 @@ describe('editing an employee', function () {
         $employee = Employee::factory()->create();
         $other = JobTitle::factory()->create();
 
-        $this->actingAs(hrHead())->put(route('employees.update', $employee), [
+        $this->actingAs(hrAdmin())->put(route('employees.update', $employee), [
             'last_name' => $employee->last_name, 'first_name' => $employee->first_name,
-            'job_title_id' => $other->id, 'salary_step' => 8, 'status' => 'terminated', 'employment_type' => 'part_time',
+            'job_title_id' => $other->id, 'status' => 'terminated', 'employment_type' => 'part_time',
         ]);
 
         $fresh = $employee->fresh();
 
         expect($fresh->job_title_id)->toBe($employee->job_title_id)
-            ->and($fresh->salary_step)->toBe(1)
             ->and($fresh->status)->toBe(EmployeeStatus::Active)
             ->and($fresh->employment_type)->toBe(EmploymentType::FullTime);
     });
@@ -286,7 +283,7 @@ describe('editing an employee', function () {
         $employee->setGovernmentIds(['tin' => '123-456-789-000']);
         $employee->save();
 
-        $this->actingAs(hrHead())->get(route('employees.edit', $employee))
+        $this->actingAs(hrAdmin())->get(route('employees.edit', $employee))
             ->assertOk()
             ->assertDontSee('123-456-789-000')
             ->assertSee('•••• 9000');
@@ -295,19 +292,44 @@ describe('editing an employee', function () {
     it('rejects an invalid phone number', function () {
         $employee = Employee::factory()->create();
 
-        $this->actingAs(hrHead())->put(route('employees.update', $employee), [
+        $this->actingAs(hrAdmin())->put(route('employees.update', $employee), [
             'last_name' => $employee->last_name, 'first_name' => $employee->first_name, 'phone' => 'call me',
         ])->assertSessionHasErrors('phone');
     });
 });
 
 it('prints the signed-in user in the header and the dashboard greeting', function () {
-    $head = User::factory()->hrHead()->create(['name' => 'Niccolo Franco Yumul', 'email' => 'yumul_niccolofranco@plpasig.edu.ph']);
+    $head = User::factory()->hrAdmin()->create(['name' => 'Niccolo Franco Yumul', 'email' => 'yumul_niccolofranco@plpasig.edu.ph']);
 
     $this->actingAs($head)->get(route('dashboard'))
         ->assertSee('NY')
         ->assertSee('Niccolo Franco Yumul')
-        ->assertSee('HR Head')
+        ->assertSee('HR Admin')
         ->assertSee('yumul_niccolofranco@plpasig.edu.ph')
-        ->assertSee('data-first-name="Niccolo"', escape: false);
+        ->assertSee('Welcome, Niccolo');
+});
+
+describe('employee documents', function () {
+    it('lets HR add a document to the 201 file, stores it in the database, and shows it on the profile', function () {
+        $employee = Employee::factory()->create();
+
+        $this->actingAs(hrStaff())->post(route('employees.documents.store', $employee), ['kind' => 'diploma', 'file' => UploadedFile::fake()->create('diploma.pdf', 80, 'application/pdf')])->assertSessionHas('success');
+
+        expect($employee->documents()->sole()->original_name)->toBe('diploma.pdf');
+        $this->get(route('employees.show', $employee))->assertSee('diploma.pdf')->assertSee('Documents');
+    });
+
+    it('rejects a missing or oversized file', function () {
+        $employee = Employee::factory()->create();
+
+        $this->actingAs(hrAdmin())->post(route('employees.documents.store', $employee), ['kind' => 'diploma'])->assertSessionHasErrors('file');
+        $this->post(route('employees.documents.store', $employee), ['kind' => 'diploma', 'file' => UploadedFile::fake()->create('big.pdf', 6000, 'application/pdf')])->assertSessionHasErrors('file');
+    });
+
+    it('shows the contract, agreements, and transfer history together, with the edit form only for the HR Admin', function () {
+        $employee = Employee::factory()->create();
+
+        $this->actingAs(hrAdmin())->get(route('employees.show', $employee))->assertSee('Contract and Agreements')->assertSee('Transfer History')->assertSee('Edit Contract')->assertSee('data-part-time-fields', escape: false);
+        $this->actingAs(hrStaff())->get(route('employees.show', $employee))->assertSee('Transfer History')->assertDontSee('Edit Contract');
+    });
 });

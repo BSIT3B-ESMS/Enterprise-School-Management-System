@@ -1,4 +1,3 @@
-{{-- The signed-in employee's name and details are filled in by resources/js/employee-shell.js. --}}
 <header class="app-header">
     <div class="d-flex align-items-center gap-2 gap-lg-3 min-w-0">
         <button type="button" class="app-icon-btn" aria-label="Toggle navigation" aria-controls="app-sidebar"
@@ -20,23 +19,25 @@
             <span class="visually-hidden theme-when-light">Switch to dark mode</span>
         </button>
 
+        <x-notification-bell />
+
         <div class="dropdown">
             <button type="button" class="app-user" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false">
-                <span class="app-avatar" data-portal-initials></span>
+                <span class="app-avatar">{{ auth()->user()->initials() }}</span>
                 <span class="d-none d-lg-block">
-                    <span class="app-user-name" data-portal-name></span>
-                    <span class="app-user-role" data-portal-role></span>
+                    <span class="app-user-name">{{ auth()->user()->name }}</span>
+                    <span class="app-user-role">{{ auth()->user()->roleLabel() }}</span>
                 </span>
                 <span class="visually-hidden d-lg-none">Account menu</span>
             </button>
 
             <div class="dropdown-menu dropdown-menu-end app-menu app-menu-account">
                 <div class="app-menu-profile">
-                    <span class="app-avatar app-avatar-lg" data-portal-initials></span>
+                    <span class="app-avatar app-avatar-lg">{{ auth()->user()->initials() }}</span>
                     <div class="min-w-0">
-                        <strong class="d-block text-truncate" data-portal-name></strong>
-                        <small class="d-block text-truncate" data-portal-email></small>
-                        <span class="ems-chip d-inline-block mt-1" data-portal-role></span>
+                        <strong class="d-block text-truncate">{{ auth()->user()->name }}</strong>
+                        <small class="d-block text-truncate">{{ auth()->user()->email }}</small>
+                        <span class="ems-chip d-inline-block mt-1">{{ auth()->user()->roleLabel() }}</span>
                     </div>
                 </div>
 

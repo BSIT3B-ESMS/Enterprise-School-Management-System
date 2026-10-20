@@ -23,11 +23,12 @@ return new class extends Migration
             $table->string('sex')->nullable();
             $table->string('marital_status')->nullable();
             $table->string('employment_type');
+            $table->unsignedTinyInteger('weekly_hours')->default(40);
             $table->date('hired_on')->nullable();
+            $table->date('contract_ends_on')->nullable();
             $table->foreignId('college_id')->nullable()->constrained()->restrictOnDelete();
             $table->foreignId('office_id')->nullable()->constrained()->restrictOnDelete();
             $table->foreignId('job_title_id')->constrained()->restrictOnDelete();
-            $table->unsignedTinyInteger('salary_step')->default(1);
             $table->string('official_email')->unique();
             $table->string('personal_email')->nullable();
             $table->string('phone', 20)->nullable();

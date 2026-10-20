@@ -7,12 +7,15 @@
         ['route' => 'job-titles.index', 'pattern' => ['job-titles.*', 'rates.*'], 'icon' => 'job-titles', 'label' => 'Job Titles'],
         ['route' => 'recruitment.index', 'pattern' => 'recruitment.*', 'icon' => 'recruitment', 'label' => 'Recruitment'],
         ['route' => 'job-positions.index', 'pattern' => 'job-positions.*', 'icon' => 'positions', 'label' => 'Open Job Positions'],
+        ['route' => 'leave.index', 'pattern' => 'leave.*', 'icon' => 'leave', 'label' => 'Leave Requests'],
+        ['route' => 'my-leave', 'pattern' => 'my-leave*', 'icon' => 'leave', 'label' => 'My Leave'],
+        ['route' => 'contracts.index', 'pattern' => 'contracts.*', 'icon' => 'job-titles', 'label' => 'Contracts', 'headOnly' => true],
         ['route' => 'calendar.index', 'pattern' => 'calendar.*', 'icon' => 'calendar', 'label' => 'Calendar'],
         ['route' => 'audit.index', 'pattern' => 'audit.*', 'icon' => 'audit', 'label' => 'Audit Logs', 'headOnly' => true],
         ['route' => 'accounts.index', 'pattern' => 'accounts.*', 'icon' => 'lock', 'label' => 'Accounts', 'headOnly' => true],
     ];
-    // Audit Logs and Accounts belong to the HR Head; HR Staff do not see them.
-    $pageItems = array_filter($pageItems, fn (array $item): bool => empty($item['headOnly']) || auth()->user()?->isHrHead());
+    // Audit Logs and Accounts belong to the HR Admin; HR Staff do not see them.
+    $pageItems = array_filter($pageItems, fn (array $item): bool => empty($item['headOnly']) || auth()->user()?->isHrAdmin());
     $comingSoonItems = [];
 @endphp
 

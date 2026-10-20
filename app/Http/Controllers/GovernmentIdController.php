@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
 /**
- * Government ID numbers are masked everywhere. Only the HR Head can see one in full, for a stated reason, and every
+ * Government ID numbers are masked everywhere. Only the HR Admin can see one in full, for a stated reason, and every
  * reveal is written to the audit log.
  */
 class GovernmentIdController extends Controller

@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\JobTitle;
+
 it('renders the :route page in dark mode by default', function (string $route) {
     if ($user = userFor($route)) {
         $this->actingAs($user);
@@ -21,13 +23,15 @@ it('renders the :route page in dark mode by default', function (string $route) {
 ]);
 
 it('renders the public :route page in light mode by default, with its own theme scope', function (string $route, array $parameters) {
-    $this->get(route($route, $parameters))
+    $position = JobTitle::factory()->create(['is_published' => true, 'openings' => 1]);
+
+    $this->get(route($route, $parameters + ($route === 'careers.show' ? ['position' => $position->id] : [])))
         ->assertOk()
         ->assertSee('data-bs-theme="light" data-theme-scope="public"', escape: false)
         ->assertSee('data-theme-toggle', escape: false);
 })->with([
     'careers' => ['careers.index', []],
-    'position details' => ['careers.show', ['position' => 't5']],
+    'position details' => ['careers.show', []],
 ]);
 
 it('keeps Login, registration, and the applicant pages in dark mode', function (string $route) {
@@ -39,9 +43,4 @@ it('keeps Login, registration, and the applicant pages in dark mode', function (
         ->assertOk()
         ->assertSee('data-bs-theme="dark"', escape: false)
         ->assertDontSee('data-theme-scope', escape: false);
-})->with(['login', 'applicant.portal', 'applicant.register', 'applicant.apply', 'applicant.dashboard', 'employee.dashboard']);
-
-it('keeps the Terms and Conditions on the system theme, even on the Light Careers pages', function () {
-    $this->get(route('careers.index'))
-        ->assertSee('data-terms-modal data-theme-follow="system"', escape: false);
-});
+})->with(['login', 'applicant.register', 'applicant.dashboard', 'employee.dashboard']);

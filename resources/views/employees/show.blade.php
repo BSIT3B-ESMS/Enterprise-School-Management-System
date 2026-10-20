@@ -3,7 +3,7 @@
 @section('title', $employee->full_name.' · '.config('app.name'))
 
 @php
-    $isHead = auth()->user()->isHrHead();
+    $isHead = auth()->user()->isHrAdmin();
     $isArchived = $employee->status !== \App\Enums\EmployeeStatus::Active;
     $idLabels = ['tin' => 'TIN', 'gsis' => 'GSIS', 'sss' => 'SSS', 'philhealth' => 'PhilHealth', 'pagibig' => 'Pag-IBIG', 'bir' => 'BIR'];
     $masked = $employee->maskedGovernmentIds();
@@ -11,7 +11,7 @@
 @endphp
 
 {{--
-    An employee's profile (201 file) from the database. Everyone in HR sees it. Government IDs are masked; the HR Head can
+    An employee's profile (201 file) from the database. Everyone in HR sees it. Government IDs are masked; the HR Admin can
     reveal one for a stated reason, transfer the employee, change the salary step, and archive or restore the record.
 --}}
 @section('content')
@@ -41,6 +41,7 @@
                         <span class="ems-chip tabular-nums">{{ $employee->employee_no }}</span>
                         <span>{{ $employee->jobTitle->title }}</span>
                         <span class="status-pill">{{ ucfirst($employee->status->value) }}</span>
+                        @if ($onLeaveUntil) <span class="ems-chip">On leave until {{ \Illuminate\Support\Carbon::parse($onLeaveUntil)->format('M j, Y') }}</span> @endif
                     </div>
                 </div>
                 <div class="d-flex gap-2">
@@ -70,8 +71,7 @@
                         <dt class="col-sm-5">Employment type</dt><dd class="col-sm-7">{{ $employee->employment_type->label() }}</dd>
                         <dt class="col-sm-5">Date hired</dt><dd class="col-sm-7">{{ $employee->hired_on?->format('M j, Y') ?? '—' }}</dd>
                         <dt class="col-sm-5">Official email</dt><dd class="col-sm-7">{{ $employee->official_email }}</dd>
-                        <dt class="col-sm-5">Salary step</dt><dd class="col-sm-7">Step {{ $employee->salary_step }}</dd>
-                        <dt class="col-sm-5">Base pay (monthly)</dt>
+                        <dt class="col-sm-5">Monthly pay (SG {{ $employee->jobTitle->salary_grade }})</dt>
                         <dd class="col-sm-7 tabular-nums">{{ $baseRate ? '₱'.number_format((float) $baseRate->monthly_amount, 2) : '—' }}</dd>
                         <dt class="col-sm-5">Status</dt>
                         <dd class="col-sm-7">
@@ -117,6 +117,32 @@
                         @endforeach
                     </ul>
                 </section>
+
+                <section class="card employee-form-card" aria-labelledby="documents-title">
+                    <h2 class="fs-5" id="documents-title">Documents</h2>
+                    <ul class="list-group list-group-flush mb-3">
+                        @forelse ($employee->documents()->latest('id')->get() as $document)
+                            <li class="list-group-item px-0 d-flex justify-content-between align-items-center gap-2 flex-wrap">
+                                <span><span class="fw-medium">{{ ucfirst($document->kind) }}</span> · {{ $document->original_name }} <small class="text-body-secondary">({{ $document->humanSize() }}, {{ $document->created_at->format('M j, Y') }})</small></span>
+                                <a class="btn btn-sm btn-outline-primary" href="{{ route('documents.show', $document->uuid) }}" target="_blank" rel="noopener">Open</a>
+                            </li>
+                        @empty
+                            <li class="list-group-item px-0 text-body-secondary">No documents yet. The employee can add their own, or you can add one.</li>
+                        @endforelse
+                    </ul>
+                    @unless ($isArchived)
+                        <form method="post" action="{{ route('employees.documents.store', $employee) }}" enctype="multipart/form-data" class="row g-2" novalidate>
+                            @csrf
+                            <div class="col-md-4"><x-select-field name="kind" label="Type" :options="\App\Http\Controllers\EmployeePortalController::DOCUMENT_KINDS" required /></div>
+                            <div class="col-md-5">
+                                <label for="document-file" class="form-label is-required">File</label>
+                                <input type="file" class="form-control @error('file') is-invalid @enderror" id="document-file" name="file" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" required>
+                                @error('file') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                            </div>
+                            <div class="col-md-3 d-flex align-items-end"><button type="submit" class="btn btn-outline-primary w-100">Add Document</button></div>
+                        </form>
+                    @endunless
+                </section>
             </div>
 
             <div class="col-xl-6 d-grid gap-4 align-content-start">
@@ -156,26 +182,130 @@
                 </section>
 
                 <section class="card employee-form-card" aria-labelledby="leave-title">
-                    <h2 class="fs-5" id="leave-title">Leave Credits per Year</h2>
-                    @if ($leaveCredits->isEmpty())
+                    <h2 class="fs-5" id="leave-title">Leave for {{ now()->year }}</h2>
+                    @if ($leaveBalances === [])
                         <p class="text-body-secondary mb-0">This employee earns no leave credits (part-time staff do not).</p>
                     @else
-                        <dl class="row mb-0">
-                            @foreach ($leaveCredits as $leaveLabel => $days)
-                                <dt class="col-sm-8">{{ $leaveLabel }}</dt><dd class="col-sm-4 tabular-nums">{{ rtrim(rtrim(number_format($days, 1), '0'), '.') }} days</dd>
-                            @endforeach
-                        </dl>
-                    @endif
-                </section>
-
-                <section class="card employee-form-card" aria-labelledby="transfers-title">
-                    <h2 class="fs-5" id="transfers-title">Transfer History</h2>
-                    @if ($pending)
-                        <div class="alert alert-info" role="status">
-                            A transfer to {{ $pending->toJobTitle->title }} takes effect on {{ $pending->effective_date->format('M j, Y') }}.
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-3">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Leave</th>
+                                        <th scope="col" class="text-end">Credits</th>
+                                        <th scope="col" class="text-end">Used</th>
+                                        <th scope="col" class="text-end">Pending</th>
+                                        <th scope="col" class="text-end">Left</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach ($leaveBalances as $row)
+                                        <tr>
+                                            <td>{{ $row['label'] }}</td>
+                                            @foreach (['entitled', 'used', 'pending', 'remaining'] as $column)
+                                                <td class="text-end tabular-nums">{{ rtrim(rtrim(number_format($row[$column], 1), '0'), '.') }}</td>
+                                            @endforeach
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
                         </div>
                     @endif
+
+                    <h3 class="fs-6">Recent requests</h3>
+                    <ul class="list-group list-group-flush">
+                        @forelse ($recentLeave as $leaveRequest)
+                            <li class="list-group-item px-0">
+                                <span class="fw-medium">{{ $leaveRequest->leave_type->label() }}</span>
+                                <span class="status-pill">{{ $leaveRequest->status->label() }}</span>
+                                <small class="text-body-secondary d-block">
+                                    {{ $leaveRequest->start_date->format('M j, Y') }}
+                                    @if (! $leaveRequest->end_date->isSameDay($leaveRequest->start_date)) to {{ $leaveRequest->end_date->format('M j, Y') }} @endif
+                                    · {{ rtrim(rtrim(number_format((float) $leaveRequest->days, 1), '0'), '.') }} day(s)
+                                </small>
+                            </li>
+                        @empty
+                            <li class="list-group-item px-0 text-body-secondary">No leave requests yet.</li>
+                        @endforelse
+                    </ul>
+                </section>
+
+                <section class="card employee-form-card" aria-labelledby="contract-title">
+                    <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">
+                        <h2 class="fs-5" id="contract-title">Contract and Agreements</h2>
+                        @if ($isHead && ! $isArchived)
+                            <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="collapse" data-bs-target="#edit-contract" aria-expanded="false" aria-controls="edit-contract">Edit Contract</button>
+                        @endif
+                    </div>
+
+                    <p class="mb-2">
+                        <strong>{{ $employee->jobTitle->title }}</strong> · {{ $employee->employment_type->label() }}
+                        @if ($employee->employment_type === \App\Enums\EmploymentType::PartTime) · {{ $employee->weekly_hours }} hours a week @endif
+                        @if ($employee->contract_ends_on)
+                            · contract ends <strong>{{ $employee->contract_ends_on->format('M j, Y') }}</strong>
+                            @if ($employee->contract_ends_on->isPast()) <span class="badge text-bg-danger">Ended</span> @elseif ($employee->contractEndsWithin(30)) <span class="badge text-bg-warning">Ending soon</span> @endif
+                        @elseif ($employee->employment_type === \App\Enums\EmploymentType::FullTime)
+                            · no end of contract
+                        @endif
+                    </p>
+
+                    @if ($pending)
+                        <div class="alert alert-info" role="status">A transfer to {{ $pending->toJobTitle->title }} takes effect on {{ $pending->effective_date->format('M j, Y') }}.</div>
+                    @endif
+
+                    @if ($isHead && ! $isArchived)
+                        <div class="collapse" id="edit-contract">
+                            <div class="border rounded p-3 mb-3">
+                                <h3 class="fs-6">Edit the contract</h3>
+                                <p class="small text-body-secondary">Nothing changes when you save. The employee gets an agreement to accept by signing; if they decline, they stay as they are.</p>
+                                <form method="post" action="{{ route('employees.transfer', $employee) }}" class="row g-2" novalidate>
+                                    @csrf
+                                    <div class="col-12"><x-select-field name="job_title_id" label="Job title" :options="$jobTitleOptions" :value="$employee->job_title_id" grouped required /></div>
+                                    <div class="col-md-6"><x-select-field name="extra_college_id" label="Also teaches in" :options="$colleges" placeholder="None" /></div>
+                                    <div class="col-md-6"><x-select-field name="extra_office_id" label="Also assigned to office" :options="$offices" placeholder="None" /></div>
+                                    <div class="col-md-6" data-employment-type><x-select-field name="employment_type" label="Employment type" :options="['full_time' => 'Full-time', 'part_time' => 'Part-time']" :value="$employee->employment_type->value" required /></div>
+                                    <div class="col-md-6"><x-field name="effective_date" type="date" label="Effective date" :value="now()->toDateString()" required /></div>
+                                    <div class="col-12" data-part-time-fields>
+                                        <div class="row g-2">
+                                            <div class="col-sm-4"><x-field name="weekly_hours" type="number" min="1" max="39" label="Weekly hours" :value="$employee->weekly_hours < 40 ? $employee->weekly_hours : 20" /></div>
+                                            <div class="col-sm-4"><x-select-field name="contract_term" label="Contract ends with" :options="$contractTerms" placeholder="Choose" /></div>
+                                            <div class="col-sm-4"><x-select-field name="academic_year" label="Academic year" :options="$academicYears" placeholder="Choose" /></div>
+                                        </div>
+                                        <div class="form-text">The contract ends on the last day of the term you choose.</div>
+                                    </div>
+                                    <div class="col-12"><x-field name="reason" label="Reason (optional)" /></div>
+                                    <div class="col-12 d-flex justify-content-end gap-2">
+                                        @if ($employee->contract_ends_on)
+                                            <button type="submit" class="btn btn-sm btn-outline-primary" formaction="{{ route('employees.renew', $employee) }}">Send as New Contract</button>
+                                        @endif
+                                        <button type="submit" class="btn btn-sm btn-primary">Send Agreement</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    @endif
+
+                    <h3 class="fs-6">Agreements</h3>
                     <ul class="list-group list-group-flush mb-3">
+                        @forelse ($offers as $offer)
+                            <li class="list-group-item px-0 d-flex justify-content-between align-items-center gap-2 flex-wrap">
+                                <span>
+                                    <span class="fw-medium">{{ $offer->kind->label() }}: {{ $offer->summary['position'] }}</span>
+                                    <small class="d-block text-body-secondary">{{ $offer->employment_type->label() }} · from {{ $offer->start_date->format('M j, Y') }}{{ $offer->end_date ? ' to '.$offer->end_date->format('M j, Y') : '' }}@if ($offer->signed_name) · signed by {{ $offer->signed_name }} @endif</small>
+                                </span>
+                                <span class="d-flex align-items-center gap-2">
+                                    <span class="status-pill">{{ $offer->status->label() }}</span>
+                                    @if ($isHead && $offer->isPending())
+                                        <form method="post" action="{{ route('employees.offers.withdraw', [$employee, $offer]) }}">@csrf<button type="submit" class="btn btn-sm btn-outline-secondary">Withdraw</button></form>
+                                    @endif
+                                </span>
+                            </li>
+                        @empty
+                            <li class="list-group-item px-0 text-body-secondary">No agreements yet.</li>
+                        @endforelse
+                    </ul>
+
+                    <h3 class="fs-6">Transfer History</h3>
+                    <ul class="list-group list-group-flush mb-0">
                         @forelse ($transfers as $transfer)
                             <li class="list-group-item px-0">
                                 <div class="fw-medium">{{ $transfer->fromJobTitle->title }} → {{ $transfer->toJobTitle->title }}</div>
@@ -189,31 +319,6 @@
                             <li class="list-group-item px-0 text-body-secondary">No transfers yet.</li>
                         @endforelse
                     </ul>
-
-                    @if ($isHead && ! $isArchived)
-                        <h3 class="fs-6">Transfer this employee</h3>
-                        <form method="post" action="{{ route('employees.transfer', $employee) }}" class="row g-2" novalidate>
-                            @csrf
-                            <div class="col-12">
-                                <x-select-field name="job_title_id" label="New job title" :options="$jobTitleOptions" :value="$employee->job_title_id" grouped required />
-                            </div>
-                            <div class="col-md-6"><x-select-field name="extra_college_id" label="Also teaches in" :options="$colleges" placeholder="None" /></div>
-                            <div class="col-md-6"><x-select-field name="extra_office_id" label="Also assigned to office" :options="$offices" placeholder="None" /></div>
-                            <div class="col-md-6"><x-field name="effective_date" type="date" label="Effective date" :value="now()->toDateString()" required /></div>
-                            <div class="col-md-6"><x-field name="reason" label="Reason (optional)" /></div>
-                            <div class="col-12 d-flex justify-content-end"><button type="submit" class="btn btn-sm btn-outline-primary">Record Transfer</button></div>
-                        </form>
-
-                        <h3 class="fs-6 mt-4">Salary step</h3>
-                        <form method="post" action="{{ route('employees.step', $employee) }}" class="d-flex gap-2 align-items-end">
-                            @csrf
-                            @method('PUT')
-                            <div class="flex-grow-1">
-                                <x-select-field name="salary_step" label="Step" :options="array_combine(range(1, 8), range(1, 8))" :value="$employee->salary_step" />
-                            </div>
-                            <button type="submit" class="btn btn-sm btn-outline-primary mb-1">Save Step</button>
-                        </form>
-                    @endif
                 </section>
 
                 @if ($isHead)

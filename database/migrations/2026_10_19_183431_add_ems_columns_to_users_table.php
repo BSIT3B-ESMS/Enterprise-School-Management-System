@@ -20,6 +20,7 @@ return new class extends Migration
             $table->timestamp('password_changed_at')->nullable()->after('temp_password_expires_at');
             $table->timestamp('last_login_at')->nullable()->after('password_changed_at');
             $table->timestamp('privacy_acknowledged_at')->nullable()->after('last_login_at');
+            $table->timestamp('onboarding_completed_at')->nullable()->after('privacy_acknowledged_at');
         });
     }
 
@@ -32,7 +33,7 @@ return new class extends Migration
             $table->dropConstrainedForeignId('employee_id');
             $table->dropColumn([
                 'role', 'is_active', 'must_change_password', 'temp_password_expires_at',
-                'password_changed_at', 'last_login_at', 'privacy_acknowledged_at',
+                'password_changed_at', 'last_login_at', 'privacy_acknowledged_at', 'onboarding_completed_at',
             ]);
         });
     }

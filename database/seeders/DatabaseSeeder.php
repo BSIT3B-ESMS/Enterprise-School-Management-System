@@ -20,10 +20,13 @@ class DatabaseSeeder extends Seeder
             RateTierSeeder::class,
             JobTitleSeeder::class,
             LeavePolicySeeder::class,
-            FacultyRosterSeeder::class,
-            OfficeStaffSeeder::class,
+            BenefitSeeder::class,
+            EmployeeSeeder::class,
+            LeaveRequestSeeder::class,
             JobPostingSeeder::class,
             DevelopmentUserSeeder::class,
+            ApplicantSeeder::class,
+            CalendarEventSeeder::class,
         ]);
     }
 }

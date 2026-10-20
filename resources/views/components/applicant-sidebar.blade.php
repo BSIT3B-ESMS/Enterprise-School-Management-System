@@ -38,10 +38,13 @@
             </nav>
 
             <div class="app-sidebar-footer">
-                <a class="app-sidebar-logout" href="{{ route('login') }}" data-applicant-logout>
-                    <x-icon name="logout" />
-                    Log Out
-                </a>
+                <form method="post" action="{{ route('logout') }}">
+                    @csrf
+                    <button type="submit" class="app-sidebar-logout">
+                        <x-icon name="logout" />
+                        Log Out
+                    </button>
+                </form>
             </div>
         </div>
     </div>

@@ -23,6 +23,8 @@ return new class extends Migration
             $table->unsignedSmallInteger('openings')->default(0);
             $table->boolean('is_published')->default(false);
             $table->string('employment_type')->nullable();
+            $table->string('contract_term', 30)->nullable();
+            $table->unsignedSmallInteger('academic_year')->nullable();
             $table->string('location')->nullable();
             $table->text('summary')->nullable();
             $table->text('description')->nullable();

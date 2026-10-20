@@ -3,86 +3,78 @@
 @section('title', 'Dashboard · '.config('app.name'))
 
 @php
-    $quickLinks = [
-        ['icon' => 'user', 'label' => 'Profile', 'about' => 'Your details and contact information', 'route' => 'applicant.profile'],
-        ['icon' => 'calendar', 'label' => 'Calendar', 'about' => 'Your demo interview and interview dates', 'route' => 'applicant.calendar'],
-        ['icon' => 'job-titles', 'label' => 'Open Positions', 'about' => 'Find a position to apply for', 'route' => 'applicant.positions'],
-        ['icon' => 'recruitment', 'label' => 'Applications', 'about' => 'Follow your applications', 'route' => 'applicant.applications'],
-    ];
+    use App\Enums\ApplicationStatus;
 @endphp
 
-{{--
-    The signed-in applicant's dashboard, filled in by resources/js/applicant-dashboard.js from the same Recruitment data
-    the HR pages use, so statuses and schedules follow what HR does. Nothing here changes an application.
---}}
 @section('content')
-    <div class="d-grid gap-4" data-page="applicant-dashboard" data-application-url="{{ route('applicant.applications') }}"
-        data-apply-url="{{ route('applicant.apply') }}">
+    <div class="d-grid gap-4">
         <div>
-            <h1 class="page-title" data-applicant-greeting>Welcome</h1>
-            <p class="text-body-secondary mt-1 mb-0">Here is where your applications stand.</p>
+            <h1 class="page-title">Welcome, {{ $profile->first_name }}</h1>
+            <p class="text-body-secondary mt-1 mb-0">Follow your applications and your interview schedule here.</p>
         </div>
 
-        {{-- The position chosen before registering or logging in (?position=), kept so the application can be continued. --}}
-        <div class="alert alert-info d-none justify-content-between align-items-center gap-3 flex-wrap mb-0" role="status"
-            data-applicant-pending-position>
-            <span>You chose <strong data-applicant-pending-name></strong>. Continue with your application.</span>
-            <a class="btn btn-sm btn-primary" href="{{ route('applicant.apply') }}" data-applicant-pending-apply>Continue Application</a>
-        </div>
+        @unless ($profile->isComplete())
+            <div class="alert alert-warning mb-0" role="status">
+                Your profile is not complete yet. <a href="{{ route('applicant.profile') }}">Complete it once</a> to be able to apply.
+            </div>
+        @endunless
 
-        <div class="row row-cols-1 row-cols-sm-3 g-3" data-applicant-kpis></div>
+        @if ($hired)
+            <div class="alert alert-success mb-0" role="status">
+                You are hired as <strong>{{ $hired->jobTitle->title }}</strong>.
+                <a href="{{ route('applicant.applications.show', $hired) }}">See how to sign in as an employee.</a>
+            </div>
+        @endif
 
-        {{-- Applications saved as drafts, not yet submitted: they have no status and HR does not see them. --}}
-        <section class="card dashboard-panel d-none" aria-labelledby="applicant-drafts-title" data-applicant-drafts-panel>
-            <h2 id="applicant-drafts-title">Saved drafts</h2>
-            <p class="dashboard-panel-subtitle">Not submitted yet. Continue them to edit and submit.</p>
-
-            <ul class="list-group list-group-flush dashboard-list" data-applicant-drafts></ul>
-        </section>
+        @foreach ($offers as $application)
+            <div class="alert alert-primary mb-0" role="status">
+                You have a job offer for <strong>{{ $application->jobTitle->title }}</strong>.
+                <a href="{{ route('applicant.applications.show', $application) }}">Read it and answer.</a>
+            </div>
+        @endforeach
 
         <div class="row g-4">
             <div class="col-lg-7">
-                <section class="card dashboard-panel" aria-labelledby="applicant-applications-title">
-                    <h2 id="applicant-applications-title">Your applications</h2>
-                    <p class="dashboard-panel-subtitle">Current status of each application</p>
-
-                    <ul class="list-group list-group-flush dashboard-list" data-applicant-application-list></ul>
-
-                    <div class="d-none" data-applicant-no-applications>
-                        <p class="text-body-secondary">You have not applied for a position yet.</p>
-                        <a class="btn btn-primary" href="{{ route('applicant.positions') }}">Browse Open Positions</a>
+                <section class="card dashboard-panel">
+                    <h2>My applications</h2>
+                    <p class="dashboard-panel-subtitle">{{ $applications->count() }} in all</p>
+                    <div class="row row-cols-2 row-cols-sm-3 g-2 mb-3">
+                        @foreach (\App\Enums\ApplicationStatus::pipeline() as $status)
+                            <div class="col">
+                                <div class="quick-link">
+                                    <span class="quick-link-label tabular-nums">{{ $counts[$status->value] }}</span>
+                                    <small>{{ $status->label() }}</small>
+                                </div>
+                            </div>
+                        @endforeach
                     </div>
+                    <ul class="list-group list-group-flush dashboard-list">
+                        @forelse ($applications->take(5) as $application)
+                            <li class="list-group-item px-0 d-flex justify-content-between gap-3">
+                                <a class="text-reset" href="{{ route('applicant.applications.show', $application) }}">{{ $application->jobTitle->title }}</a>
+                                <span class="status-pill {{ $application->status->cssClass() }}">{{ $application->status->label() }}</span>
+                            </li>
+                        @empty
+                            <li class="list-group-item px-0 text-body-secondary">You have not applied yet. <a href="{{ route('applicant.positions') }}">Browse the open positions</a>.</li>
+                        @endforelse
+                    </ul>
                 </section>
             </div>
 
             <div class="col-lg-5">
-                <section class="card dashboard-panel" aria-labelledby="applicant-upcoming-title">
-                    <h2 id="applicant-upcoming-title">Upcoming demo interviews and interviews</h2>
-                    <p class="dashboard-panel-subtitle">Set by HR</p>
-
-                    <ul class="list-group list-group-flush dashboard-list" data-applicant-upcoming></ul>
-                    <p class="text-body-secondary mb-0 d-none" data-applicant-upcoming-empty>
-                        No demo interview or interview is scheduled yet.
-                    </p>
+                <section class="card dashboard-panel">
+                    <h2>Next demo interview</h2>
+                    @if ($nextInterview)
+                        <p class="dashboard-panel-subtitle">{{ $nextInterview->application->jobTitle->title }}</p>
+                        <p class="mb-1 fw-medium">{{ $nextInterview->starts_at->format('l, M j, Y') }}</p>
+                        <p class="mb-1">{{ $nextInterview->starts_at->format('g:i A') }} to {{ $nextInterview->ends_at->format('g:i A') }}</p>
+                        <p class="mb-2 text-body-secondary">{{ $nextInterview->placeLabel() }}</p>
+                        <a class="btn btn-outline-primary btn-sm" href="{{ route('applicant.applications.show', $nextInterview->application) }}">Details</a>
+                    @else
+                        <p class="dashboard-panel-subtitle mb-0">Nothing is scheduled. HR will schedule your demo interview after reviewing your documents.</p>
+                    @endif
                 </section>
             </div>
         </div>
-
-        <section class="card dashboard-panel" aria-labelledby="applicant-links-title">
-            <h2 id="applicant-links-title">Quick links</h2>
-            <p class="dashboard-panel-subtitle">Jump to a section</p>
-
-            <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-4 g-3">
-                @foreach ($quickLinks as $link)
-                    <div class="col">
-                        <a class="quick-link" href="{{ route($link['route']) }}">
-                            <x-icon :name="$link['icon']" />
-                            <span class="quick-link-label">{{ $link['label'] }}</span>
-                            <small>{{ $link['about'] }}</small>
-                        </a>
-                    </div>
-                @endforeach
-            </div>
-        </section>
     </div>
 @endsection

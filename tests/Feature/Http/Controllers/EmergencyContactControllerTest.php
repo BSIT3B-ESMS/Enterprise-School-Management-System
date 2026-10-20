@@ -26,7 +26,7 @@ it('lets a new primary contact replace the old primary', function () {
     $employee = Employee::factory()->create();
     EmergencyContact::factory()->for($employee)->create(['name' => 'First', 'is_primary' => true]);
 
-    $this->actingAs(hrHead())->post(route('emergency-contacts.store', $employee), contactInput(['name' => 'Second', 'is_primary' => '1']));
+    $this->actingAs(hrAdmin())->post(route('emergency-contacts.store', $employee), contactInput(['name' => 'Second', 'is_primary' => '1']));
 
     expect($employee->emergencyContacts()->where('is_primary', true)->pluck('name')->all())->toBe(['Second']);
 });
@@ -35,7 +35,7 @@ it('keeps the existing primary when the new contact is not primary', function ()
     $employee = Employee::factory()->create();
     EmergencyContact::factory()->for($employee)->create(['name' => 'First', 'is_primary' => true]);
 
-    $this->actingAs(hrHead())->post(route('emergency-contacts.store', $employee), contactInput(['name' => 'Second']));
+    $this->actingAs(hrAdmin())->post(route('emergency-contacts.store', $employee), contactInput(['name' => 'Second']));
 
     expect($employee->emergencyContacts()->where('is_primary', true)->pluck('name')->all())->toBe(['First']);
 });
@@ -43,7 +43,7 @@ it('keeps the existing primary when the new contact is not primary', function ()
 it('rejects :scenario', function (array $override, string $field) {
     $employee = Employee::factory()->create();
 
-    $this->actingAs(hrHead())->post(route('emergency-contacts.store', $employee), contactInput($override))->assertSessionHasErrors($field);
+    $this->actingAs(hrAdmin())->post(route('emergency-contacts.store', $employee), contactInput($override))->assertSessionHasErrors($field);
 
     expect($employee->emergencyContacts()->count())->toBe(0);
 })->with([
@@ -67,7 +67,7 @@ it('will not remove another employee\'s contact', function () {
     $employee = Employee::factory()->create();
     $contact = EmergencyContact::factory()->create();
 
-    $this->actingAs(hrHead())->delete(route('emergency-contacts.destroy', [$employee, $contact]))->assertNotFound();
+    $this->actingAs(hrAdmin())->delete(route('emergency-contacts.destroy', [$employee, $contact]))->assertNotFound();
 
     expect(EmergencyContact::query()->count())->toBe(1);
 });

@@ -14,12 +14,11 @@ return new class extends Migration
         Schema::create('rate_tiers', function (Blueprint $table) {
             $table->id();
             $table->unsignedTinyInteger('salary_grade');
-            $table->unsignedTinyInteger('step');
             $table->decimal('monthly_amount', 12, 2);
             $table->date('effective_date');
             $table->timestamps();
 
-            $table->unique(['salary_grade', 'step', 'effective_date']);
+            $table->unique(['salary_grade', 'effective_date']);
         });
     }
 

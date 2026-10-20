@@ -4,11 +4,13 @@ namespace App\Actions\Employees;
 
 use App\Enums\AuditAction;
 use App\Enums\EmployeeStatus;
+use App\Enums\EmploymentType;
 use App\Models\Employee;
 use App\Models\JobTitle;
 use App\Models\User;
 use App\Services\AuditLogger;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class CreateEmployee
@@ -20,7 +22,7 @@ class CreateEmployee
      * come from the job title, and any government ID numbers (stored encrypted). The number is retried if two people are
      * added at the same moment.
      *
-     * @param  array<string, mixed>  $attributes  Personal fields plus employment_type, job_title_id, salary_step, and optional extra_college_id / extra_office_id.
+     * @param  array<string, mixed>  $attributes  Personal fields plus employment_type, job_title_id, hired_on, and optional extra_college_id / extra_office_id.
      * @param  array<string, string>  $governmentIds
      */
     public function handle(User $actor, array $attributes, array $governmentIds = []): Employee
@@ -50,8 +52,9 @@ class CreateEmployee
         $employee = new Employee;
         $employee->forceFill([
             ...$attributes,
+            'weekly_hours' => $attributes['weekly_hours'] ?? ($attributes['employment_type'] === EmploymentType::PartTime->value ? 20 : Employee::FULL_TIME_HOURS),
             ...Employee::unitsFor($title, $extraCollege, $extraOffice),
-            'employee_no' => Employee::nextEmployeeNo(),
+            'employee_no' => Employee::nextEmployeeNo(Carbon::parse($attributes['hired_on'])),
             'official_email' => Employee::officialEmailFor($attributes['last_name'], $attributes['first_name']),
             'status' => EmployeeStatus::Active,
         ]);

@@ -8,15 +8,15 @@ use App\Models\Employee;
 use App\Models\User;
 use App\Services\AuditLogger;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 class CreateStaffAccount
 {
     public function __construct(private AuditLogger $audit) {}
 
     /**
-     * Creates the login for an employee, signed in with their official email and a one-time temporary password.
-     * Returns the account and the temporary password; it is shown once and never stored in readable form.
+     * Creates the login for an employee: their official email, and their employee number as the first password. The
+     * account must change the password and finish the first-login setup (emergency contact, government and tax IDs)
+     * before anything else. Returns the account and the first password so HR can pass it on.
      *
      * @return array{0: User, 1: string}
      *
@@ -29,7 +29,7 @@ class CreateStaffAccount
         }
 
         return DB::transaction(function () use ($actor, $employee, $role): array {
-            $temporaryPassword = Str::password(16);
+            $temporaryPassword = $employee->employee_no;
 
             $user = new User(['name' => $employee->full_name, 'email' => $employee->official_email, 'password' => $temporaryPassword]);
             $user->forceFill([
@@ -37,7 +37,7 @@ class CreateStaffAccount
                 'role' => $role,
                 'is_active' => true,
                 'must_change_password' => true,
-                'temp_password_expires_at' => now()->addHours((int) config('ems.temporary_password_hours')),
+                'onboarding_completed_at' => null,
             ])->save();
 
             $this->audit->log(AuditAction::Create, $user, ['role' => $role->value, 'email' => $user->email], $actor);

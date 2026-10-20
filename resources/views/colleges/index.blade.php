@@ -2,7 +2,7 @@
 
 @section('title', 'Colleges · '.config('app.name'))
 
-{{-- The academic colleges, their programs, and their deans. Everyone in HR reads this page; only the HR Head adds or edits. --}}
+{{-- The academic colleges, their programs, and their deans. Everyone in HR reads this page; only the HR Admin adds or edits. --}}
 @section('content')
     <div class="d-grid gap-4" data-page="colleges">
         <div>

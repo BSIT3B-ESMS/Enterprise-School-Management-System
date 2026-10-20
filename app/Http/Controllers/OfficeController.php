@@ -11,7 +11,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Non-teaching offices. Everyone in HR can read them; only the HR Head changes them.
+ * Non-teaching offices. Everyone in HR can read them; only the HR Admin changes them.
  */
 class OfficeController extends Controller
 {
@@ -34,7 +34,7 @@ class OfficeController extends Controller
 
     public function edit(Office $office): View
     {
-        abort_unless(auth()->user()->isHrHead(), 403);
+        abort_unless(auth()->user()->isHrAdmin(), 403);
 
         return view('units.edit', [
             'unit' => $office,

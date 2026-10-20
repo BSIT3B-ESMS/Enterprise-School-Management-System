@@ -15,7 +15,7 @@ class StoreEmployeeRequest extends EmployeeRequest
     }
 
     /**
-     * A new employee is given a job title (which sets the college or office), an employment type, and a salary step.
+     * A new employee is given a job title (which sets the college or office), an employment type, and a hire date (which sets the year in the employee number).
      * A person can also belong to the other side: a college teacher based in an office, or office staff who teach.
      *
      * @return array<string, mixed>
@@ -28,7 +28,7 @@ class StoreEmployeeRequest extends EmployeeRequest
             'job_title_id' => ['required', 'integer', Rule::exists('job_titles', 'id')->where('is_active', true)],
             'extra_college_id' => ['nullable', 'integer', 'exists:colleges,id'],
             'extra_office_id' => ['nullable', 'integer', 'exists:offices,id'],
-            'salary_step' => ['required', 'integer', 'between:1,8'],
+            'hired_on' => ['required', 'date', 'before_or_equal:today'],
         ];
     }
 

@@ -1,27 +1,49 @@
 <?php
 
 use App\Http\Controllers\AccountController;
+use App\Http\Controllers\Applicant\ApplicationController as ApplicantApplicationController;
+use App\Http\Controllers\Applicant\CalendarController as ApplicantCalendarController;
+use App\Http\Controllers\Applicant\DashboardController as ApplicantDashboardController;
+use App\Http\Controllers\Applicant\ProfileController as ApplicantProfileController;
+use App\Http\Controllers\Applicant\RegisterController as ApplicantRegisterController;
+use App\Http\Controllers\AuditLogController;
+use App\Http\Controllers\CalendarController;
+use App\Http\Controllers\CalendarEventController;
 use App\Http\Controllers\CollegeController;
+use App\Http\Controllers\ContractController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\EmergencyContactController;
 use App\Http\Controllers\EmployeeAssignmentController;
 use App\Http\Controllers\EmployeeController;
+use App\Http\Controllers\EmployeeDocumentController;
+use App\Http\Controllers\EmployeeLeaveController;
+use App\Http\Controllers\EmployeeOfferController;
+use App\Http\Controllers\EmployeePortalController;
 use App\Http\Controllers\EmployeeReportController;
 use App\Http\Controllers\EmployeeStatusController;
 use App\Http\Controllers\ExportLogController;
 use App\Http\Controllers\GovernmentIdController;
+use App\Http\Controllers\InterviewController;
+use App\Http\Controllers\JobPositionController;
 use App\Http\Controllers\JobTitleController;
+use App\Http\Controllers\LeaveRequestController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OfficeController;
+use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\PasswordChangeController;
+use App\Http\Controllers\PositionController;
 use App\Http\Controllers\RateTierController;
+use App\Http\Controllers\RecruitmentActionController;
+use App\Http\Controllers\RecruitmentController;
 use App\Http\Controllers\TwoFactorSetupController;
 use Illuminate\Support\Facades\Route;
 
-// The EMS opens on PLP Careers, the public careers website; HR and employees sign in at /login as before.
-Route::get('/', fn () => redirect()->route('careers.index'))->name('home');
+// The EMS opens on the sign-in page; PLP Careers, the public careers website, is linked from it.
+Route::get('/', fn () => redirect()->route('login'))->name('home');
 
 // The sign-in page, sign-out, two-factor challenge, and password confirmation are Laravel Fortify routes
-// (app/Providers/FortifyServiceProvider.php). Staff sign in there; applicants still use the mock sign-in in
-// resources/js/login.js until the Recruitment phase gives them real accounts.
+// (app/Providers/FortifyServiceProvider.php). HR, employees, and applicants all sign in there.
 
 // Pages for any signed-in staff account, before the temporary-password and two-factor checks: choosing a password and
 // setting up the authenticator app must stay reachable.
@@ -30,32 +52,37 @@ Route::middleware('account')->group(function () {
 
     Route::put('/account/password', [PasswordChangeController::class, 'update'])->name('password.change.update');
 
+    Route::get('/account/setup', [OnboardingController::class, 'show'])->name('onboarding.show')->middleware('password.fresh');
+    Route::post('/account/setup', [OnboardingController::class, 'store'])->name('onboarding.store')->middleware('password.fresh');
+
     Route::get('/account/two-factor', [TwoFactorSetupController::class, 'show'])->name('two-factor.setup');
 });
 
-// HR pages (HR Head and HR Staff). These still read the browser's mock data until each page moves to the backend.
-Route::middleware(['staff', 'role:hr_head,hr_staff'])->group(function () {
-    Route::view('/dashboard', 'dashboard')->name('dashboard');
+// HR pages (HR Admin and HR Staff), all from the database.
+Route::middleware(['staff', 'role:hr_admin,hr_staff'])->group(function () {
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     // Employees come from the database. Everyone in HR reads, adds, and edits them; the actions that change an
-    // assignment, archive a record, or reveal a government ID are limited to the HR Head by EmployeePolicy.
+    // assignment, archive a record, or reveal a government ID are limited to the HR Admin by EmployeePolicy.
     Route::get('/employees', [EmployeeController::class, 'index'])->name('employees.index');
     Route::get('/employees/create', [EmployeeController::class, 'create'])->name('employees.create');
     Route::post('/employees', [EmployeeController::class, 'store'])->name('employees.store');
 
-    Route::prefix('/employees/{employee}')->where(['employee' => 'EMP-[0-9]+'])->group(function () {
+    Route::prefix('/employees/{employee}')->where(['employee' => '[0-9]{2}-[0-9]{5}'])->group(function () {
         Route::get('/', [EmployeeController::class, 'show'])->name('employees.show');
         Route::get('/edit', [EmployeeController::class, 'edit'])->name('employees.edit');
         Route::put('/', [EmployeeController::class, 'update'])->name('employees.update');
         Route::post('/transfer', [EmployeeAssignmentController::class, 'transfer'])->name('employees.transfer');
-        Route::put('/step', [EmployeeAssignmentController::class, 'step'])->name('employees.step');
+        Route::post('/renew', [EmployeeAssignmentController::class, 'renew'])->name('employees.renew');
+        Route::post('/documents', [EmployeeDocumentController::class, 'store'])->name('employees.documents.store');
+        Route::post('/offers/{offer}/withdraw', [EmployeeAssignmentController::class, 'withdraw'])->name('employees.offers.withdraw');
         Route::put('/status', [EmployeeStatusController::class, 'update'])->name('employees.status');
         Route::post('/emergency-contacts', [EmergencyContactController::class, 'store'])->name('emergency-contacts.store');
         Route::delete('/emergency-contacts/{contact}', [EmergencyContactController::class, 'destroy'])->name('emergency-contacts.destroy');
         Route::post('/government-ids/{type}/reveal', [GovernmentIdController::class, 'reveal'])->name('government-ids.reveal');
     });
 
-    // Colleges, offices, job titles, and pay rates: everyone in HR reads them; the HR Head changes them (the
+    // Colleges, offices, job titles, and pay rates: everyone in HR reads them; the HR Admin changes them (the
     // controllers and form requests check the manage-reference-data gate).
     Route::get('/colleges', [CollegeController::class, 'index'])->name('colleges.index');
     Route::post('/colleges', [CollegeController::class, 'store'])->name('colleges.store');
@@ -76,25 +103,56 @@ Route::middleware(['staff', 'role:hr_head,hr_staff'])->group(function () {
     Route::get('/rates', [RateTierController::class, 'index'])->name('rates.index');
     Route::post('/rates', [RateTierController::class, 'store'])->name('rates.store');
 
-    Route::view('/recruitment', 'recruitment.index')->name('recruitment.index');
+    // Recruitment: the pipeline, one application at a time (documents, schedule, offer), and the demo-interview actions. Offers and
+    // hiring are limited to the HR Admin inside the actions.
+    Route::get('/recruitment', [RecruitmentController::class, 'index'])->name('recruitment.index');
+    Route::prefix('recruitment')->name('recruitment.')->group(function () {
+        Route::get('/applications/{application}', [RecruitmentController::class, 'show'])->whereNumber('application')->name('show');
+        Route::post('/applications/{application}/interviews', [InterviewController::class, 'store'])->name('interviews.store');
+        Route::post('/applications/{application}/reject', [RecruitmentActionController::class, 'reject'])->name('reject');
+        Route::post('/applications/{application}/offers', [RecruitmentActionController::class, 'issueOffer'])->name('offers.store');
+        Route::put('/applications/{application}/offers/{offer}', [RecruitmentActionController::class, 'updateOffer'])->name('offers.update');
+        Route::post('/applications/{application}/hire', [RecruitmentActionController::class, 'hire'])->name('hire');
+        Route::patch('/interviews/{interview}', [InterviewController::class, 'reschedule'])->name('interviews.reschedule');
+        Route::patch('/interviews/{interview}/interviewer', [InterviewController::class, 'changeInterviewer'])->name('interviews.interviewer');
+        Route::post('/interviews/{interview}/cancel', [InterviewController::class, 'cancel'])->name('interviews.cancel');
+        Route::post('/interviews/{interview}/complete', [InterviewController::class, 'complete'])->name('interviews.complete');
+    });
 
-    // HR manages the job postings here (add, view, edit, open, close, remove); the open ones are the positions on the
-    // public Careers website, because both read the same job title records (resources/js/job-positions.js).
-    Route::view('/job-positions', 'job-positions.index')->name('job-positions.index');
+    // The job postings: job titles HR has opened. Everyone in HR reads them; the HR Admin opens, edits, and closes them.
+    Route::get('/job-positions', [JobPositionController::class, 'index'])->name('job-positions.index');
+    Route::get('/job-positions/open', [JobPositionController::class, 'open'])->name('job-positions.open');
+    Route::get('/job-positions/{jobTitle}/edit', [JobPositionController::class, 'edit'])->name('job-positions.edit');
+    Route::put('/job-positions/{jobTitle}', [JobPositionController::class, 'update'])->name('job-positions.update');
+    Route::post('/job-positions/{jobTitle}/close', [JobPositionController::class, 'close'])->name('job-positions.close');
 
-    Route::view('/calendar', 'calendar.index')->name('calendar.index');
+    // The calendar of interviews, HR events, and approved leave; interviews are moved through the recruitment routes.
+    Route::get('/calendar', [CalendarController::class, 'index'])->name('calendar.index');
+    Route::post('/calendar/events', [CalendarEventController::class, 'store'])->name('calendar.events.store');
+    Route::put('/calendar/events/{event}', [CalendarEventController::class, 'update'])->name('calendar.events.update');
+    Route::patch('/calendar/events/{event}/move', [CalendarEventController::class, 'move'])->name('calendar.events.move');
+    Route::post('/calendar/events/{event}/cancel', [CalendarEventController::class, 'cancel'])->name('calendar.events.cancel');
 
-    // The signed-in HR user's own profile, filled in by resources/js/hr-profile.js.
+    // Leave requests come from the database. HR Admin and HR Staff see them; only an HR Admin approves or rejects (never their own); a decision is final.
+    Route::get('/leave-requests', [LeaveRequestController::class, 'index'])->name('leave.index');
+    Route::post('/leave-requests/{leaveRequest}/approve', [LeaveRequestController::class, 'approve'])->name('leave.approve');
+    Route::post('/leave-requests/{leaveRequest}/reject', [LeaveRequestController::class, 'reject'])->name('leave.reject');
+
+    // HR Staff and HR Admin file their own leave here; only an HR Admin (never themselves) decides it.
+    Route::get('/my-leave', [EmployeeLeaveController::class, 'index'])->name('my-leave');
+    Route::post('/my-leave', [EmployeeLeaveController::class, 'store'])->name('my-leave.store');
+    Route::post('/my-leave/{leaveRequest}/cancel', [EmployeeLeaveController::class, 'cancel'])->name('my-leave.cancel');
+
+    // The signed-in HR user's own profile.
     Route::view('/profile', 'profile.show')->name('profile.show');
 
-    // The HR user's Account Settings (appearance and notification preferences), separate from My Profile and its
-    // Security section; filled in by resources/js/account-settings.js.
+    // The HR user's Account Settings.
     Route::view('/account-settings', 'account.settings')->name('account.settings');
 });
 
-// HR Head only: reports and exports, the archive (where records are deleted for good), the audit ledger, and account
+// HR Admin only: reports and exports, the archive (where records are deleted for good), the audit ledger, and account
 // administration. HR Staff cannot reach these.
-Route::middleware(['staff', 'role:hr_head'])->group(function () {
+Route::middleware(['staff', 'role:hr_admin'])->group(function () {
     // Starts from the Employees list's tab, search, filters, and sort, carried in the query string.
     Route::get('/employees/report', [EmployeeReportController::class, 'show'])->name('employees.report');
 
@@ -105,16 +163,13 @@ Route::middleware(['staff', 'role:hr_head'])->group(function () {
     // restored from here.
     Route::get('/employees/archived', [EmployeeStatusController::class, 'index'])->name('employees.archived');
 
-    // Starts from the Recruitment page's status, department, and application date filters, carried in the query string
-    // (see resources/js/recruitment-report.js).
-    Route::view('/recruitment/report', 'recruitment.report')->name('recruitment.report');
+    // Recruitment and audit reports, as CSV files with the page's filters; each download is logged.
+    Route::get('/recruitment/report', [RecruitmentController::class, 'report'])->name('recruitment.report');
+    Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('audit.index');
+    Route::get('/audit-logs/report', [AuditLogController::class, 'report'])->name('audit.report');
 
-    Route::view('/audit-logs', 'audit.index')->name('audit.index');
-
-    // Starts from the Audit Logs page's action, record type, and date filters, carried in the query string
-    // (see resources/js/audit-report.js).
-    Route::view('/audit-logs/report', 'audit.report')->name('audit.report');
-
+    // Contracts that are ending: send a new contract offer or terminate.
+    Route::get('/contracts', [ContractController::class, 'index'])->name('contracts.index');
     Route::prefix('accounts')->name('accounts.')->controller(AccountController::class)->group(function () {
         Route::get('/', 'index')->name('index');
         Route::post('/', 'store')->name('store');
@@ -125,66 +180,80 @@ Route::middleware(['staff', 'role:hr_head'])->group(function () {
     });
 });
 
-// The public Careers website: open positions, job details, benefits, and contact details anyone can browse without an
-// account, filled in by resources/js/applicant-positions.js from the job titles HR manages. Create Account and Apply
-// Now ask for the Terms and Conditions first.
-Route::view('/careers', 'careers.index')->name('careers.index');
-
-Route::view('/careers/{position}', 'careers.show')
-    ->where('position', 't[0-9]+')
-    ->name('careers.show');
-
-// The Applicant interface. Create Account (resources/js/applicant-auth.js) adds a mock account to the shared mock data
-// after the Terms and Conditions are accepted and signs it in for the browser tab's session only
-// (resources/js/applicant-session.js). Signing in again goes through the shared Login page. The other pages are filled
-// in from the mock data for the signed-in account and send anyone who is not signed in to Login
-// (resources/js/applicant-portal.js).
-Route::redirect('/applicant', '/applicant/dashboard');
-
-Route::prefix('applicant')->name('applicant.')->group(function () {
-    // The public Applicant Portal Apply leads to: Create Account (after the Terms and Conditions) or Login, with the
-    // chosen position kept in ?position=.
-    Route::view('/portal', 'applicant.portal')->name('portal');
-
-    Route::view('/register', 'applicant.register')->name('register');
-
-    Route::view('/dashboard', 'applicant.dashboard')->name('dashboard');
-
-    Route::view('/profile', 'applicant.profile')->name('profile');
-
-    Route::view('/calendar', 'applicant.calendar')->name('calendar');
-
-    Route::view('/positions', 'applicant.positions')->name('positions');
-
-    Route::view('/positions/{position}', 'applicant.position')
-        ->where('position', 't[0-9]+')
-        ->name('positions.show');
-
-    Route::view('/apply', 'applicant.apply')->name('apply');
-
-    Route::view('/applications', 'applicant.applications')->name('applications');
-
-    Route::view('/applications/{application}', 'applicant.application')
-        ->where('application', 'c[0-9]+')
-        ->name('applications.show');
+// In-app notifications for every signed-in role.
+Route::middleware('staff')->prefix('notifications')->name('notifications.')->controller(NotificationController::class)->group(function () {
+    Route::get('/', 'index')->name('index');
+    Route::post('/read-all', 'readAll')->name('read-all');
+    Route::post('/{notification}/open', 'open')->name('open');
 });
 
-// The Employee interface: a separate dashboard and sidebar from the HR pages above, filled in from the
-// mock data by resources/js/employee-shell.js and employee-dashboard.js. Only the Employee role reaches it.
+// The public Careers website: open positions and job details anyone can browse without an account, from the database.
+Route::get('/careers', [PositionController::class, 'index'])->name('careers.index');
+Route::get('/careers/{position}', [PositionController::class, 'show'])->where('position', '[0-9]+')->name('careers.show');
+
+// Creating an applicant account (guests only) and the old portal address.
+Route::redirect('/applicant', '/applicant/dashboard');
+
+Route::middleware('guest')->prefix('applicant')->name('applicant.')->group(function () {
+    Route::get('/register', [ApplicantRegisterController::class, 'show'])->name('register');
+    Route::post('/register', [ApplicantRegisterController::class, 'store'])->name('register.store');
+    Route::redirect('/portal', '/applicant/register')->name('portal');
+});
+
+// The Applicant interface, for a signed-in applicant: profile (personal and contact information, once), open positions, the
+// application form (resume and portfolio per application), applications with the demo interview and the offer, and a calendar.
+Route::middleware(['staff', 'role:applicant'])->prefix('applicant')->name('applicant.')->group(function () {
+    Route::get('/dashboard', [ApplicantDashboardController::class, 'index'])->name('dashboard');
+
+    Route::get('/profile', [ApplicantProfileController::class, 'show'])->name('profile');
+    Route::put('/profile', [ApplicantProfileController::class, 'update'])->name('profile.update');
+
+    Route::get('/calendar', [ApplicantCalendarController::class, 'index'])->name('calendar');
+
+    Route::get('/positions', [PositionController::class, 'index'])->name('positions');
+    Route::get('/positions/{position}', [PositionController::class, 'show'])->where('position', '[0-9]+')->name('positions.show');
+
+    Route::get('/apply', [ApplicantApplicationController::class, 'create'])->name('apply');
+    Route::post('/applications', [ApplicantApplicationController::class, 'store'])->name('applications.store');
+    Route::get('/applications', [ApplicantApplicationController::class, 'index'])->name('applications');
+    Route::get('/applications/{application}', [ApplicantApplicationController::class, 'show'])->whereNumber('application')->name('applications.show');
+    Route::post('/applications/{application}/cancel', [ApplicantApplicationController::class, 'cancel'])->name('applications.cancel');
+    Route::post('/applications/{application}/interviews/{interview}/reschedule', [ApplicantApplicationController::class, 'requestReschedule'])->name('interviews.reschedule');
+    Route::post('/applications/{application}/offers/{offer}/accept', [ApplicantApplicationController::class, 'acceptOffer'])->name('offers.accept');
+    Route::post('/applications/{application}/offers/{offer}/decline', [ApplicantApplicationController::class, 'declineOffer'])->name('offers.decline');
+});
+
+// Uploaded documents (resumes, portfolios, employee files), opened by the people allowed to see them.
+Route::middleware('staff')->get('/documents/{uuid}', [DocumentController::class, 'show'])->name('documents.show');
+// The Employee interface: a separate dashboard and sidebar from the HR pages above, from the database. Only the Employee role reaches it.
 Route::middleware(['staff', 'role:employee'])->group(function () {
     Route::redirect('/employee', '/employee/dashboard');
 
     Route::prefix('employee')->name('employee.')->group(function () {
-        Route::view('/dashboard', 'employee.dashboard')->name('dashboard');
+        Route::get('/dashboard', [EmployeePortalController::class, 'dashboard'])->name('dashboard');
 
-        Route::view('/profile', 'employee.profile')->name('profile');
+        Route::get('/profile', [EmployeePortalController::class, 'profile'])->name('profile');
+        Route::put('/profile', [EmployeePortalController::class, 'updateProfile'])->name('profile.update');
+        Route::post('/emergency-contacts', [EmployeePortalController::class, 'storeEmergencyContact'])->name('emergency-contacts.store');
+        Route::delete('/emergency-contacts/{contact}', [EmployeePortalController::class, 'destroyEmergencyContact'])->name('emergency-contacts.destroy');
 
-        Route::view('/files', 'employee.files')->name('files');
+        Route::get('/files', [EmployeePortalController::class, 'files'])->name('files');
+        Route::post('/files', [EmployeePortalController::class, 'storeFile'])->name('files.store');
 
-        Route::view('/benefits', 'employee.benefits')->name('benefits');
+        Route::get('/benefits', [EmployeePortalController::class, 'benefits'])->name('benefits');
 
-        Route::view('/directory', 'employee.directory')->name('directory');
+        Route::get('/directory', [EmployeePortalController::class, 'directory'])->name('directory');
 
-        Route::view('/calendar', 'employee.calendar')->name('calendar');
+        Route::get('/calendar', [EmployeePortalController::class, 'calendar'])->name('calendar');
+
+        // Contract offers and changes of assignment the employee accepts (signs) or declines.
+        Route::get('/offers', [EmployeeOfferController::class, 'index'])->name('offers');
+        Route::get('/offers/{offer}', [EmployeeOfferController::class, 'show'])->name('offers.show');
+        Route::post('/offers/{offer}/accept', [EmployeeOfferController::class, 'accept'])->name('offers.accept');
+        Route::post('/offers/{offer}/decline', [EmployeeOfferController::class, 'decline'])->name('offers.decline');
+        // The employee's own leave, from the database: credits, requests, filing, and cancelling a pending request.
+        Route::get('/leave', [EmployeeLeaveController::class, 'index'])->name('leave');
+        Route::post('/leave', [EmployeeLeaveController::class, 'store'])->name('leave.store');
+        Route::post('/leave/{leaveRequest}/cancel', [EmployeeLeaveController::class, 'cancel'])->name('leave.cancel');
     });
 });

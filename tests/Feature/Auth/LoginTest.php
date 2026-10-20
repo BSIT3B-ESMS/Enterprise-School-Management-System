@@ -18,7 +18,7 @@ it('signs a staff member in and sends each role to its own home', function (Role
 
     $this->assertAuthenticatedAs($user);
 })->with([
-    'hr head' => [Role::HrHead, 'dashboard'],
+    'hr admin' => [Role::HrAdmin, 'dashboard'],
     'hr staff' => [Role::HrStaff, 'dashboard'],
     'employee' => [Role::Employee, 'employee.dashboard'],
 ]);

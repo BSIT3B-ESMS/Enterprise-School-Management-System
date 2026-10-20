@@ -21,7 +21,7 @@ class LeavePolicySeeder extends Seeder
      *
      * The statutes give the same credits at every rank, so these are general rows (no job title). To give a title more
      * (for example by a PLP ordinance), add a row with its job_title_id; it overrides the general row. Part-time
-     * faculty are paid by the hour and earn no leave credits. VERIFY against PLP's own personnel policy.
+     * staff earn only vacation and sick leave, scaled by weekly hours (20 hours a week earns 7.5 days a year of each). VERIFY against PLP's own personnel policy.
      *
      * @var array<string, float>
      */
@@ -39,6 +39,14 @@ class LeavePolicySeeder extends Seeder
 
     public function run(): void
     {
+        // Part-time staff earn vacation and sick leave in proportion to their weekly hours (see Employee::leaveCreditShare()).
+        foreach (['vacation', 'sick'] as $leaveType) {
+            LeavePolicy::query()->updateOrCreate(
+                ['leave_type' => LeaveType::from($leaveType), 'employment_type' => EmploymentType::PartTime, 'job_title_id' => null],
+                ['days_per_year' => 15, 'is_active' => true],
+            );
+        }
+
         foreach (self::FULL_TIME_DAYS as $leaveType => $days) {
             LeavePolicy::query()->updateOrCreate(
                 ['leave_type' => LeaveType::from($leaveType), 'employment_type' => EmploymentType::FullTime, 'job_title_id' => null],

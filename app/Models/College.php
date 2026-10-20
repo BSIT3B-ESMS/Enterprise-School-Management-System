@@ -31,6 +31,14 @@ class College extends Model
     }
 
     /**
+     * @return HasMany<Employee, $this>
+     */
+    public function employees(): HasMany
+    {
+        return $this->hasMany(Employee::class);
+    }
+
+    /**
      * @return HasMany<JobTitle, $this>
      */
     public function jobTitles(): HasMany
@@ -44,13 +52,5 @@ class College extends Model
     public function deans(): HasMany
     {
         return $this->hasMany(CollegeDean::class);
-    }
-
-    /**
-     * @return HasMany<Employee, $this>
-     */
-    public function employees(): HasMany
-    {
-        return $this->hasMany(Employee::class);
     }
 }

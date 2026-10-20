@@ -7,7 +7,7 @@ use App\Models\Employee;
 use App\Models\JobTitle;
 use App\Models\RateTier;
 
-beforeEach(fn () => $this->actingAs(hrHead()));
+beforeEach(fn () => $this->actingAs(hrAdmin()));
 
 function reportRows($response): array
 {
@@ -73,11 +73,9 @@ describe('the rows', function () {
         expect(collect($rows)->pluck('name')->implode(' '))->toContain('Inside')->not->toContain('Outside')->not->toContain('Archived');
     });
 
-    it('carry the base pay from the pay band and step, and only the last four digits of government IDs', function () {
-        foreach (range(1, 8) as $step) {
-            RateTier::factory()->create(['salary_grade' => 12, 'step' => $step, 'monthly_amount' => 30000 + $step * 100, 'effective_date' => '2020-01-01']);
-        }
-        $employee = Employee::factory()->create(['salary_step' => 3]);
+    it('carry the base pay from the salary grade (Step 1), and only the last four digits of government IDs', function () {
+        RateTier::factory()->create(['salary_grade' => 12, 'monthly_amount' => 30300, 'effective_date' => '2020-01-01']);
+        $employee = Employee::factory()->create();
         $employee->forceFill(['government_ids' => null, 'government_id_hints' => null]);
         $employee->setGovernmentIds(['tin' => '123-456-789-000']);
         $employee->save();
@@ -103,7 +101,7 @@ describe('the rows', function () {
 
 describe('logging an export', function () {
     it('writes the report, format, count, and fields to the audit log', function () {
-        $head = hrHead();
+        $head = hrAdmin();
 
         $this->actingAs($head)->postJson(route('exports.store'), ['report' => 'employees', 'format' => 'csv', 'count' => 12, 'fields' => ['id', 'name']])
             ->assertNoContent();

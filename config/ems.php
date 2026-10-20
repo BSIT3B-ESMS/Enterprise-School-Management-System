@@ -7,7 +7,7 @@ return [
     | Multi-factor authentication
     |--------------------------------------------------------------------------
     |
-    | When true, HR Head and HR Staff must enroll an authenticator app (TOTP)
+    | When true, HR Admin and HR Staff must enroll an authenticator app (TOTP)
     | before they can use any other page. Employees may enroll but are not
     | forced to. It is paused for now (email and password only); the SDD
     | requires it to be turned on before production.
@@ -53,14 +53,33 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Minimum active HR Heads
+    | Minimum active HR Admins
     |--------------------------------------------------------------------------
     |
-    | HR Head accounts cannot be deactivated or demoted if that would leave
-    | fewer than this many active HR Heads, so the system is never locked out.
+    | HR Admin accounts cannot be deactivated or demoted if that would leave
+    | fewer than this many active HR Admins, so the system is never locked out.
     |
     */
 
-    'minimum_hr_heads' => 2,
+    'minimum_hr_admins' => 2,
+
+    /*
+    |--------------------------------------------------------------------------
+    | Academic calendar
+    |--------------------------------------------------------------------------
+    |
+    | PLP has two semesters a year, August to March. Each boundary is a month and day (MM-DD); the 2nd semester
+    | ends in the following calendar year. Part-time contracts end with a semester or with the academic year.
+    |
+    */
+
+    'working_hours' => ['start' => '08:00', 'end' => '17:00'],
+
+    'never_email_domains' => ['plpasig.edu.ph'],
+
+    'academic_calendar' => [
+        'first_semester' => ['start' => '08-01', 'end' => '11-07'],
+        'second_semester' => ['start' => '12-01', 'end' => '03-31'],
+    ],
 
 ];

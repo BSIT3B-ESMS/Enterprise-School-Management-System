@@ -4,7 +4,7 @@ use App\Enums\Role;
 use App\Models\User;
 
 it('signs out an HR user who was idle more than 15 minutes', function () {
-    $user = User::factory()->hrHead()->create();
+    $user = User::factory()->hrAdmin()->create();
 
     $this->actingAs($user)
         ->withSession(['last_activity_at' => now()->subMinutes(16)->timestamp])
@@ -16,7 +16,7 @@ it('signs out an HR user who was idle more than 15 minutes', function () {
 });
 
 it('keeps an HR user signed in at 14 minutes idle', function () {
-    $this->actingAs(hrHead())
+    $this->actingAs(hrAdmin())
         ->withSession(['last_activity_at' => now()->subMinutes(14)->timestamp])
         ->get(route('dashboard'))
         ->assertOk();
@@ -37,7 +37,7 @@ it('gives other staff 30 minutes before signing them out', function () {
 });
 
 it('signs out an account that was deactivated, on its next request', function () {
-    $user = hrHead();
+    $user = hrAdmin();
     $user->forceFill(['is_active' => false])->save();
 
     $this->actingAs($user)->get(route('dashboard'))
@@ -48,7 +48,7 @@ it('signs out an account that was deactivated, on its next request', function ()
 });
 
 it('signs out a session whose password hash no longer matches, as after a password change elsewhere', function () {
-    $this->actingAs(hrHead())
+    $this->actingAs(hrAdmin())
         ->withSession(['password_hash_web' => 'a-stale-hash-from-before-the-change'])
         ->get(route('dashboard'))
         ->assertRedirect(route('login'));
@@ -57,7 +57,7 @@ it('signs out a session whose password hash no longer matches, as after a passwo
 });
 
 it('sends a user with a temporary password to the change-password page from every staff page', function (string $route) {
-    $user = User::factory()->state(['role' => Role::HrHead, 'must_change_password' => true])->create();
+    $user = User::factory()->state(['role' => Role::HrAdmin, 'must_change_password' => true])->create();
 
     $this->actingAs($user)->get(route($route))->assertRedirect(route('password.change'));
 })->with(['dashboard', 'employees.index', 'accounts.index']);
@@ -67,5 +67,5 @@ it('keeps the change-password page itself reachable with a temporary password', 
 
     $this->actingAs($user)->get(route('password.change'))
         ->assertOk()
-        ->assertSee('You signed in with a temporary password');
+        ->assertSee('Your first password is your employee ID');
 });

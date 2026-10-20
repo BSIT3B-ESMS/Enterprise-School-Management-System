@@ -14,8 +14,8 @@ function employeeWithTin(): Employee
     return $employee;
 }
 
-it('shows the full number once to the HR Head who gives a reason, and audits the reveal', function () {
-    $head = hrHead();
+it('shows the full number once to the HR Admin who gives a reason, and audits the reveal', function () {
+    $head = hrAdmin();
     $employee = employeeWithTin();
 
     $this->actingAs($head)->post(route('government-ids.reveal', [$employee, 'tin']), ['reason' => 'government_filing'])
@@ -33,7 +33,7 @@ it('shows the full number once to the HR Head who gives a reason, and audits the
 it('shows the revealed number on the next page only', function () {
     $employee = employeeWithTin();
 
-    $this->actingAs(hrHead())->post(route('government-ids.reveal', [$employee, 'tin']), ['reason' => 'verification']);
+    $this->actingAs(hrAdmin())->post(route('government-ids.reveal', [$employee, 'tin']), ['reason' => 'verification']);
 
     $this->get(route('employees.show', $employee))->assertSee('123-456-789-000');
     $this->get(route('employees.show', $employee))->assertDontSee('123-456-789-000');
@@ -42,7 +42,7 @@ it('shows the revealed number on the next page only', function () {
 it('needs one of the listed reasons', function (?string $reason) {
     $employee = employeeWithTin();
 
-    $this->actingAs(hrHead())->post(route('government-ids.reveal', [$employee, 'tin']), ['reason' => $reason])->assertSessionHasErrors('reason');
+    $this->actingAs(hrAdmin())->post(route('government-ids.reveal', [$employee, 'tin']), ['reason' => $reason])->assertSessionHasErrors('reason');
 
     expect(AuditLog::query()->where('action', AuditAction::Reveal)->count())->toBe(0);
 })->with(['no reason' => null, 'a reason that is not listed' => 'curiosity']);
@@ -50,13 +50,13 @@ it('needs one of the listed reasons', function (?string $reason) {
 it('refuses an ID that is not on file, and logs nothing', function () {
     $employee = employeeWithTin();
 
-    $this->actingAs(hrHead())->post(route('government-ids.reveal', [$employee, 'sss']), ['reason' => 'verification'])->assertSessionHas('error');
+    $this->actingAs(hrAdmin())->post(route('government-ids.reveal', [$employee, 'sss']), ['reason' => 'verification'])->assertSessionHas('error');
 
     expect(AuditLog::query()->where('action', AuditAction::Reveal)->count())->toBe(0);
 });
 
 it('is not found for an ID type that does not exist', function () {
-    $this->actingAs(hrHead())->post(route('government-ids.reveal', [employeeWithTin(), 'passport']), ['reason' => 'verification'])->assertNotFound();
+    $this->actingAs(hrAdmin())->post(route('government-ids.reveal', [employeeWithTin(), 'passport']), ['reason' => 'verification'])->assertNotFound();
 });
 
 it('is forbidden to HR Staff, who never see the full number', function () {

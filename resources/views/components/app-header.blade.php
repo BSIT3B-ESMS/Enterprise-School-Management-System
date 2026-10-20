@@ -1,4 +1,3 @@
-{{-- User and notification content is filled in by resources/js/app-shell.js. --}}
 <header class="app-header">
     <div class="d-flex align-items-center gap-2 gap-lg-3 min-w-0">
         <button type="button" class="app-icon-btn" aria-label="Toggle navigation" aria-controls="app-sidebar"
@@ -20,31 +19,7 @@
             <span class="visually-hidden theme-when-light">Switch to dark mode</span>
         </button>
 
-        <div class="dropdown">
-            <button type="button" class="app-icon-btn" data-bs-toggle="dropdown" aria-expanded="false"
-                aria-label="Notifications">
-                <x-icon name="bell" />
-                <span class="app-notification-dot d-none" data-notification-dot></span>
-            </button>
-
-            <div class="dropdown-menu dropdown-menu-end app-menu app-menu-wide">
-                <div class="app-menu-header">Notifications</div>
-
-                <a class="dropdown-item d-flex align-items-center gap-2 py-2 border-bottom d-none"
-                    href="{{ route('recruitment.index', ['status' => 'Applied']) }}" data-pending-candidates>
-                    <span class="badge rounded-pill text-bg-warning" data-pending-count></span>
-                    <span data-pending-label></span>
-                </a>
-
-                <div data-notifications></div>
-
-                @if (auth()->user()->isHrHead())
-                    <a class="dropdown-item link-primary border-top py-2" href="{{ route('audit.index') }}">
-                        View all activity
-                    </a>
-                @endif
-            </div>
-        </div>
+        <x-notification-bell />
 
         <div class="dropdown">
             <button type="button" class="app-user" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false">

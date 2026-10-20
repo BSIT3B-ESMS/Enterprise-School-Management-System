@@ -22,10 +22,12 @@ it('gives full-time staff the statutory credits whatever their job title', funct
         ->and(LeavePolicy::daysFor($professor, LeaveType::Emergency))->toBe(5.0);
 });
 
-it('gives part-time staff no leave credits', function () {
+it('gives part-time staff only vacation and sick leave', function () {
     $partTimer = Employee::factory()->partTime()->create();
 
-    expect(LeavePolicy::daysFor($partTimer, LeaveType::Vacation))->toBeNull();
+    expect(LeavePolicy::daysFor($partTimer, LeaveType::Vacation))->toBe(15.0)
+        ->and(LeavePolicy::daysFor($partTimer, LeaveType::Sick))->toBe(15.0)
+        ->and(LeavePolicy::daysFor($partTimer, LeaveType::SpecialPrivilege))->toBeNull();
 });
 
 it('makes sex-specific leave available only to those the law covers', function (Sex $sex, MaritalStatus $status, LeaveType $type, ?float $expected) {

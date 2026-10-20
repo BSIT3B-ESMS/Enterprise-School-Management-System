@@ -3,8 +3,8 @@
 @section('title', 'Pay Rates · '.config('app.name'))
 
 {{--
-    Reference base pay by pay band and step, as in force today. Adding rates never changes old ones: it adds a new set
-    of eight amounts from an effective date, and the history stays below. Nothing here computes pay.
+    Reference monthly pay of each salary grade (Step 1 of the government schedule), as in force today. Adding a rate never
+    changes an old one: it adds a new rate from an effective date, and the history stays below. Nothing here computes pay.
 --}}
 @section('content')
     <div class="d-grid gap-4" data-page="rates">
@@ -12,7 +12,7 @@
             <a class="page-back" href="{{ route('job-titles.index') }}" aria-label="Back to job titles"><x-icon name="back" /></a>
             <div>
                 <h1 class="page-title">Pay Rates</h1>
-                <p class="text-body-secondary mt-1 mb-0">Monthly base pay in force today, by pay band and step</p>
+                <p class="text-body-secondary mt-1 mb-0">Monthly pay of each salary grade, as in force today</p>
             </div>
         </div>
 
@@ -21,25 +21,21 @@
                 <table class="table table-hover align-middle mb-0 employees-table">
                     <thead>
                         <tr>
-                            <th scope="col">Pay band</th>
+                            <th scope="col">Salary grade</th>
                             <th scope="col">Job titles</th>
-                            @foreach (range(1, 8) as $step)
-                                <th scope="col" class="text-end">Step {{ $step }}</th>
-                            @endforeach
+                            <th scope="col" class="text-end">Monthly pay</th>
                             <th scope="col"><span class="visually-hidden">Actions</span></th>
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach ($schedule as $band => $steps)
-                            <tr @class(['table-active' => $band === $grade])>
-                                <td class="tabular-nums fw-medium">{{ $band }}</td>
-                                <td>{{ ($titlesByGrade[$band] ?? collect())->pluck('title')->unique()->take(3)->implode(', ') ?: '—' }}</td>
-                                @foreach (range(1, 8) as $step)
-                                    <td class="text-end tabular-nums">{{ isset($steps[$step]) ? number_format((float) $steps[$step]) : '—' }}</td>
-                                @endforeach
+                        @foreach ($schedule as $salaryGrade => $amount)
+                            <tr @class(['table-active' => $salaryGrade === $grade])>
+                                <td class="tabular-nums fw-medium">SG {{ $salaryGrade }}</td>
+                                <td>{{ ($titlesByGrade[$salaryGrade] ?? collect())->pluck('title')->unique()->take(3)->implode(', ') ?: '—' }}</td>
+                                <td class="text-end tabular-nums">₱{{ number_format((float) $amount, 2) }}</td>
                                 <td class="text-end">
                                     @can('manage-reference-data')
-                                        <a class="btn btn-sm btn-outline-secondary" href="{{ route('rates.index', ['grade' => $band]) }}#new-rates">Change</a>
+                                        <a class="btn btn-sm btn-outline-secondary" href="{{ route('rates.index', ['grade' => $salaryGrade]) }}#new-rates">Change</a>
                                     @endcan
                                 </td>
                             </tr>
@@ -51,9 +47,9 @@
 
         @if ($grade)
             <section class="card employee-form-card" id="new-rates" aria-labelledby="new-rates-title">
-                <h2 class="fs-5" id="new-rates-title">Pay band {{ $grade }}: new rates</h2>
+                <h2 class="fs-5" id="new-rates-title">SG {{ $grade }}: new rate</h2>
                 <p class="text-body-secondary">
-                    Enter the monthly amounts from the date they take effect. The old rates are kept, so earlier dates still use them.
+                    Enter the monthly pay from the date it takes effect. The old rates are kept, so earlier dates still use them.
                 </p>
 
                 @can('manage-reference-data')
@@ -62,26 +58,10 @@
                         <input type="hidden" name="salary_grade" value="{{ $grade }}">
 
                         <div class="col-md-4"><x-field name="effective_date" type="date" label="Effective date" required /></div>
-                        <div class="col-12"></div>
-
-                        @foreach (range(1, 8) as $step)
-                            <div class="col-6 col-md-3">
-                                <label for="amount-{{ $step }}" class="form-label">Step {{ $step }}</label>
-                                <input type="number" step="0.01" min="0" class="form-control tabular-nums{{ $errors->has('amounts.'.($step - 1)) ? ' is-invalid' : '' }}"
-                                    id="amount-{{ $step }}" name="amounts[]" value="{{ old('amounts.'.($step - 1), $schedule[$grade][$step] ?? '') }}" required>
-                                @error('amounts.'.($step - 1))
-                                    <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
-                            </div>
-                        @endforeach
-
-                        @error('amounts')
-                            <div class="col-12 text-danger small">{{ $message }}</div>
-                        @enderror
-
-                        <div class="col-12 d-flex justify-content-end">
-                            <button type="submit" class="btn btn-primary">Save New Rates</button>
+                        <div class="col-md-4">
+                            <x-field name="monthly_amount" type="number" step="0.01" min="0" label="Monthly pay (₱)" :value="$schedule[$grade]" required />
                         </div>
+                        <div class="col-md-4 align-self-end"><button type="submit" class="btn btn-primary w-100">Save New Rate</button></div>
                     </form>
                 @endcan
 
@@ -91,18 +71,14 @@
                         <thead>
                             <tr>
                                 <th scope="col">Effective from</th>
-                                @foreach (range(1, 8) as $step)
-                                    <th scope="col" class="text-end">Step {{ $step }}</th>
-                                @endforeach
+                                <th scope="col" class="text-end">Monthly pay</th>
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach ($history as $date => $tiers)
+                            @foreach ($history as $tier)
                                 <tr>
-                                    <td class="text-nowrap">{{ \Illuminate\Support\Carbon::parse($date)->format('M j, Y') }}</td>
-                                    @foreach (range(1, 8) as $step)
-                                        <td class="text-end tabular-nums">{{ ($tier = $tiers->firstWhere('step', $step)) ? number_format((float) $tier->monthly_amount) : '—' }}</td>
-                                    @endforeach
+                                    <td class="text-nowrap">{{ $tier->effective_date->format('M j, Y') }}</td>
+                                    <td class="text-end tabular-nums">₱{{ number_format((float) $tier->monthly_amount, 2) }}</td>
                                 </tr>
                             @endforeach
                         </tbody>

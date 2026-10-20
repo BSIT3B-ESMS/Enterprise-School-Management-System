@@ -2,6 +2,8 @@
 
 namespace App\Enums;
 
+use Carbon\CarbonInterface;
+
 enum LeaveType: string
 {
     case Vacation = 'vacation';
@@ -27,6 +29,41 @@ enum LeaveType: string
             self::SpecialWomen => 'Special Leave Benefits for Women',
             self::Vawc => 'Leave for Victims of Violence Against Women and Children',
         };
+    }
+
+    /**
+     * Maternity (105 days) and the women's special leave (up to two months) are counted in calendar days; paternity (7
+     * working days) and the other leaves count working days, Monday to Friday. Holidays are not excluded. VERIFY with PLP HR.
+     */
+    public function usesCalendarDays(): bool
+    {
+        return in_array($this, [self::Maternity, self::SpecialWomen], true);
+    }
+
+    /**
+     * Sick and emergency leave are often filed after the fact, so they may start up to 30 days in the past.
+     */
+    public function allowsBackdating(): bool
+    {
+        return in_array($this, [self::Sick, self::Emergency], true);
+    }
+
+    /**
+     * The days a leave from one date to another uses up, both dates included.
+     */
+    public function daysBetween(CarbonInterface $start, CarbonInterface $end): int
+    {
+        if ($this->usesCalendarDays()) {
+            return (int) $start->copy()->startOfDay()->diffInDays($end->copy()->startOfDay()) + 1;
+        }
+
+        $days = 0;
+
+        for ($day = $start->copy()->startOfDay(); $day->lte($end); $day->addDay()) {
+            $days += $day->isWeekday() ? 1 : 0;
+        }
+
+        return $days;
     }
 
     /**

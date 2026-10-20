@@ -8,7 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 
 /**
- * Records every report export in the audit log before the browser builds the file. HR Head only.
+ * Records every report export in the audit log before the browser builds the file. HR Admin only.
  */
 class ExportLogController extends Controller
 {

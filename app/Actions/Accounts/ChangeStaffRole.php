@@ -10,10 +10,10 @@ use Illuminate\Support\Facades\DB;
 
 class ChangeStaffRole
 {
-    public function __construct(private AuditLogger $audit, private HrHeadFloor $floor) {}
+    public function __construct(private AuditLogger $audit, private HrAdminFloor $floor) {}
 
     /**
-     * Only an HR Head changes roles. Nobody changes their own role, and the last HR Heads cannot be demoted.
+     * Only an HR Admin changes roles. Nobody changes their own role, and the last HR Admins cannot be demoted.
      *
      * @throws AccountException
      */

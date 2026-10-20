@@ -13,7 +13,7 @@ class DeactivateStaffAccount
     public function __construct(
         private AuditLogger $audit,
         private SessionTerminator $sessions,
-        private HrHeadFloor $floor,
+        private HrAdminFloor $floor,
     ) {}
 
     /**

@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * HR Head and HR Staff must have a confirmed authenticator app before using any other page (config ems.require_mfa).
+ * HR Admin and HR Staff must have a confirmed authenticator app before using any other page (config ems.require_mfa).
  */
 class RequireTwoFactorForHr
 {

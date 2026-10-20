@@ -5,6 +5,8 @@
         ['icon' => 'gift', 'label' => 'Benefits', 'route' => 'employee.benefits'],
         ['icon' => 'employees', 'label' => 'Directory', 'route' => 'employee.directory'],
         ['icon' => 'calendar', 'label' => 'Calendar', 'route' => 'employee.calendar'],
+        ['icon' => 'leave', 'label' => 'My Leave', 'route' => 'employee.leave'],
+        ['icon' => 'recruitment', 'label' => 'Agreements', 'route' => 'employee.offers', 'pattern' => 'employee.offer*'],
     ];
 @endphp
 
@@ -23,7 +25,7 @@
             <nav aria-label="Main">
                 <ul class="nav nav-pills flex-column gap-1 app-nav">
                     @foreach ($items as $item)
-                        @php($isCurrent = request()->routeIs($item['route']))
+                        @php($isCurrent = request()->routeIs($item['pattern'] ?? $item['route']))
                         <li class="nav-item">
                             <a class="nav-link{{ $isCurrent ? ' active' : '' }}"
                                 aria-current="{{ $isCurrent ? 'page' : 'false' }}" href="{{ route($item['route']) }}">

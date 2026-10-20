@@ -10,7 +10,7 @@ beforeEach(function () {
 function userWithTwoFactor(array $state = []): array
 {
     $secret = (new Google2FA)->generateSecretKey();
-    $user = User::factory()->hrHead()->state([
+    $user = User::factory()->hrAdmin()->state([
         'password' => 'correct-horse-battery',
         'two_factor_secret' => encrypt($secret),
         'two_factor_recovery_codes' => encrypt(json_encode(['recovery-code-one', 'recovery-code-two'])),
@@ -21,10 +21,10 @@ function userWithTwoFactor(array $state = []): array
     return [$user, $secret];
 }
 
-it('sends HR Head and HR Staff without two-factor authentication to set it up', function (Closure $makeUser) {
+it('sends HR Admin and HR Staff without two-factor authentication to set it up', function (Closure $makeUser) {
     $this->actingAs($makeUser())->get(route('dashboard'))->assertRedirect(route('two-factor.setup'));
 })->with([
-    'hr head' => [fn () => hrHead()],
+    'hr admin' => [fn () => hrAdmin()],
     'hr staff' => [fn () => hrStaff()],
 ]);
 
@@ -39,13 +39,13 @@ it('does not force employees to use two-factor authentication', function () {
 });
 
 it('keeps the setup page reachable for an HR user who has not set it up yet', function () {
-    $this->actingAs(hrHead())->get(route('two-factor.setup'))
+    $this->actingAs(hrAdmin())->get(route('two-factor.setup'))
         ->assertOk()
         ->assertSee('Set up authenticator app');
 });
 
 it('lets an HR user enable and confirm an authenticator app', function () {
-    $user = hrHead();
+    $user = hrAdmin();
     $this->actingAs($user)->withSession(['auth.password_confirmed_at' => time()]);
 
     $this->post(route('two-factor.enable'));
@@ -63,7 +63,7 @@ it('lets an HR user enable and confirm an authenticator app', function () {
 });
 
 it('refuses to confirm with a wrong code', function () {
-    $user = hrHead();
+    $user = hrAdmin();
     $this->actingAs($user)->withSession(['auth.password_confirmed_at' => time()]);
     $this->post(route('two-factor.enable'));
 

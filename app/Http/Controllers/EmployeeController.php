@@ -5,10 +5,10 @@ namespace App\Http\Controllers;
 use App\Actions\Employees\CreateEmployee;
 use App\Actions\Employees\RevealGovernmentId;
 use App\Enums\AuditAction;
+use App\Enums\ContractTerm;
 use App\Enums\EmployeeStatus;
 use App\Enums\EmploymentType;
 use App\Enums\JobTitleCategory;
-use App\Enums\LeaveType;
 use App\Enums\MaritalStatus;
 use App\Enums\Sex;
 use App\Http\Requests\StoreEmployeeRequest;
@@ -17,9 +17,10 @@ use App\Models\AuditLog;
 use App\Models\College;
 use App\Models\Employee;
 use App\Models\JobTitle;
-use App\Models\LeavePolicy;
 use App\Models\Office;
+use App\Services\AcademicCalendar;
 use App\Services\AuditLogger;
+use App\Services\LeaveBalances;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -28,7 +29,7 @@ use Illuminate\Support\Facades\Gate;
 
 /**
  * The employee records: a searchable list of current employees (faculty and non-teaching staff), the profile, and
- * creating and editing the personal details. Assignments, archiving, and ID reveals are separate HR Head actions.
+ * creating and editing the personal details. Assignments, archiving, and ID reveals are separate HR Admin actions.
  */
 class EmployeeController extends Controller
 {
@@ -41,7 +42,7 @@ class EmployeeController extends Controller
             'q' => ['nullable', 'string', 'max:100'],
             'college' => ['nullable', 'integer'],
             'office' => ['nullable', 'integer'],
-            'job_title' => ['nullable', 'integer'],
+            'job_title' => ['nullable', 'string', 'max:150'],
             'employment_type' => ['nullable', 'in:full_time,part_time'],
             'sort' => ['nullable', 'in:name,number,hired'],
             'dir' => ['nullable', 'in:asc,desc'],
@@ -52,6 +53,7 @@ class EmployeeController extends Controller
 
         $employees = (clone $active)
             ->with(['jobTitle', 'college', 'office'])
+            ->withExists(['leaveRequests as is_on_leave' => fn ($leave) => $leave->covering()])
             ->listed([...$filters, 'type' => $type])
             ->paginate(15)
             ->withQueryString();
@@ -68,7 +70,7 @@ class EmployeeController extends Controller
             'offices' => Office::query()->orderBy('name')->pluck('name', 'id'),
             'jobTitles' => JobTitle::query()
                 ->where('category', $type === 'faculty' ? JobTitleCategory::Faculty : JobTitleCategory::NonTeaching)
-                ->orderBy('title')->get(['id', 'title'])->unique('title')->pluck('title', 'id'),
+                ->orderBy('title')->distinct()->pluck('title', 'title'),
         ]);
     }
 
@@ -76,21 +78,21 @@ class EmployeeController extends Controller
     {
         Gate::authorize('create', Employee::class);
 
-        return view('employees.form', $this->formData(new Employee(['salary_step' => 1]), route('employees.store'), 'New Employee'));
+        return view('employees.form', $this->formData(new Employee, route('employees.store'), 'New Employee'));
     }
 
     public function store(StoreEmployeeRequest $request, CreateEmployee $createEmployee): RedirectResponse
     {
         $employee = $createEmployee->handle(
             $request->user(),
-            [...$request->personalAttributes(), ...$request->safe()->only(['employment_type', 'job_title_id', 'salary_step', 'extra_college_id', 'extra_office_id'])],
+            [...$request->personalAttributes(), ...$request->safe()->only(['employment_type', 'job_title_id', 'extra_college_id', 'extra_office_id'])],
             $request->governmentIds(),
         );
 
         return to_route('employees.show', $employee)->with('success', "{$employee->full_name} was added as {$employee->employee_no}.");
     }
 
-    public function show(Employee $employee): View
+    public function show(Employee $employee, LeaveBalances $leaveBalances): View
     {
         Gate::authorize('view', $employee);
 
@@ -100,15 +102,18 @@ class EmployeeController extends Controller
             'employee' => $employee,
             'baseRate' => $employee->baseRate(),
             'transfers' => $employee->transfers->sortByDesc(fn ($transfer) => [$transfer->effective_date, $transfer->id])->values(),
-            'leaveCredits' => collect(LeaveType::cases())
-                ->mapWithKeys(fn (LeaveType $type) => [$type->label() => LeavePolicy::daysFor($employee, $type)])
-                ->filter(fn (?float $days) => $days !== null),
+            'leaveBalances' => $leaveBalances->forEmployee($employee),
+            'recentLeave' => $employee->leaveRequests()->latest('start_date')->latest('id')->limit(5)->get(),
+            'onLeaveUntil' => $employee->leaveRequests()->covering()->max('end_date'),
             'activity' => AuditLog::query()
                 ->where('entity_type', $employee->getMorphClass())
                 ->where('entity_id', $employee->id)
                 ->with('user')
                 ->latest('id')->limit(10)->get(),
             'revealReasons' => RevealGovernmentId::REASONS,
+            'offers' => $employee->offers()->latest('id')->get(),
+            'contractTerms' => collect(ContractTerm::cases())->mapWithKeys(fn ($term): array => [$term->value => $term->label()])->all(),
+            'academicYears' => app(AcademicCalendar::class)->selectableYears(),
             'jobTitleOptions' => $this->jobTitleOptions(),
             'colleges' => College::query()->orderBy('name')->pluck('name', 'id'),
             'offices' => Office::query()->orderBy('name')->pluck('name', 'id'),

@@ -1,4 +1,3 @@
-{{-- The signed-in applicant's name and email are filled in by resources/js/applicant-portal.js from their account. --}}
 <header class="app-header">
     <div class="d-flex align-items-center gap-2 gap-lg-3 min-w-0">
         <button type="button" class="app-icon-btn" aria-label="Toggle navigation" aria-controls="app-sidebar"
@@ -20,11 +19,13 @@
             <span class="visually-hidden theme-when-light">Switch to dark mode</span>
         </button>
 
+        <x-notification-bell />
+
         <div class="dropdown">
             <button type="button" class="app-user" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false">
-                <span class="app-avatar" data-applicant-initials></span>
+                <span class="app-avatar">{{ auth()->user()->initials() }}</span>
                 <span class="d-none d-lg-block">
-                    <span class="app-user-name" data-applicant-name></span>
+                    <span class="app-user-name">{{ auth()->user()->name }}</span>
                     <span class="app-user-role">Applicant</span>
                 </span>
                 <span class="visually-hidden d-lg-none">Account menu</span>
@@ -32,10 +33,10 @@
 
             <div class="dropdown-menu dropdown-menu-end app-menu app-menu-account">
                 <div class="app-menu-profile">
-                    <span class="app-avatar app-avatar-lg" data-applicant-initials></span>
+                    <span class="app-avatar app-avatar-lg">{{ auth()->user()->initials() }}</span>
                     <div class="min-w-0">
-                        <strong class="d-block text-truncate" data-applicant-name></strong>
-                        <small class="d-block text-truncate" data-applicant-email></small>
+                        <strong class="d-block text-truncate">{{ auth()->user()->name }}</strong>
+                        <small class="d-block text-truncate">{{ auth()->user()->email }}</small>
                         <span class="ems-chip d-inline-block mt-1">Applicant</span>
                     </div>
                 </div>
@@ -56,10 +57,13 @@
                     <span class="theme-when-light">Dark mode</span>
                 </button>
 
-                <a class="dropdown-item d-flex align-items-center gap-2 py-2" href="{{ route('login') }}" data-applicant-logout>
-                    <x-icon name="logout" />
-                    Log Out
-                </a>
+                <form method="post" action="{{ route('logout') }}">
+                    @csrf
+                    <button type="submit" class="dropdown-item d-flex align-items-center gap-2 py-2">
+                        <x-icon name="logout" />
+                        Log Out
+                    </button>
+                </form>
             </div>
         </div>
     </div>

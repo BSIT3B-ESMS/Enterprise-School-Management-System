@@ -3,8 +3,8 @@
 @section('title', 'Generate Report · '.config('app.name'))
 
 {{--
-    Generate Report (HR Head only). The server sends the employees that match the Employees page's search, tab, and filters
-    (data-rows); resources/js/employee-report.js lets the HR Head narrow them by college, office, and job title, pick the
+    Generate Report (HR Admin only). The server sends the employees that match the Employees page's search, tab, and filters
+    (data-rows); resources/js/employee-report.js lets the HR Admin narrow them by college, office, and job title, pick the
     fields, and builds the PDF, Excel, or CSV file in the browser. Government IDs are last four digits only, and every
     export is written to the audit log first (resources/js/export-log.js).
 --}}

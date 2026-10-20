@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Employee;
 use App\Models\User;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Tests\TestCase;
@@ -46,11 +47,11 @@ expect()->extend('toBeOne', function () {
 */
 
 /**
- * A signed-in HR Head, for the many page tests that need HR access.
+ * A signed-in HR Admin, for the many page tests that need HR access.
  */
-function hrHead(): User
+function hrAdmin(): User
 {
-    return User::factory()->hrHead()->create();
+    return User::factory()->hrAdmin()->create();
 }
 
 function hrStaff(): User
@@ -58,20 +59,37 @@ function hrStaff(): User
     return User::factory()->hrStaff()->create();
 }
 
+/**
+ * An Employee login linked to an employee record, as every real employee account is.
+ */
 function employeeUser(): User
+{
+    return User::factory()->create(['employee_id' => Employee::factory()->create()->id]);
+}
+
+/**
+ * An Employee-role login that is not linked to any employee record.
+ */
+function unlinkedEmployeeUser(): User
 {
     return User::factory()->create();
 }
 
+function applicantUser(): User
+{
+    return User::factory()->applicant()->create();
+}
+
 /**
  * The user who may open a page, by its route name: an employee for the Employee interface, nobody for the public pages
- * (Login, Careers, the Applicant interface), and an HR Head for every HR page.
+ * (Login, Careers, the Applicant interface), and an HR Admin for every HR page.
  */
 function userFor(string $route): ?User
 {
     return match (true) {
         str_starts_with($route, 'employee.') => employeeUser(),
-        $route === 'login', $route === 'home', str_starts_with($route, 'careers.'), str_starts_with($route, 'applicant.') => null,
-        default => hrHead(),
+        $route === 'applicant.register', $route === 'login', $route === 'home', str_starts_with($route, 'careers.') => null,
+        str_starts_with($route, 'applicant.') => applicantUser(),
+        default => hrAdmin(),
     };
 }

@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Lets a request through only when the signed-in user has one of the listed roles, for example `role:hr_head,hr_staff`.
+ * Lets a request through only when the signed-in user has one of the listed roles, for example `role:hr_admin,hr_staff`.
  */
 class EnsureUserHasRole
 {

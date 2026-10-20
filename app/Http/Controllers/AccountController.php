@@ -19,16 +19,27 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 
 /**
- * HR Head account administration: issue logins, reset passwords, deactivate, and assign roles.
+ * HR Admin account administration: issue logins, reset passwords, deactivate, and assign roles.
  */
 class AccountController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
         Gate::authorize('viewAny', User::class);
 
+        $filters = $request->validate([
+            'q' => ['nullable', 'string', 'max:100'],
+            'role' => ['nullable', 'in:'.implode(',', array_column(Role::cases(), 'value'))],
+            'status' => ['nullable', 'in:active,inactive'],
+        ]);
+
         return view('accounts.index', [
-            'accounts' => User::query()->with('employee')->orderBy('name')->get(),
+            'filters' => $filters,
+            'accounts' => User::query()->with('employee')
+                ->when($filters['q'] ?? null, fn ($query, $term) => $query->where(fn ($match) => $match->where('name', 'like', "%{$term}%")->orWhere('email', 'like', "%{$term}%")))
+                ->when($filters['role'] ?? null, fn ($query, $role) => $query->where('role', $role))
+                ->when($filters['status'] ?? null, fn ($query, $status) => $query->where('is_active', $status === 'active'))
+                ->orderBy('name')->get(),
             'employeesWithoutAccount' => Employee::query()->whereDoesntHave('user')->orderBy('last_name')->orderBy('first_name')->get(),
             'roles' => Role::cases(),
         ]);

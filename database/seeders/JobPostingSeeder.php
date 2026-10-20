@@ -2,9 +2,11 @@
 
 namespace Database\Seeders;
 
+use App\Enums\ContractTerm;
 use App\Enums\EmploymentType;
 use App\Models\College;
 use App\Models\JobTitle;
+use App\Services\AcademicCalendar;
 use Illuminate\Database\Seeder;
 
 /**
@@ -16,6 +18,8 @@ class JobPostingSeeder extends Seeder
 
     public function run(): void
     {
+        $this->openPartTimePosts();
+
         foreach (College::query()->orderBy('code')->get() as $college) {
             JobTitle::query()
                 ->where('college_id', $college->id)
@@ -43,6 +47,36 @@ class JobPostingSeeder extends Seeder
                         'Transcript of records',
                         'Two valid government-issued IDs',
                     ],
+                ]);
+        }
+    }
+
+    /**
+     * Part-time posts end with a semester or the academic year; the term and academic year set the end of contract.
+     */
+    private function openPartTimePosts(): void
+    {
+        $year = app(AcademicCalendar::class)->startYearOf(now());
+        $posts = ['CCS' => ContractTerm::SecondSemester, 'CBA' => ContractTerm::AcademicYear, 'CIHM' => ContractTerm::FirstSemester];
+
+        foreach ($posts as $code => $term) {
+            $college = College::query()->where('code', $code)->first();
+
+            JobTitle::query()
+                ->where('college_id', $college?->id)
+                ->where('title', 'Instructor II')
+                ->update([
+                    'openings' => 2,
+                    'is_published' => true,
+                    'employment_type' => EmploymentType::PartTime->value,
+                    'contract_term' => $term->value,
+                    'academic_year' => $year,
+                    'location' => self::CAMPUS,
+                    'summary' => "Teaches part-time courses in the {$college->name}.",
+                    'description' => "A part-time teaching post in the {$college->name} for one semester or the academic year.",
+                    'responsibilities' => ['Teach assigned courses', 'Keep class records and submit grades on time'],
+                    'qualifications' => ['Master’s degree in a relevant field', 'Teaching experience is an advantage'],
+                    'requirements' => ['Application letter', 'Curriculum vitae (CV)', 'Transcript of records'],
                 ]);
         }
     }

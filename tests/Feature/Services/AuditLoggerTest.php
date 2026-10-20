@@ -8,7 +8,7 @@ use App\Models\User;
 use App\Services\AuditLogger;
 
 it('records who did what to which record, and from where', function () {
-    $actor = User::factory()->hrHead()->create();
+    $actor = User::factory()->hrAdmin()->create();
     $college = College::factory()->create();
 
     $entry = $this->actingAs($actor)->app->make(AuditLogger::class)

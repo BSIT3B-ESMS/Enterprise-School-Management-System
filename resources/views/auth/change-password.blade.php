@@ -5,7 +5,7 @@
 @section('content')
     <x-auth-card title="Choose a new password"
         :subtitle="$isForced
-            ? 'You signed in with a temporary password. Choose your own password to continue.'
+            ? 'Your first password is your employee ID. Choose your own password to continue.'
             : 'Enter your current password, then a new one.'">
         <form method="post" action="{{ route('password.change.update') }}" class="d-grid gap-3" novalidate>
             @csrf
@@ -22,7 +22,7 @@
                 <input type="password" class="form-control" id="password" name="password" autocomplete="new-password"
                     aria-describedby="password-hint" required>
                 <div class="form-text" id="password-hint">
-                    At least 12 characters. Passwords found in known data breaches are rejected.
+                    At least 8 characters, with an uppercase letter, a lowercase letter, and a number. Easy passwords are rejected.
                 </div>
             </div>
 

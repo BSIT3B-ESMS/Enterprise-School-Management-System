@@ -6,7 +6,7 @@ use App\Models\Employee;
 use App\Models\User;
 
 /**
- * Everyone in HR reads, creates, and edits employee records. Only the HR Head changes an assignment (job title, college,
+ * Everyone in HR reads, creates, and edits employee records. Only the HR Admin changes an assignment (job title, college,
  * office, salary step), archives or restores a record, or reveals a masked government ID.
  */
 class EmployeePolicy
@@ -33,16 +33,16 @@ class EmployeePolicy
 
     public function assign(User $user, Employee $employee): bool
     {
-        return $user->isHrHead();
+        return $user->isHrAdmin();
     }
 
     public function archive(User $user, Employee $employee): bool
     {
-        return $user->isHrHead();
+        return $user->isHrAdmin();
     }
 
     public function revealGovernmentId(User $user, Employee $employee): bool
     {
-        return $user->isHrHead();
+        return $user->isHrAdmin();
     }
 }

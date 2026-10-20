@@ -33,12 +33,40 @@ class UserFactory extends Factory
             'remember_token' => Str::random(10),
             'role' => Role::Employee,
             'is_active' => true,
+            'onboarding_completed_at' => now(),
         ];
     }
 
-    public function hrHead(): static
+    /**
+     * A new hire who has not yet done the first-login setup.
+     */
+    public function needsOnboarding(): static
     {
-        return $this->state(fn (): array => ['role' => Role::HrHead]);
+        return $this->state(fn (): array => ['onboarding_completed_at' => null]);
+    }
+
+    /**
+     * An applicant account with its one-time profile.
+     */
+    public function applicant(): static
+    {
+        return $this->state(fn (): array => ['role' => Role::Applicant, 'onboarding_completed_at' => now()])
+            ->afterCreating(function (User $user): void {
+                $user->applicantProfile()->create([
+                    'first_name' => fake()->firstName(),
+                    'last_name' => fake()->lastName(),
+                    'birthdate' => fake()->dateTimeBetween('-40 years', '-22 years')->format('Y-m-d'),
+                    'sex' => 'Female',
+                    'marital_status' => 'Single',
+                    'phone' => '09171234567',
+                    'address' => 'Pasig City',
+                ]);
+            });
+    }
+
+    public function hrAdmin(): static
+    {
+        return $this->state(fn (): array => ['role' => Role::HrAdmin]);
     }
 
     public function hrStaff(): static

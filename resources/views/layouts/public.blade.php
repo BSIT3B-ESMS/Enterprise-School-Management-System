@@ -60,14 +60,16 @@
                             </li>
                         </ul>
 
-                        <div class="d-flex flex-wrap align-items-center gap-2 pb-3 pb-lg-0 me-lg-2" data-public-signed-out>
-                            <a class="btn btn-sm btn-outline-light" href="{{ route('login') }}">Login</a>
-                            <a class="btn btn-sm btn-light" href="{{ route('applicant.register') }}" data-terms-continue>Create Account</a>
-                        </div>
-
-                        <div class="pb-3 pb-lg-0 me-lg-2 d-none" data-public-signed-in>
-                            <a class="btn btn-sm btn-light" href="{{ route('applicant.dashboard') }}">My Dashboard</a>
-                        </div>
+                        @auth
+                            <div class="pb-3 pb-lg-0 me-lg-2">
+                                <a class="btn btn-sm btn-light" href="{{ auth()->user()->homeUrl() }}">My Dashboard</a>
+                            </div>
+                        @else
+                            <div class="d-flex flex-wrap align-items-center gap-2 pb-3 pb-lg-0 me-lg-2">
+                                <a class="btn btn-sm btn-outline-light" href="{{ route('login') }}">Login</a>
+                                <a class="btn btn-sm btn-light" href="{{ route('applicant.register') }}">Create Account</a>
+                            </div>
+                        @endauth
                     </div>
                 </div>
             </nav>
@@ -114,7 +116,7 @@
                             <li><a href="{{ route('careers.index') }}#open-positions">Open Positions</a></li>
                             <li><a href="{{ route('careers.index') }}#about">About PLP Careers</a></li>
                             <li><a href="{{ route('login') }}">Login</a></li>
-                            <li><a href="{{ route('applicant.register') }}" data-terms-continue>Create Account</a></li>
+                            <li><a href="{{ route('applicant.register') }}">Create Account</a></li>
                         </ul>
                     </div>
                 </div>
@@ -124,8 +126,6 @@
                 </p>
             </div>
         </footer>
-
-        <x-applicant-terms-modal />
 
         @stack('scripts')
     </body>

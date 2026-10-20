@@ -5,59 +5,56 @@
 @php
     $steps = [
         ['title' => 'Create an account', 'about' => 'Accept the Terms and Conditions, then set up your applicant account.'],
-        ['title' => 'Apply for a position', 'about' => 'Fill in the application form once; your details are kept for your next application.'],
-        ['title' => 'Follow your application', 'about' => 'See your status and the demo interview and interview dates HR sets for you.'],
+        ['title' => 'Apply for a position', 'about' => 'Fill in your personal and contact details once, then attach your resume to each application.'],
+        ['title' => 'Follow your application', 'about' => 'See your status and the demo interview HR sets for you, and answer your offer online.'],
     ];
 @endphp
 
 {{--
-    PLP Careers, the EMS's landing page (the root address opens it): anyone can browse without an account. In order: the
-    hero, Featured Job Openings (the open positions with the most openings), every open position with a search and an
-    Employment Type filter, and About PLP Careers; the navigation bar and footer (with PLP's contact details, as published
-    on plpasig.edu.ph) come from layouts/public.blade.php. The positions and benefits come from the same job titles HR
-    manages (resources/js/applicant-positions.js), so only positions HR has open are listed, and View Details and Apply
-    follow the existing flows (Apply asks for the Terms and Conditions, then opens Create Account with the position kept).
+    PLP Careers, the public careers website: anyone can browse without an account. The positions come from the database (published
+    job titles with openings). The Employee Management System itself opens on the sign-in page; this site is linked from it.
 --}}
 @section('content')
-    <div class="d-grid gap-5" data-page="applicant-positions" data-positions-context="public"
-        data-details-url="{{ route('careers.index') }}"
-        data-register-url="{{ route('applicant.register') }}" data-apply-url="{{ route('applicant.apply') }}">
-
-        {{-- Hero --}}
+    <div class="d-grid gap-5">
         <section class="careers-hero" aria-labelledby="careers-hero-title">
             <p class="careers-hero-eyebrow">Pamantasan ng Lungsod ng Pasig</p>
             <h1 class="careers-hero-title" id="careers-hero-title">Build Your Career with PLP</h1>
             <p class="careers-hero-lead">
-                Explore teaching and non-teaching opportunities at Pamantasan ng Lungsod ng Pasig. See what each role involves
-                and offers, and apply online.
+                Explore teaching and non-teaching opportunities at Pamantasan ng Lungsod ng Pasig. See what each role involves and apply online.
             </p>
             <div class="d-flex flex-wrap gap-2">
-                <a class="btn btn-light btn-lg" href="#open-positions" data-careers-explore>Explore Open Positions</a>
-                <a class="btn btn-outline-light btn-lg" href="{{ route('applicant.register') }}" data-terms-continue>Create Account</a>
+                <a class="btn btn-light btn-lg" href="#open-positions">Explore Open Positions</a>
+                @guest
+                    <a class="btn btn-outline-light btn-lg" href="{{ route('applicant.register') }}">Create Account</a>
+                @endguest
             </div>
             <dl class="careers-hero-stats" aria-label="Hiring right now">
-                <div><dt>Open positions</dt><dd class="tabular-nums" data-careers-stat="positions">0</dd></div>
-                <div><dt>Departments hiring</dt><dd class="tabular-nums" data-careers-stat="departments">0</dd></div>
-                <div><dt>Openings in all</dt><dd class="tabular-nums" data-careers-stat="openings">0</dd></div>
+                <div><dt>Open positions</dt><dd class="tabular-nums">{{ $stats['positions'] }}</dd></div>
+                <div><dt>Colleges hiring</dt><dd class="tabular-nums">{{ $stats['colleges'] }}</dd></div>
+                <div><dt>Openings in all</dt><dd class="tabular-nums">{{ $stats['openings'] }}</dd></div>
             </dl>
         </section>
 
-        {{-- Featured Job Openings --}}
         <section class="careers-section" id="featured" aria-labelledby="careers-featured-title">
             <div class="careers-section-header">
                 <h2 class="careers-section-title" id="careers-featured-title">Featured Job Openings</h2>
                 <p class="text-body-secondary mb-0">The open positions with the most openings right now.</p>
             </div>
-            <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3" data-positions-featured></div>
-            <p class="text-body-secondary mb-0 d-none" data-positions-featured-empty>No positions are open right now. Please check back later.</p>
+            @if ($featured->isEmpty())
+                <p class="text-body-secondary mb-0">No positions are open right now. Please check back later.</p>
+            @else
+                <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
+                    @foreach ($featured as $position)
+                        @include('careers._card', ['position' => $position])
+                    @endforeach
+                </div>
+            @endif
         </section>
 
-        {{-- Open Positions --}}
         <section class="careers-section" id="open-positions" aria-label="Open Positions">
-            <x-applicant-position-list title="Open Positions" subtitle="Every position currently accepting applications." />
+            @include('careers._list', ['title' => 'Open Positions', 'subtitle' => 'Every position currently accepting applications.'])
         </section>
 
-        {{-- About PLP Careers --}}
         <section class="careers-section" id="about" aria-labelledby="careers-about-title">
             <div class="careers-section-header">
                 <h2 class="careers-section-title" id="careers-about-title">About PLP Careers</h2>
@@ -66,14 +63,12 @@
             <div class="row g-4">
                 <div class="col-lg-5">
                     <p>
-                        Pamantasan ng Lungsod ng Pasig (PLP) is the local university of the City of Pasig. PLP Careers is where
-                        the university lists its open teaching and non-teaching positions.
+                        Pamantasan ng Lungsod ng Pasig (PLP) is the local university of the City of Pasig. PLP Careers is where the
+                        university lists its open teaching and non-teaching positions.
                     </p>
                     <p class="mb-0">
-                        Every listing shows the department, employment type, location, and base salary range, with the
-                        responsibilities, qualifications, and requirements, so you know what a role involves before you apply.
-                        After you apply, you can follow your application and your interview schedule from your Applicant
-                        Dashboard.
+                        Every listing shows the college or office, employment type, location, and base pay, with the responsibilities,
+                        qualifications, and requirements. Benefits are discussed with you at the interview and written in your offer.
                     </p>
                 </div>
 
@@ -91,10 +86,6 @@
                     </ol>
                 </div>
             </div>
-
-            <h3 class="fs-5 mt-4 mb-1" id="careers-benefits-title">Benefits of working at PLP</h3>
-            <p class="text-body-secondary">Offered with the open positions; each position lists the benefits it includes.</p>
-            <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3" aria-labelledby="careers-benefits-title" data-careers-benefits></div>
         </section>
     </div>
 @endsection

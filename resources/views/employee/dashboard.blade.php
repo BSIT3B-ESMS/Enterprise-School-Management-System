@@ -2,92 +2,68 @@
 
 @section('title', 'Dashboard · '.config('app.name'))
 
-@php
-    $quickLinks = [
-        ['icon' => 'user', 'label' => 'Profile', 'about' => 'Your personal and employment details', 'route' => 'employee.profile'],
-        ['icon' => 'folder', 'label' => 'My Files', 'about' => 'Your documents and records', 'route' => 'employee.files'],
-        ['icon' => 'gift', 'label' => 'Benefits', 'about' => 'Your benefits and contributions', 'route' => 'employee.benefits'],
-        ['icon' => 'employees', 'label' => 'Directory', 'about' => 'Find your colleagues', 'route' => 'employee.directory'],
-        ['icon' => 'calendar', 'label' => 'Calendar', 'about' => 'Your leave and schedule', 'route' => 'employee.calendar'],
-    ];
-@endphp
-
-{{-- Everything is filled in by resources/js/employee-dashboard.js from the signed-in employee's mock data. --}}
 @section('content')
-    <div class="d-grid gap-4" data-page="employee-dashboard">
+    <div class="d-grid gap-4">
         <div>
-            <h1 class="page-title" data-portal-greeting>Welcome</h1>
-            <p class="text-body-secondary mt-1 mb-0">Here is your information at a glance.</p>
+            <h1 class="page-title">Welcome, {{ $employee->first_name }}</h1>
+            <p class="text-body-secondary mt-1 mb-0">{{ $employee->jobTitle->title }} · {{ $employee->college?->name ?? $employee->office?->name }} · {{ $employee->employee_no }}</p>
         </div>
 
-        <div class="card d-none" data-portal-missing>
-            <div class="employees-empty">
-                <strong>Employee record not found</strong>
-                Your record may have been removed. Contact HR for help.
+        @if ($pendingOffers > 0)
+            <div class="alert alert-primary mb-0" role="status">
+                You have {{ $pendingOffers }} {{ \Illuminate\Support\Str::plural('agreement', $pendingOffers) }} waiting for your answer.
+                <a href="{{ route('employee.offers') }}">Read and answer</a>.
+            </div>
+        @endif
+
+        @if ($employee->contract_ends_on)
+            <div class="alert {{ $employee->contractEndsWithin(30) ? 'alert-warning' : 'alert-secondary' }} mb-0" role="status">
+                Your contract ends on <strong>{{ $employee->contract_ends_on->format('F j, Y') }}</strong>.
+                @if ($employee->contractEndsWithin(30)) HR will tell you if a new contract is offered. @endif
+            </div>
+        @endif
+
+        <div class="row g-4">
+            <div class="col-lg-6">
+                <section class="card dashboard-panel">
+                    <h2>Leave credits</h2>
+                    <p class="dashboard-panel-subtitle">Earned each month since you were hired</p>
+                    <ul class="list-group list-group-flush dashboard-list">
+                        @foreach ($balances as $row)
+                            <li class="list-group-item px-0 d-flex justify-content-between"><span>{{ $row['label'] }}</span><strong class="tabular-nums">{{ rtrim(rtrim(number_format($row['remaining'], 2), '0'), '.') ?: '0' }} left</strong></li>
+                        @endforeach
+                    </ul>
+                    <div class="mt-2"><a href="{{ route('employee.leave') }}">File or follow a leave request</a></div>
+                </section>
+            </div>
+            <div class="col-lg-6">
+                <section class="card dashboard-panel">
+                    <h2>Upcoming</h2>
+                    <ul class="list-group list-group-flush dashboard-list">
+                        @foreach ($upcomingLeave as $leave)
+                            <li class="list-group-item px-0">{{ $leave->leave_type->label() }}: {{ $leave->start_date->format('M j') }} to {{ $leave->end_date->format('M j, Y') }}</li>
+                        @endforeach
+                        @foreach ($events as $event)
+                            <li class="list-group-item px-0">{{ $event->title }}: {{ $event->starts_at->format('M j, Y g:i A') }}</li>
+                        @endforeach
+                        @if ($upcomingLeave->isEmpty() && $events->isEmpty())
+                            <li class="list-group-item px-0 text-body-secondary">Nothing coming up.</li>
+                        @endif
+                    </ul>
+                </section>
             </div>
         </div>
 
-        <div class="d-grid gap-4" data-portal-content>
-            <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-4 g-3" data-portal-kpis></div>
-
-            <div class="row g-4">
-                <div class="col-lg-7">
-                    <section class="card dashboard-panel">
-                        <h2>Upcoming approved leave</h2>
-                        <p class="dashboard-panel-subtitle">Leave that is approved and still ahead</p>
-
-                        <ul class="list-group list-group-flush dashboard-list" data-portal-leave></ul>
-                        <p class="text-body-secondary mb-0 d-none" data-portal-leave-empty>No approved leave coming up.</p>
-                    </section>
-                </div>
-
-                <div class="col-lg-5">
-                    <section class="card dashboard-panel">
-                        <h2>My information</h2>
-                        <p class="dashboard-panel-subtitle">From your employee record</p>
-
-                        <dl class="row row-cols-1 row-cols-sm-2 g-3 mb-0 employee-details">
-                            <div class="col"><dt>Employee ID</dt><dd class="mb-0 tabular-nums" data-portal-field="id"></dd></div>
-                            <div class="col"><dt>Status</dt><dd class="mb-0" data-portal-field="status"></dd></div>
-                            <div class="col"><dt>Department</dt><dd class="mb-0" data-portal-field="department"></dd></div>
-                            <div class="col"><dt>Job Title</dt><dd class="mb-0" data-portal-field="jobTitle"></dd></div>
-                            <div class="col"><dt>Date Hired</dt><dd class="mb-0" data-portal-field="hiredOn"></dd></div>
-                            <div class="col"><dt>Phone</dt><dd class="mb-0" data-portal-field="phone"></dd></div>
-                            <div class="col-12"><dt>Email</dt><dd class="mb-0 text-break" data-portal-field="email"></dd></div>
-                        </dl>
-                    </section>
-                </div>
-            </div>
-
-            <div class="row g-4">
-                <div class="col-lg-7">
-                    <section class="card dashboard-panel">
-                        <h2>Quick links</h2>
-                        <p class="dashboard-panel-subtitle">Jump to a section</p>
-
-                        <div class="row row-cols-1 row-cols-sm-2 row-cols-xl-3 g-3">
-                            @foreach ($quickLinks as $link)
-                                <div class="col">
-                                    <a class="quick-link" href="{{ route($link['route']) }}">
-                                        <x-icon :name="$link['icon']" />
-                                        <span class="quick-link-label">{{ $link['label'] }}</span>
-                                        <small>{{ $link['about'] }}</small>
-                                    </a>
-                                </div>
-                            @endforeach
-                        </div>
-                    </section>
-                </div>
-
-                <div class="col-lg-5">
-                    <section class="card dashboard-panel">
-                        <h2>My benefits</h2>
-                        <p class="dashboard-panel-subtitle">What your job title includes</p>
-
-                        <div class="d-flex flex-wrap gap-2" data-portal-benefits></div>
-                    </section>
-                </div>
-            </div>
-        </div>
+        <section class="card dashboard-panel">
+            <h2>Notifications</h2>
+            <ul class="list-group list-group-flush dashboard-list">
+                @forelse ($unread as $notification)
+                    <li class="list-group-item px-0"><span class="fw-medium">{{ $notification->data['title'] }}</span><small class="d-block text-body-secondary">{{ $notification->data['body'] }}</small></li>
+                @empty
+                    <li class="list-group-item px-0 text-body-secondary">You are all caught up.</li>
+                @endforelse
+            </ul>
+            <div class="mt-2"><a href="{{ route('notifications.index') }}">View all notifications</a></div>
+        </section>
     </div>
 @endsection

@@ -13,7 +13,7 @@
     </head>
     <body>
         {{-- The Employee interface: the same shell as the HR layout, with its own header and sidebar. --}}
-        <div class="app-shell" data-app-shell>
+        <div class="app-shell" data-app-shell data-server-user>
             <x-employee-header />
 
             <x-employee-sidebar />

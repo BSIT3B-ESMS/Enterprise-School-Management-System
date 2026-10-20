@@ -13,8 +13,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 /**
- * The reference base rates by pay band and step. A change never edits an existing rate: it adds a new set of eight
- * rates from an effective date, so what was paid on any earlier date can still be looked up.
+ * The reference base pay of each salary grade (Step 1 of the government schedule). A change never edits an existing
+ * rate: it adds a new rate from an effective date, so what was paid on any earlier date can still be looked up.
  */
 class RateTierController extends Controller
 {
@@ -28,7 +28,7 @@ class RateTierController extends Controller
             'titlesByGrade' => JobTitle::query()->orderBy('title')->get()->groupBy('salary_grade'),
             'grade' => $grade && isset($schedule[$grade]) ? $grade : null,
             'history' => $grade
-                ? RateTier::query()->where('salary_grade', $grade)->orderByDesc('effective_date')->orderBy('step')->get()->groupBy(fn (RateTier $tier) => $tier->effective_date->toDateString())
+                ? RateTier::query()->where('salary_grade', $grade)->orderByDesc('effective_date')->get()
                 : collect(),
         ]);
     }
@@ -36,26 +36,20 @@ class RateTierController extends Controller
     public function store(StoreRateScheduleRequest $request, AuditLogger $audit): RedirectResponse
     {
         DB::transaction(function () use ($request, $audit): void {
-            $first = null;
-
-            foreach (array_values($request->input('amounts')) as $index => $amount) {
-                $tier = RateTier::query()->create([
-                    'salary_grade' => $request->integer('salary_grade'),
-                    'step' => $index + 1,
-                    'monthly_amount' => $amount,
-                    'effective_date' => $request->date('effective_date')->toDateString(),
-                ]);
-                $first ??= $tier;
-            }
-
-            $audit->log(AuditAction::Create, $first, [
+            $tier = RateTier::query()->create([
                 'salary_grade' => $request->integer('salary_grade'),
+                'monthly_amount' => $request->input('monthly_amount'),
                 'effective_date' => $request->date('effective_date')->toDateString(),
-                'amounts' => array_map('floatval', array_values($request->input('amounts'))),
+            ]);
+
+            $audit->log(AuditAction::Create, $tier, [
+                'salary_grade' => $tier->salary_grade,
+                'effective_date' => $tier->effective_date->toDateString(),
+                'monthly_amount' => (float) $request->input('monthly_amount'),
             ]);
         });
 
         return to_route('rates.index', ['grade' => $request->integer('salary_grade')])
-            ->with('success', 'New rates saved. The earlier rates are kept.');
+            ->with('success', 'The new rate was saved. The earlier rates are kept.');
     }
 }

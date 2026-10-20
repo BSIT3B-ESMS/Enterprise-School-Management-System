@@ -10,3 +10,6 @@ Artisan::command('inspire', function () {
 
 // Transfers dated in the future take effect on their day. The server runs `php artisan schedule:run` every minute.
 Schedule::command('transfers:apply')->dailyAt('00:05')->withoutOverlapping();
+
+// Accepted contract offers and changes of assignment take effect on their start date.
+Schedule::command('agreements:apply')->dailyAt('00:10')->withoutOverlapping();

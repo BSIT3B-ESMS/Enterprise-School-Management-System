@@ -14,14 +14,14 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
 /**
- * Archiving and restoring employees (the HR Head's job). Records are never deleted: an archived employee is marked
+ * Archiving and restoring employees (the HR Admin's job). Records are never deleted: an archived employee is marked
  * Inactive, Resigned, Retired, or Terminated and can be restored.
  */
 class EmployeeStatusController extends Controller
 {
     public function index(Request $request): View
     {
-        abort_unless($request->user()->isHrHead(), 403);
+        abort_unless($request->user()->isHrAdmin(), 403);
 
         $term = $request->string('q')->trim()->toString();
 

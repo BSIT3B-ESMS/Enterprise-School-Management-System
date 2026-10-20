@@ -2,101 +2,86 @@
 
 @section('title', 'Audit Logs · '.config('app.name'))
 
-@php
-    $columns = [
-        'at' => 'Date and Time',
-        'user' => 'User',
-        'action' => 'Action',
-        'entity' => 'Affected Record',
-    ];
-@endphp
-
-{{--
-    Rows, filter options, sorting, and pagination are rendered by resources/js/audit-logs.js from resources/js/mock-data.js.
-    Entries are read-only: clicking a row (or pressing Enter/Space on it) opens the entry details modal.
---}}
 @section('content')
-    <div class="d-grid gap-4" data-page="audit">
+    <div class="d-grid gap-4">
         <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
             <div>
                 <h1 class="page-title">Audit Logs</h1>
-                <p class="text-body-secondary mt-1 mb-0">Every sign-in and data change, newest first.</p>
+                <p class="text-body-secondary mt-1 mb-0">Who did what and when. Entries cannot be edited or deleted. Passwords and government ID numbers are never recorded.</p>
             </div>
-
-            <a class="btn btn-outline-secondary d-inline-flex align-items-center gap-2" href="{{ route('audit.report') }}"
-                data-report-link data-report-url="{{ route('audit.report') }}">
+            <a class="btn btn-outline-secondary d-inline-flex align-items-center gap-2" href="{{ route('audit.report', request()->query()) }}">
                 <x-icon name="report" />
                 Generate Report
             </a>
         </div>
 
-        <div class="card employees-filters">
+        <form method="get" class="card employees-filters" data-auto-submit>
             <div class="row g-3">
-                <div class="col-md-6">
-                    <label for="audit-search" class="visually-hidden">Search activity</label>
-                    <div class="search-field">
-                        <x-icon name="search" />
-                        <input type="search" class="form-control" id="audit-search" placeholder="Search activity..."
-                            autocomplete="off" data-audit-search>
-                    </div>
+                <div class="col-md-6 col-xl-3">
+                    <label for="audit-action" class="visually-hidden">Action</label>
+                    <select class="form-select" id="audit-action" name="action">
+                        <option value="">All actions</option>
+                        @foreach ($actions as $action)
+                            <option value="{{ $action->value }}" @selected(($filters['action'] ?? '') === $action->value)>{{ ucfirst(str_replace('_', ' ', $action->value)) }}</option>
+                        @endforeach
+                    </select>
                 </div>
-                <div class="col-sm-6 col-md-3">
-                    <label for="audit-action-filter" class="visually-hidden">Action</label>
-                    <select class="form-select" id="audit-action-filter" data-audit-filter="action"></select>
+                <div class="col-md-6 col-xl-3">
+                    <label for="audit-user" class="visually-hidden">User</label>
+                    <select class="form-select" id="audit-user" name="user">
+                        <option value="">All users</option>
+                        @foreach ($users as $id => $name)
+                            <option value="{{ $id }}" @selected((string) ($filters['user'] ?? '') === (string) $id)>{{ $name }}</option>
+                        @endforeach
+                    </select>
                 </div>
-                <div class="col-sm-6 col-md-3">
-                    <label for="audit-record-filter" class="visually-hidden">Record type</label>
-                    <select class="form-select" id="audit-record-filter" data-audit-filter="recordType"></select>
+                <div class="col-md-6 col-xl-3">
+                    <label for="audit-entity" class="visually-hidden">Record</label>
+                    <select class="form-select" id="audit-entity" name="entity">
+                        <option value="">All records</option>
+                        @foreach ($entities as $type => $label)
+                            <option value="{{ $type }}" @selected(($filters['entity'] ?? '') === $type)>{{ $label }}</option>
+                        @endforeach
+                    </select>
                 </div>
-                {{-- One date: shows entries recorded on exactly that day. Empty means no date restriction. --}}
-                <div class="col-md-6 col-xl-4">
-                    <div class="input-group">
-                        <label class="input-group-text" for="audit-date-filter">Date</label>
-                        <input type="date" class="form-control" id="audit-date-filter"
-                            title="Show entries recorded on this date" data-audit-filter="date">
-                    </div>
-                </div>
+                <div class="col-md-3 col-xl-1"><label class="visually-hidden" for="audit-from">From</label><input type="date" class="form-control" id="audit-from" name="from" value="{{ $filters['from'] ?? '' }}" title="From"></div>
+                <div class="col-md-3 col-xl-2"><label class="visually-hidden" for="audit-to">To</label><input type="date" class="form-control" id="audit-to" name="to" value="{{ $filters['to'] ?? '' }}" title="To"></div>
             </div>
-
-            <div class="d-flex justify-content-end mt-3">
-                <button type="button" class="btn btn-sm btn-outline-secondary" data-audit-clear>Clear Filters</button>
-            </div>
-        </div>
+            <div class="d-flex justify-content-end mt-3"><a class="btn btn-sm btn-outline-secondary" href="{{ route('audit.index') }}">Clear Filters</a></div>
+        </form>
 
         <div class="card overflow-hidden">
             <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0 employees-table audit-table">
-                    <thead>
-                        <tr>
-                            @foreach ($columns as $key => $label)
-                                <th scope="col" aria-sort="none" data-sort-column="{{ $key }}">
-                                    <button type="button" class="sort-button" data-sort-key="{{ $key }}">
-                                        {{ $label }}
-                                        <x-icon name="chevron-up" class="sort-icon sort-icon-ascending" />
-                                        <x-icon name="chevron-down" class="sort-icon sort-icon-descending" />
-                                    </button>
-                                </th>
-                            @endforeach
-                            <th scope="col">Details</th>
-                        </tr>
-                    </thead>
-                    <tbody data-audit-rows></tbody>
+                <table class="table align-middle mb-0 employees-table">
+                    <thead><tr><th scope="col">When</th><th scope="col">Who</th><th scope="col">Action</th><th scope="col">What happened</th><th scope="col"><span class="visually-hidden">Details</span></th></tr></thead>
+                    <tbody>
+                        @forelse ($entries as $entry)
+                            <tr>
+                                <td class="text-nowrap">{{ $entry->created_at->format('M j, Y g:i A') }}</td>
+                                <td>{{ $entry->user?->name ?? 'System' }}</td>
+                                <td><span class="status-pill">{{ ucfirst(str_replace('_', ' ', $entry->action->value)) }}</span></td>
+                                <td>{{ $entry->summary() }}</td>
+                                <td class="text-end">
+                                    @if ($entry->changes)
+                                        <button type="button" class="btn btn-sm btn-link" data-bs-toggle="collapse" data-bs-target="#audit-{{ $entry->id }}" aria-expanded="false" aria-controls="audit-{{ $entry->id }}">Details</button>
+                                    @endif
+                                </td>
+                            </tr>
+                            @if ($entry->changes)
+                                <tr class="collapse" id="audit-{{ $entry->id }}">
+                                    <td colspan="5" class="bg-body-tertiary"><pre class="small mb-0">{{ json_encode($entry->changes, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) }}</pre><small class="text-body-secondary">IP address {{ $entry->ip_address ?? 'unknown' }}</small></td>
+                                </tr>
+                            @endif
+                        @empty
+                            <tr><td colspan="5" class="employees-empty text-center"><strong>No entries</strong> Nothing matches these filters.</td></tr>
+                        @endforelse
+                    </tbody>
                 </table>
             </div>
-
-            <div class="employees-empty d-none" data-audit-empty>
-                <strong>No activity found</strong>
-                Nothing matches the current filters. Try a different search or clear the filters.
-            </div>
-
             <div class="employees-footer d-flex justify-content-between align-items-center gap-3 flex-wrap">
-                <span data-audit-summary></span>
-                <nav aria-label="Audit log pages">
-                    <ul class="pagination pagination-sm mb-0" data-audit-pagination></ul>
-                </nav>
+                <span>Showing {{ $entries->firstItem() ?? 0 }} to {{ $entries->lastItem() ?? 0 }} of {{ $entries->total() }} entries</span>
+                {{ $entries->links() }}
             </div>
         </div>
     </div>
-
-    <x-audit-details-modal />
 @endsection

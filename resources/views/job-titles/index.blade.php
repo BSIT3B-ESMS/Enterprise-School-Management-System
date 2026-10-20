@@ -4,14 +4,14 @@
 
 {{--
     The job titles of each college and office, with the pay band that sets each one's base rate (step 1 to step 8, in
-    force today). Everyone in HR reads this page; only the HR Head adds or edits titles and rates.
+    force today). Everyone in HR reads this page; only the HR Admin adds or edits titles and rates.
 --}}
 @section('content')
     <div class="d-grid gap-4" data-page="job-titles">
         <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
             <div>
                 <h1 class="page-title">Job Titles</h1>
-                <p class="text-body-secondary mt-1 mb-0">Positions of each college and office, and their base pay</p>
+                <p class="text-body-secondary mt-1 mb-0">One shared list of positions. Editing a job title changes it in every college and office that uses it.</p>
             </div>
 
             <div class="d-flex gap-2 flex-wrap">
@@ -65,9 +65,9 @@
                     <thead>
                         <tr>
                             <th scope="col">Job title</th>
-                            <th scope="col">College or office</th>
+                            <th scope="col">Used in</th>
                             <th scope="col">Category</th>
-                            <th scope="col">Base pay (monthly)</th>
+                            <th scope="col">Monthly pay</th>
                             <th scope="col" class="text-end">People</th>
                             <th scope="col">Open positions</th>
                             <th scope="col">Status</th>
@@ -76,30 +76,38 @@
                     </thead>
                     <tbody>
                         @forelse ($jobTitles as $jobTitle)
-                            @php($steps = $schedule[$jobTitle->salary_grade] ?? [])
+                            @php($pay = $schedule[$jobTitle->salary_grade] ?? null)
+                            @php($units = $copies->get($jobTitle->title.'|'.$jobTitle->category->value, collect()))
                             <tr>
                                 <td class="fw-medium">{{ $jobTitle->title }}</td>
-                                <td>{{ $jobTitle->college?->name ?? $jobTitle->office?->name }}</td>
+                                <td>
+                                    <div class="d-flex flex-wrap gap-1">
+                                        @foreach ($units as $copy)
+                                            <span class="ems-chip">{{ $copy->college?->code ?? $copy->office?->code }}</span>
+                                        @endforeach
+                                    </div>
+                                    <small class="text-body-secondary">{{ $units->count() }} {{ \Illuminate\Support\Str::plural('unit', $units->count()) }}</small>
+                                </td>
                                 <td>{{ $jobTitle->category === \App\Enums\JobTitleCategory::Faculty ? 'Faculty' : 'Non-teaching' }}</td>
                                 <td class="tabular-nums text-nowrap">
-                                    @if ($steps)
-                                        ₱{{ number_format((float) reset($steps)) }} to ₱{{ number_format((float) end($steps)) }}
+                                    @if ($pay)
+                                        SG {{ $jobTitle->salary_grade }} · ₱{{ number_format((float) $pay, 2) }}
                                     @else
                                         —
                                     @endif
                                 </td>
-                                <td class="text-end tabular-nums">{{ $jobTitle->employees_count }}</td>
+                                <td class="text-end tabular-nums">{{ $units->sum('employees_count') }}</td>
                                 <td>
                                     @if ($jobTitle->openings > 0)
-                                        {{ $jobTitle->openings }} {{ $jobTitle->is_published ? '· Published' : '· Not published' }}
+                                        {{ $jobTitle->openings }} open
                                     @else
                                         —
                                     @endif
                                 </td>
-                                <td>{{ $jobTitle->is_active ? 'Active' : 'Inactive' }}</td>
+                                <td>{{ $jobTitle->active_count > 0 ? 'Active' : 'Inactive' }}</td>
                                 <td class="text-end">
                                     @can('manage-reference-data')
-                                        <a class="btn btn-sm btn-outline-secondary" href="{{ route('job-titles.edit', $jobTitle) }}">Edit</a>
+                                        <a class="btn btn-sm btn-outline-secondary" href="{{ route('job-titles.edit', $jobTitle->id) }}">Edit</a>
                                     @endcan
                                 </td>
                             </tr>

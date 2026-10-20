@@ -2,176 +2,74 @@
 
 @section('title', 'My Profile · '.config('app.name'))
 
-@php
-    $tabs = [
-        'personal' => 'Personal Information',
-        'employment' => 'Employment Information',
-        'contact' => 'Contact Information',
-        'government' => 'Government and Tax',
-    ];
-@endphp
-
-{{--
-    The signed-in employee's profile (201 file), filled in by resources/js/portal-profile.js from the mock data.
-    Same layout as the HR employee profile, but the employee can edit only civil status, phone, and address;
-    the rest is HR-controlled and read-only. Edit swaps the tabs for a form on this page.
---}}
 @section('content')
-    <div class="d-grid gap-4" data-page="portal-profile">
-        <div class="d-flex justify-content-between align-items-center gap-3 flex-wrap">
+    <div class="d-grid gap-4" id="security">
+        <div>
             <h1 class="page-title">My Profile</h1>
-
-            <a class="btn btn-outline-secondary d-inline-flex align-items-center gap-2" href="{{ route('employee.dashboard') }}">
-                <x-icon name="back" />
-                Back to Dashboard
-            </a>
+            <p class="text-body-secondary mt-1 mb-0">Your record as HR holds it. You can update your contact details and emergency contacts.</p>
         </div>
 
-        <div class="card d-none" data-portal-missing>
-            <div class="employees-empty">
-                <strong>Employee record not found</strong>
-                Your record may have been removed. Contact HR for help.
+        <section class="card employee-form-card" aria-labelledby="work-title">
+            <h2 class="employee-form-section" id="work-title">Employment</h2>
+            <dl class="row mb-0">
+                <dt class="col-sm-3">Name</dt><dd class="col-sm-9">{{ $employee->full_name }}</dd>
+                <dt class="col-sm-3">Employee ID</dt><dd class="col-sm-9">{{ $employee->employee_no }}</dd>
+                <dt class="col-sm-3">Job title</dt><dd class="col-sm-9">{{ $employee->jobTitle->title }}</dd>
+                <dt class="col-sm-3">College or office</dt><dd class="col-sm-9">{{ collect([$employee->college?->name, $employee->office?->name])->filter()->implode(' and ') }}</dd>
+                <dt class="col-sm-3">Employment type</dt><dd class="col-sm-9">{{ $employee->employment_type->label() }}</dd>
+                <dt class="col-sm-3">Hired on</dt><dd class="col-sm-9">{{ $employee->hired_on?->format('F j, Y') ?? '—' }}</dd>
+                <dt class="col-sm-3">Contract ends</dt><dd class="col-sm-9">{{ $employee->contract_ends_on?->format('F j, Y') ?? 'No end date' }}</dd>
+                <dt class="col-sm-3">Official email</dt><dd class="col-sm-9">{{ $employee->official_email }}</dd>
+            </dl>
+        </section>
+
+        <section class="card employee-form-card" aria-labelledby="gov-title">
+            <h2 class="employee-form-section" id="gov-title">Government and tax IDs</h2>
+            <p class="small text-body-secondary">For your privacy only the last four digits show.</p>
+            <dl class="row mb-0">
+                @forelse ($maskedIds as $key => $last4)
+                    <dt class="col-sm-3">{{ strtoupper($key === 'pagibig' ? 'Pag-IBIG' : $key) }}</dt><dd class="col-sm-9">•••• {{ $last4 }}</dd>
+                @empty
+                    <dd class="col-12 text-body-secondary">None on record.</dd>
+                @endforelse
+            </dl>
+        </section>
+
+        <form method="post" action="{{ route('employee.profile.update') }}" class="card employee-form-card" novalidate>
+            @csrf
+            @method('PUT')
+            <h2 class="employee-form-section">Contact details</h2>
+            <div class="row g-3">
+                <div class="col-md-4"><x-field name="phone" label="Mobile number" :value="$employee->phone" placeholder="09XXXXXXXXX" /></div>
+                <div class="col-md-4"><x-field name="personal_email" type="email" label="Personal email" :value="$employee->personal_email" /></div>
+                <div class="col-md-12"><x-field name="address" label="Address" :value="$employee->address" /></div>
+                <div class="col-12 d-flex justify-content-end"><button type="submit" class="btn btn-primary">Save</button></div>
             </div>
-        </div>
+        </form>
 
-        <div class="d-grid gap-4" data-portal-content>
-            <section class="card employee-form-card">
-                <div class="d-flex align-items-center gap-3 flex-wrap">
-                    <span class="profile-avatar" aria-hidden="true" data-portal-field="initials"></span>
-                    <div class="min-w-0 flex-grow-1">
-                        <h2 class="fs-4 mb-1" data-portal-field="name"></h2>
-                        <div class="d-flex align-items-center gap-2 flex-wrap text-body-secondary">
-                            <span class="ems-chip tabular-nums" data-portal-field="id"></span>
-                            <span data-portal-field="role"></span>
-                            <span class="status-pill" data-portal-status-pill></span>
-                        </div>
-                    </div>
-                    <button type="button" class="btn btn-primary" data-portal-edit-start>Edit</button>
-                </div>
-            </section>
-
-            <div class="card employee-form-card" data-portal-view>
-                <ul class="nav nav-underline profile-tabs mb-4" role="tablist">
-                    @foreach ($tabs as $key => $label)
-                        <li class="nav-item" role="presentation">
-                            <button type="button" class="nav-link{{ $loop->first ? ' active' : '' }}" id="portal-{{ $key }}-tab"
-                                data-bs-toggle="tab" data-bs-target="#portal-{{ $key }}" role="tab"
-                                aria-controls="portal-{{ $key }}" aria-selected="{{ $loop->first ? 'true' : 'false' }}">{{ $label }}</button>
-                        </li>
-                    @endforeach
-                </ul>
-
-                <div class="tab-content">
-                    <section class="tab-pane fade show active" id="portal-personal" role="tabpanel"
-                        aria-labelledby="portal-personal-tab" tabindex="0">
-                        <dl class="row row-cols-1 row-cols-md-2 g-3 mb-0 employee-details">
-                            <div class="col"><dt>Full Name</dt><dd class="mb-0" data-portal-field="name"></dd></div>
-                            <div class="col"><dt>Employee ID</dt><dd class="mb-0 tabular-nums" data-portal-field="id"></dd></div>
-                            <div class="col"><dt>Birthdate</dt><dd class="mb-0" data-portal-field="birthdate"></dd></div>
-                            <div class="col"><dt>Sex</dt><dd class="mb-0" data-portal-field="sex"></dd></div>
-                            <div class="col"><dt>Civil Status</dt><dd class="mb-0" data-portal-field="civilStatus"></dd></div>
-                        </dl>
-                    </section>
-
-                    <section class="tab-pane fade" id="portal-employment" role="tabpanel"
-                        aria-labelledby="portal-employment-tab" tabindex="0">
-                        <dl class="row row-cols-1 row-cols-md-2 g-3 mb-0 employee-details">
-                            <div class="col"><dt>Department</dt><dd class="mb-0" data-portal-field="department"></dd></div>
-                            <div class="col"><dt>Job Title</dt><dd class="mb-0" data-portal-field="jobTitle"></dd></div>
-                            <div class="col"><dt>Date Hired</dt><dd class="mb-0" data-portal-field="hiredOn"></dd></div>
-                            <div class="col"><dt>Employment Status</dt><dd class="mb-0" data-portal-field="status"></dd></div>
-                        </dl>
-                    </section>
-
-                    <section class="tab-pane fade" id="portal-contact" role="tabpanel"
-                        aria-labelledby="portal-contact-tab" tabindex="0">
-                        <dl class="row row-cols-1 row-cols-md-2 g-3 mb-0 employee-details">
-                            <div class="col"><dt>Email</dt><dd class="mb-0 text-break" data-portal-field="email"></dd></div>
-                            <div class="col"><dt>Phone</dt><dd class="mb-0" data-portal-field="phone"></dd></div>
-                            <div class="col-12"><dt>Address</dt><dd class="mb-0" data-portal-field="address"></dd></div>
-                        </dl>
-                    </section>
-
-                    <section class="tab-pane fade" id="portal-government" role="tabpanel"
-                        aria-labelledby="portal-government-tab" tabindex="0">
-                        <dl class="row row-cols-1 row-cols-md-2 g-3 mb-0 employee-details">
-                            <div class="col"><dt>SSS Number</dt><dd class="mb-0 tabular-nums" data-portal-field="sssNumber"></dd></div>
-                            <div class="col"><dt>PhilHealth Number</dt><dd class="mb-0 tabular-nums" data-portal-field="philhealthNumber"></dd></div>
-                            <div class="col"><dt>Pag-IBIG (HDMF) Number</dt><dd class="mb-0 tabular-nums" data-portal-field="pagibigNumber"></dd></div>
-                            <div class="col"><dt>Tax Identification Number (TIN)</dt><dd class="mb-0 tabular-nums" data-portal-field="tin"></dd></div>
-                            <div class="col"><dt>BIR Number</dt><dd class="mb-0 tabular-nums" data-portal-field="birNumber"></dd></div>
-                        </dl>
-                    </section>
-                </div>
-            </div>
-
-            {{-- Edit mode: the editable fields, with the read-only ones beside them for context. --}}
-            <form class="card employee-form-card d-none" novalidate data-portal-form>
-                <p class="text-body-secondary mb-4">
-                    You can update your civil status, phone number, and address. Your other details are managed by HR.
-                </p>
-
-                <section class="mb-4">
-                    <h2 class="employee-form-section">Personal Information</h2>
-
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label for="portal-name" class="form-label">Full Name</label>
-                            <input type="text" class="form-control" id="portal-name" readonly data-portal-input="name">
-                        </div>
-
-                        <div class="col-md-6">
-                            <label for="portal-birthdate" class="form-label">Birthdate</label>
-                            <input type="text" class="form-control" id="portal-birthdate" readonly data-portal-input="birthdate">
-                        </div>
-
-                        <div class="col-md-6">
-                            <label for="portal-sex" class="form-label">Sex</label>
-                            <input type="text" class="form-control" id="portal-sex" readonly data-portal-input="sex">
-                        </div>
-
-                        <div class="col-md-6">
-                            <label for="portal-civil-status" class="form-label">Civil Status</label>
-                            <select class="form-select" id="portal-civil-status" name="civilStatus">
-                                <option>Single</option>
-                                <option>Married</option>
-                                <option>Widowed</option>
-                                <option>Separated</option>
-                            </select>
-                        </div>
-                    </div>
-                </section>
-
-                <section class="mb-4">
-                    <h2 class="employee-form-section">Contact Information</h2>
-
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label for="portal-email" class="form-label">Email</label>
-                            <input type="email" class="form-control" id="portal-email" readonly data-portal-input="email">
-                        </div>
-
-                        <div class="col-md-6">
-                            <label for="portal-phone" class="form-label">Phone</label>
-                            <input type="tel" class="form-control" id="portal-phone" name="phone" placeholder="+63 9XX XXX XXXX"
-                                autocomplete="off" aria-describedby="portal-phone-error">
-                            <div class="invalid-feedback" id="portal-phone-error"></div>
-                        </div>
-
-                        <div class="col-12">
-                            <label for="portal-address" class="form-label">Address</label>
-                            <input type="text" class="form-control" id="portal-address" name="address" autocomplete="off">
-                        </div>
-                    </div>
-                </section>
-
-                <div class="d-flex justify-content-end flex-wrap gap-2 mt-2">
-                    <button type="button" class="btn btn-outline-secondary" data-portal-edit-cancel>Cancel</button>
-                    <button type="submit" class="btn btn-primary">Save Changes</button>
-                </div>
+        <section class="card employee-form-card" aria-labelledby="ec-title">
+            <h2 class="employee-form-section" id="ec-title">Emergency contacts</h2>
+            <ul class="list-group list-group-flush mb-3">
+                @foreach ($employee->emergencyContacts as $contact)
+                    <li class="list-group-item px-0 d-flex justify-content-between align-items-center gap-2">
+                        <span>{{ $contact->name }} ({{ $contact->relationship }}) · {{ $contact->phone }} @if ($contact->is_primary) <span class="ems-chip">Primary</span> @endif</span>
+                        <form method="post" action="{{ route('employee.emergency-contacts.destroy', $contact) }}">@csrf @method('DELETE')<button type="submit" class="btn btn-sm btn-outline-danger">Remove</button></form>
+                    </li>
+                @endforeach
+            </ul>
+            <form method="post" action="{{ route('employee.emergency-contacts.store') }}" class="row g-2" novalidate>
+                @csrf
+                <div class="col-md-3"><x-field name="name" label="Name" required /></div>
+                <div class="col-md-3"><x-field name="relationship" label="Relationship" required /></div>
+                <div class="col-md-3"><x-field name="phone" label="Mobile number" required /></div>
+                <div class="col-md-3"><x-field name="address" label="Address" /></div>
+                <div class="col-12 d-flex justify-content-end"><button type="submit" class="btn btn-outline-primary">Add Contact</button></div>
             </form>
+        </section>
 
-            <x-password-change-section account="employee" />
-        </div>
+        <section class="card employee-form-card" aria-labelledby="sec-title">
+            <h2 class="employee-form-section" id="sec-title">Security</h2>
+            <a href="{{ route('password.change') }}">Change my password</a>
+        </section>
     </div>
 @endsection

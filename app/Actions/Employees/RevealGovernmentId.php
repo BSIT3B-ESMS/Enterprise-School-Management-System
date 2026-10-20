@@ -10,7 +10,7 @@ use App\Services\AuditLogger;
 class RevealGovernmentId
 {
     /**
-     * The reasons the HR Head can give for looking at a full government ID number.
+     * The reasons the HR Admin can give for looking at a full government ID number.
      *
      * @var array<string, string>
      */
