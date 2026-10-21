@@ -13,6 +13,19 @@ use Illuminate\Database\Seeder;
  */
 class AdmissionSetupSeeder extends Seeder
 {
+    /** [key, title, applies when, icon, note]. Also used by the migration that adds the H1 cards. */
+    public const ADMISSION_REQUIREMENTS = [
+        ['applicantId', "Applicant's government-issued or school ID", 'all', 'idcard', null],
+        ['parentId', "Parent's government-issued ID", 'all', 'users', null],
+        ['affidavit', 'Notarized affidavit of guardianship', 'guardian', 'stamp', 'Applicants with a guardian'],
+        ['form137', 'CTC of Form 137 — "For Evaluation Purposes Only"', 'graduate', 'file', 'SHS graduates'],
+        ['form138', 'CTC of Grade 11 Form 138', 'grade12', 'stamp', 'Ongoing Grade 12'],
+        ['reportCard', 'Grade 12 Form 138 (latest grading period)', 'grade12', 'file', 'Ongoing Grade 12'],
+        ['goodMoral', 'Certificate of Good Moral Character', 'all', 'shield', null],
+        ['psa', 'PSA Birth Certificate', 'all', 'scroll', null],
+        ['photo', '2 passport-size photos, white background with nameplate', 'all', 'camera', null],
+    ];
+
     public function run(): void
     {
         AdmissionPeriod::updateOrCreate(['academic_year' => '2027–2028'], [
@@ -46,16 +59,10 @@ class AdmissionSetupSeeder extends Seeder
         // Colleges, deans' scope and interview programs (FR-17)
         $this->call(CollegeSeeder::class);
 
-        // Freshman documentary requirements (decision T6: the admin panel's list)
-        $admission = [
-            ['psa', 'PSA Birth Certificate', 'all', 'scroll', null],
-            ['parentId', "Parent's government-issued ID", 'all', 'users', null],
-            ['affidavit', 'Notarized affidavit of guardianship', 'guardian', 'stamp', 'Applicants with a guardian'],
-            ['photo', '2 passport-size photos, white background with nameplate', 'all', 'camera', null],
-            ['form137', 'CTC of Form 137 — "For Evaluation Purposes Only"', 'graduate', 'file', 'SHS graduates'],
-            ['form138', 'CTC of Grade 11 Form 138', 'grade12', 'file', 'Ongoing Grade 12'],
-            ['applicantId', "Applicant's government-issued or school ID", 'all', 'idcard', null],
-        ];
+        // Freshman documentary requirements (decision T6: the admin panel's list,
+        // plus the portal's Grade 12 report card and Good Moral cards: H1).
+        // In the order the applicant portal shows its document cards.
+        $admission = self::ADMISSION_REQUIREMENTS;
         foreach ($admission as $i => [$key, $title, $when, $icon, $note]) {
             Requirement::updateOrCreate(['key' => $key], [
                 'stage' => Requirement::STAGE_ADMISSION, 'title' => $title, 'applies_when' => $when,

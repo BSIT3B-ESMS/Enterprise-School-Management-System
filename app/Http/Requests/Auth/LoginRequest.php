@@ -11,8 +11,8 @@ class LoginRequest extends FormRequest
         return [
             'email' => ['required', 'email'],
             'password' => ['required', 'string'],
-            // Which sign-in screen sent this: the applicant portal or the admission office
-            'portal' => ['required', 'in:applicant,office'],
+            // Which sign-in screen sent this: the applicant portal, the admission office or the clinic
+            'portal' => ['required', 'in:applicant,office,clinic'],
         ];
     }
 }

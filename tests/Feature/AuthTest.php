@@ -68,8 +68,11 @@ class AuthTest extends TestCase
         $this->login($applicant->email, 'applicant')->assertOk();
         $this->login($applicant->email, 'office')->assertUnprocessable();
         $this->login($admission->email, 'office')->assertOk();
-        $this->login($clinic->email, 'office')->assertOk();
+        $this->login($admission->email, 'clinic')->assertUnprocessable();
+        $this->login($clinic->email, 'clinic')->assertOk();
+        $this->login($clinic->email, 'office')->assertUnprocessable()->assertJsonPath('errors.email.0', "This account can't sign in here. Clinic accounts sign in at the clinic portal (/nurse).");
         $this->login($admission->email, 'applicant')->assertUnprocessable();
+        $this->login($sysadmin->email, 'clinic')->assertUnprocessable();
         $this->login($sysadmin->email, 'office')->assertUnprocessable();
         $this->login($sysadmin->email, 'applicant')->assertUnprocessable();
     }

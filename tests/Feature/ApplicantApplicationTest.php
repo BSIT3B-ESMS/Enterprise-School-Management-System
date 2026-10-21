@@ -100,6 +100,23 @@ class ApplicantApplicationTest extends TestCase
     }
 
     /** FR-05: submit needs the form and the documents */
+    /** "My profile": names while a draft, mobile number any time, changes after submission kept (FR-10) */
+    public function test_profile_update(): void
+    {
+        $user = $this->makeApplicant(true);
+        $this->asUser($user)->putJson('/api/applicant/profile', ['firstName' => 'Jordy', 'lastName' => 'Mendoza', 'phone' => '0917 000 1111'])
+            ->assertOk()->assertJsonPath('data.data.firstName', 'Jordy')->assertJsonPath('data.data.phone', '0917 000 1111');
+        $this->asUser($user)->putJson('/api/applicant/profile', ['phone' => '12345'])
+            ->assertUnprocessable()->assertJsonPath('errors.phone.0', 'Use a PH mobile number, like +63 917 123 4567.');
+
+        // After the application is sent: the number still changes (and is logged), the name doesn't
+        $this->applicationOf($user)->forceFill(['status' => ApplicationStatus::Submitted])->save();
+        $this->asUser($user)->putJson('/api/applicant/profile', ['firstName' => 'Someone', 'phone' => '+63 918 222 3333'])
+            ->assertOk()->assertJsonPath('data.data.firstName', 'Jordy')->assertJsonPath('data.data.phone', '+63 918 222 3333');
+        $this->assertDatabaseHas('applicant_change_history', ['field' => 'phone', 'old_value' => '0917 000 1111', 'new_value' => '+63 918 222 3333']);
+        $this->assertDatabaseMissing('applicant_change_history', ['field' => 'first_name']);
+    }
+
     public function test_submit_requires_complete_form_and_documents(): void
     {
         $user = $this->makeApplicant();
@@ -108,7 +125,7 @@ class ApplicantApplicationTest extends TestCase
 
         $user = $this->makeApplicant(true, 'filled@example.com');
         $this->asUser($user)->postJson('/api/applicant/submit')
-            ->assertUnprocessable()->assertJsonFragment(['message' => 'Upload these documents first: PSA Birth Certificate, Parent\'s government-issued ID, 2 passport-size photos, white background with nameplate, CTC of Grade 11 Form 138, Applicant\'s government-issued or school ID.']);
+            ->assertUnprocessable()->assertJsonFragment(['message' => 'Upload these documents first: Applicant\'s government-issued or school ID, Parent\'s government-issued ID, CTC of Grade 11 Form 138, Grade 12 Form 138 (latest grading period), Certificate of Good Moral Character, PSA Birth Certificate, 2 passport-size photos, white background with nameplate.']);
     }
 
     public function test_submit_locks_the_application_and_records_history(): void

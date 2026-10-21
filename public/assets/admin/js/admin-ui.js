@@ -228,7 +228,7 @@
   function loadPreview(a, key) {
     if (previewUrl) { URL.revokeObjectURL(previewUrl); previewUrl = null; }
     var $slot = $("#doc-preview [data-doc-file]");
-    fetch("/api/admin/applicants/" + encodeURIComponent(a.id) + "/documents/" + encodeURIComponent(key) + "/file", {
+    fetch(ADM.fileUrl(a, key), {
       headers: { Authorization: "Bearer " + AO.getToken() }
     }).then(function (r) {
       if (!r.ok) throw r;
@@ -298,19 +298,14 @@
       '<p class="print-foot">' + list.length + " of " + s.capacity + " seats · Bring: " + esc(ADM.EXAM_KIT.join(", ")) + "</p>");
   }
 
-  /* ---------- Sidebar counts ---------- */
+  /* ---------- Sidebar counts: only work waiting on the office ---------- */
   function refreshCounts() {
-    var apps = ADM.state.applicants;
-    var pendingDocs = 0, toRecord = 0, unreleased = 0, medical = 0;
-    apps.forEach(function (a) {
-      var st = ADM.statusOf(a);
+    var pendingDocs = 0, toRecord = 0, unreleased = 0;
+    ADM.state.applicants.forEach(function (a) {
       if (a.submittedAt && !a.exam && ADM.docSummary(a).pending) pendingDocs++;   // applicants with documents waiting
       if (a.exam && a.exam.attendance === "present" && !a.result) toRecord++;
       if (a.result && !a.result.released) unreleased++;
-      if (ADM.medStatus(a) === "pending") medical++;
     });
-    $("#nav-count-medical").text(medical).toggleClass("full", medical === 0);
-    $("#nav-count-applicants").text(apps.length);
     $("#nav-count-documents").text(pendingDocs).toggleClass("full", pendingDocs === 0);
     $("#nav-count-results").text(toRecord + unreleased).toggleClass("full", toRecord + unreleased === 0);
   }

@@ -1,4 +1,5 @@
 /* ==========================================================================
+/* ==========================================================================
    PLP Online Admission — Admission Office: shell, sign-in and router
    Loaded last. Views register themselves on ADM.views (see views/*.js):
      ADM.views.name = { title, nav, render($section, param) }
@@ -11,7 +12,7 @@ $(function () {
 
   // Hash → view name; the second segment is passed to render() as param
   var ROUTES = { dashboard: "dashboard", applicants: "applicants", documents: "documents", exams: "exams", results: "results", medical: "medical", reports: "reports", settings: "settings", audit: "audit" };
-  var DETAIL = { applicants: "applicant", exams: "session" };   // #/applicants/:id → view "applicant"
+  var DETAIL = { applicants: "applicant", exams: "session", documents: "docreview" };   // #/applicants/:id → view "applicant"
   var current = { view: null, param: null };
 
   /* ==========================================================================
@@ -81,6 +82,7 @@ $(function () {
     $(".view-section").removeClass("active");
     $section.addClass("active");
     $(".sidebar-nav .nav-link").removeClass("active").filter('[data-nav="' + r.nav + '"]').addClass("active");
+    if ($("#sidebar-more .nav-link.active").length) $("#sidebar-more").prop("open", true);
     AO.moveNavIndicator();
     AO.closeSidebar();
 

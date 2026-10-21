@@ -33,7 +33,7 @@ class DocumentTest extends TestCase
 
     private function upload(User $user, string $key, ?UploadedFile $file = null, string $stage = 'documents')
     {
-        return $this->asUser($user)->post("/api/applicant/{$stage}/{$key}", ['file' => $file ?? ($key === 'photo' ? UploadedFile::fake()->image('photo.jpg') : $this->pdf())], ['Accept' => 'application/json']);
+        return $this->asUser($user)->post("/api/applicant/{$stage}/{$key}", ['file' => $file ?? ($key === 'photo' ? $this->fakePhoto() : $this->pdf())], ['Accept' => 'application/json']);
     }
 
     /** A filled, submitted application with every required document uploaded. */
@@ -120,7 +120,7 @@ class DocumentTest extends TestCase
             ->assertJsonPath('data.docs.psa.reviewedBy', 'Maria Santos');
         $this->assertSame(ApplicationStatus::Resubmit, $application->fresh()->status);
 
-        $this->asUser($staff)->postJson("{$url}/verify-pending")->assertOk()->assertJsonPath('verified', 4);
+        $this->asUser($staff)->postJson("{$url}/verify-pending")->assertOk()->assertJsonPath('verified', 6);   // the 7 document cards minus PSA (sent back)
 
         // The applicant may replace only the file that was sent back
         $this->asUser($user)->getJson('/api/applicant/portal')->assertJsonPath('data.phase', 'draft');
@@ -144,9 +144,25 @@ class DocumentTest extends TestCase
 
         $this->asUser($clinic)->patchJson("/api/admin/applicants/{$number}/documents/psa", ['status' => 'verified'])->assertForbidden();
         $this->asUser($clinic)->get("/api/admin/applicants/{$number}/documents/psa/file")->assertForbidden();
+        $this->asUser($clinic)->getJson('/api/admin/state')->assertForbidden();
+        $this->asUser($staff)->getJson('/api/clinic/state')->assertForbidden();
         $this->asUser($staff)->get("/api/admin/applicants/{$number}/documents/psa/file")->assertOk()->assertHeader('Content-Type', 'application/pdf');
         $this->asUser($user)->get('/api/applicant/documents/psa/file')->assertOk();
         $this->asUser($user)->getJson('/api/admin/state')->assertForbidden();
+    }
+
+    /** Public university: no fee and no payment step anywhere. Passers just accept the offer. */
+    public function test_no_payment_step(): void
+    {
+        $user = $this->submittedApplicant();
+        $application = $this->applicationOf($user);
+        $this->acceptedSlot($application);
+
+        $portal = $this->asUser($user)->getJson('/api/applicant/portal')->assertOk();
+        $this->assertNotContains('payment', array_column($portal->json('data.requirements'), 'key'));
+        $this->assertArrayNotHasKey('payment', $portal->json('data'));
+        $this->assertNotContains('Reservation fee deadline', array_column($portal->json('data.keyDates'), 'title'));
+        $this->asUser($user)->post('/api/applicant/documents/payment', ['file' => $this->pdf()], ['Accept' => 'application/json'])->assertUnprocessable();
     }
 
     /** FR-10: medical requirements after slot acceptance; clinic only; all verified → Admitted */
@@ -163,10 +179,21 @@ class DocumentTest extends TestCase
         }
         $this->asUser($user)->postJson('/api/applicant/medical/submit')->assertOk()->assertJsonPath('data.medical.status', 'submitted');
 
-        $url = "/api/admin/applicants/{$application->number}/medical";
+        $url = "/api/clinic/applicants/{$application->number}/medical";
         $this->asUser($admission)->patchJson("{$url}/xray", ['status' => 'verified'])->assertForbidden();
-        $this->asUser($clinic)->get("/api/admin/applicants/{$application->number}/documents/xray/file")->assertOk();
+        $this->asUser($admission)->postJson("{$url}/approve")->assertForbidden();
+        $this->asUser($clinic)->get("{$url}/xray/file")->assertOk();
+        $this->asUser($admission)->get("{$url}/xray/file")->assertForbidden();
         $this->asUser($admission)->get("/api/admin/applicants/{$application->number}/documents/xray/file")->assertForbidden();
+
+        // The clinic's state: medical files and a name, nothing else from the record
+        $state = $this->asUser($clinic)->getJson('/api/clinic/state')->assertOk();
+        $this->assertSame([$application->number], array_column($state->json('data.applicants'), 'id'));
+        $this->assertSame('pending', $state->json('data.applicants.0.medical.files.xray.status'));
+        $this->assertNotNull($state->json('data.applicants.0.medical.submittedAt'));
+        $this->assertSame([], $state->json('data.applicants.0.docs'));
+        $this->assertNull($state->json('data.applicants.0.exam'));
+        $this->assertArrayNotHasKey('email', $state->json('data.applicants.0'));
 
         $this->asUser($clinic)->patchJson("{$url}/xray", ['status' => 'resubmit', 'remark' => 'Result is older than 3 months.'])
             ->assertOk()->assertJsonPath('data.medical.files.xray.status', 'resubmit');
@@ -175,9 +202,14 @@ class DocumentTest extends TestCase
             ->assertJsonPath('data.medical.status', 'none')
             ->assertJsonMissingPath('data.medical.files.xray');
 
+        // Can't approve while a file is sent back, or before the replacement is sent
+        $this->asUser($clinic)->postJson("{$url}/approve")->assertUnprocessable();
         $this->upload($user, 'xray', null, 'medical')->assertCreated();
+        $this->asUser($clinic)->postJson("{$url}/approve")->assertUnprocessable();
         $this->asUser($user)->postJson('/api/applicant/medical/submit')->assertOk();
-        $this->asUser($clinic)->postJson("{$url}/verify-pending")->assertOk()->assertJsonPath('verified', 3);
+        $this->asUser($clinic)->postJson("{$url}/approve")->assertOk()->assertJsonPath('verified', 3)
+            ->assertJsonPath('data.medical.files.xray.status', 'verified');
+        $this->asUser($clinic)->postJson("{$url}/approve")->assertUnprocessable();
 
         $this->asUser($user)->getJson('/api/applicant/portal')
             ->assertJsonPath('data.medical.status', 'cleared')
@@ -186,6 +218,11 @@ class DocumentTest extends TestCase
         $this->assertNotNull($application->fresh()->admitted_at);
         // Every opening of a medical file is audited (NFR-05)
         $this->assertDatabaseHas('audit_logs', ['action' => 'medical.file_opened']);
+        $this->assertDatabaseHas('audit_logs', ['description' => 'Approved the medical requirements and sent the approval to the admission office', 'actor_name' => 'Dr. L. Bautista']);
+
+        // The office sees every file verified (= "Approved"), read-only
+        $office = $this->asUser($admission)->getJson('/api/admin/state')->assertOk();
+        $this->assertSame('verified', $office->json('data.applicants.0.medical.files.xray.status'));
     }
 
     /** FR-10: a file flagged as possibly falsified holds clearance until the flag is cleared */
@@ -199,13 +236,13 @@ class DocumentTest extends TestCase
             $this->upload($user, $key, null, 'medical')->assertCreated();
         }
         $this->asUser($user)->postJson('/api/applicant/medical/submit')->assertOk();
-        $url = "/api/admin/applicants/{$application->number}/medical";
+        $url = "/api/clinic/applicants/{$application->number}/medical";
 
         $this->asUser($clinic)->patchJson("{$url}/medCert/flag", ['flagged' => true])->assertStatus(422); // note required
         $this->asUser($this->makeUser(Role::Admission))->patchJson("{$url}/medCert/flag", ['flagged' => true, 'note' => 'x'])->assertForbidden();
         $this->asUser($clinic)->patchJson("{$url}/medCert/flag", ['flagged' => true, 'note' => 'Signature does not match the clinic on file.'])
             ->assertOk()->assertJsonPath('data.medical.files.medCert.flagged', true);
-        $this->asUser($clinic)->postJson("{$url}/verify-pending")->assertOk();
+        $this->asUser($clinic)->postJson("{$url}/approve")->assertOk();
         $this->assertSame(ApplicationStatus::ForMedical, $application->fresh()->status);
 
         $this->asUser($clinic)->patchJson("{$url}/medCert/flag", ['flagged' => false])->assertOk();
@@ -223,7 +260,7 @@ class DocumentTest extends TestCase
         $this->asUser($staff)->patchJson("/api/admin/applicants/{$number}/documents/psa/photocopy", ['received' => true])
             ->assertOk()->assertJsonStructure(['data' => ['docs' => ['psa' => ['photocopyAt']]]]);
         $this->assertDatabaseHas('audit_logs', ['description' => 'Received the photocopy of "PSA Birth Certificate"']);
-        $this->assertNotNull(ApplicationDocument::first()->photocopy_received_by);
+        $this->assertNotNull(ApplicationDocument::whereNotNull('photocopy_received_at')->sole()->photocopy_received_by);
     }
 
     /** Uploads are virus-scanned; an infected file is refused and nothing is stored */

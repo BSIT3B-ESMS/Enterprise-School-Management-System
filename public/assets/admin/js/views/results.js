@@ -39,8 +39,8 @@
     });
 
     $el.html(
-      '<div class="page-title" data-reveal><p class="eyebrow">Acceptance status</p><h1>Results</h1>' +
-      '<p class="lede">Record each examinee as Passed or Did not pass, then release results through the system. Scores stay internal and are never shown to applicants.</p></div>' +
+      '<div class="page-title" data-reveal><h1>Results</h1>' +
+      '</div>' +
       '<div class="row g-3"><div class="col-xl-8 d-flex flex-column gap-3">' +
       '<nav class="tabs" role="tablist" data-reveal>' + Object.keys(TABS).map(function (k) {
         return '<button type="button" role="tab" class="tab' + (f.tab === k ? " active" : "") + '" aria-selected="' + (f.tab === k) + '" data-rtab="' + k + '">' + TABS[k].label + " <span>" + inTab(k).length + "</span></button>";

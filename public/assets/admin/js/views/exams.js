@@ -42,8 +42,8 @@
       ["done", "Completed", all.filter(function (s) { return when(s) === "done"; }).reverse()]
     ];
     $el.html(
-      '<div class="page-title page-title-inline" data-reveal><div><p class="eyebrow">Entrance examination</p><h1>Entrance exams</h1>' +
-      '<p class="lede">Schedule batches, print rosters, and check every examinee\'s printed permit and application form at the venue.</p></div>' +
+      '<div class="page-title page-title-inline" data-reveal><div><h1>Entrance exams</h1>' +
+      '</div>' +
       '<button class="btn btn-brand" type="button" id="new-session">' + icon("plus") + "New session</button></div>" +
       '<div class="row g-3" data-reveal>' +
       '<div class="col-lg-8"><section class="card-soft h-100"><h3 class="card-title">Batches</h3><div class="batch-row">' +
@@ -105,16 +105,11 @@
       '<section class="record-hero" data-reveal><span class="ticket-date ticket-lg"><span>' + AO.fmt(s.date, { month: "short" }) + "</span><strong>" + AO.parseDate(s.date).getDate() + "</strong></span>" +
       '<div class="record-id"><p class="eyebrow">' + (w === "today" ? "Exam day · today" : w === "upcoming" ? "Upcoming session" : "Completed session") + "</p>" +
       "<h1>" + esc(ADM.BATCHES[s.batch].label) + " · " + AO.fmt(s.date, { weekday: "long", month: "long", day: "numeric" }) + "</h1>" +
-      '<p class="record-meta"><span>' + icon("clock") + esc(ADM.BATCHES[s.batch].time) + "</span><span>" + icon("pin") + esc(s.venue) + "</span><span>" + roster.length + " of " + s.capacity + " seats</span></p></div>" +
+      '<p class="record-meta"><span>' + icon("clock") + esc(ADM.BATCHES[s.batch].time) + "</span><span>" + icon("pin") + esc(s.venue) + "</span><span>" + roster.length + " of " + s.capacity + " seats</span>" +
+      (open ? "<span>" + c.present + " present · " + c.absent + " absent</span>" : "") + "</p></div>" +
       '<div class="record-actions"><button class="btn btn-ghost" type="button" id="print-roster">' + icon("printer") + "Print roster</button>" +
       (open && unmarked ? '<button class="btn btn-ghost" type="button" id="mark-absent">' + icon("x") + "Mark " + unmarked + " unmarked absent</button>" : "") +
       (open && c.present ? '<a class="btn btn-brand" href="#/results" id="go-results">' + icon("award") + "Record results</a>" : "") + "</div></section>" +
-
-      '<div class="kpi-grid kpi-grid-4" data-reveal>' +
-      ui.kpi({ label: "Permit checked", value: c.permit + "/" + roster.length, icon: "ticket" }) +
-      ui.kpi({ label: "Form checked", value: c.form + "/" + roster.length, icon: "file" }) +
-      ui.kpi({ label: "Present", value: c.present, icon: "check" }) +
-      ui.kpi({ label: "Absent", value: c.absent, icon: "x", tone: c.absent ? "warn" : "" }) + "</div>" +
 
       (!open ? '<div class="info-note" data-reveal>' + icon("lock") + "<p>Permit checks and attendance open on exam day. Print the roster to bring to the venue.</p></div>" : "") +
 

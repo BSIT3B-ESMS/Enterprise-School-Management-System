@@ -9,12 +9,12 @@ cd D:\Admission_System
 php artisan app:start
 ```
 
-Open **http://127.0.0.1:8000/admin** (staff) or **http://127.0.0.1:8000/** (applicants). Press `Ctrl+C` in the terminal to stop.
+Open **http://127.0.0.1:8000/admin** (admission staff), **http://127.0.0.1:8000/nurse** (clinic) or **http://127.0.0.1:8000/** (applicants). Press `Ctrl+C` in the terminal to stop.
 
 | Who | Email | Password |
 |---|---|---|
 | Admission staff | `admissions@plpasig.edu.ph` | `password123` |
-| Clinic | `clinic@plpasig.edu.ph` | `password123` |
+| Clinic (at /nurse) | `clinic@plpasig.edu.ph` | `password123` |
 | Applicant | click **Create account** on http://127.0.0.1:8000/ | your own |
 
 **On a new computer (one time):** install [Laravel Herd](https://herd.laravel.com) (it gives you PHP and Composer), then:
@@ -31,8 +31,8 @@ That's it: no settings to edit. It uses SQLite (a single file, no database serve
 ## ❓ Open questions (everything waiting on a decision)
 
 **Blocking features**
-1. **H1 · Applicant document cards.** How do the portal's 8 cards map to the official 7 requirements? (Details under "On hold" below.) Until this is settled, applicants can't upload documents or submit through the portal.
-2. **Reservation deadline.** What happens when a passer doesn't accept the offer or pay by the reservation deadline (the diagram's "slot deadlines" job)? Free the slot, notify, change status? Nothing is automated until this is defined.
+1. ~~**H1 · Applicant document cards.**~~ Decided: Grade 12 Form 138 (`reportCard`) and Good Moral (`goodMoral`) are now official requirements (migration `2026_10_18_000100`). The portal builds its cards from the server's list per applicant (7 for Grade 12 students; SHS graduates get Form 137 instead of the two report cards; a guardian adds the affidavit), uploads to `/api/applicant/documents/{key}` and submits through `/api/applicant/submit`. No payment card: PLP is a public university, so there is no application or reservation fee (migration `2026_10_18_000300` retires the old payment requirement).
+2. **Offer acceptance deadline.** There is no reservation fee (public university); passers only accept the offer. What happens when a passer doesn't accept by a deadline (the diagram's "slot deadlines" job)? Free the slot, notify, change status? Nothing is automated until this is defined. The period's `reservation_deadline` column is no longer shown to applicants.
 3. **When is an applicant "Admitted" for Enrollment?** Built as: after medical clearance (admission complete). Confirm, or name another point (e.g. offer accepted, fee paid).
 
 **Needed from other teams**
@@ -42,7 +42,7 @@ That's it: no settings to edit. It uses SQLite (a single file, no database serve
 
 **UI team (the backend is ready; the screens can't show it yet)**
 7. 2FA code screen · "new password" screen for the reset link · notification list · "Did not pass" result screen (failed applicants currently stay on the exam step) · district/barangay fields in the applicant form · the unreachable profile view.
-8. Hide admin screens by role: the clinic account sees every screen (the server refuses what isn't theirs) and the sidebar always says "Admission personnel".
+8. ~~Hide admin screens by role~~ Done: the clinic has its own portal (`/nurse`, `/api/clinic`) and can't sign in to `/admin`; admission staff can't sign in to `/nurse`.
 9. Remove the hard-coded "Passed · 89th percentile" from the result screen (the backend never sends a score or percentile, NFR-02).
 10. "Saved on this device" autosave label: the form is now saved on the server.
 
@@ -59,6 +59,8 @@ The system is one module of the university ERP. Other systems (Document Mgmt, En
 ## Full setup guide (details, troubleshooting, production)
 
 Windows with [Laravel Herd](https://herd.laravel.com) (it installs PHP and Composer). Run every command in PowerShell or the VS Code terminal, inside the project folder.
+
+**Without Herd ([php.new](https://php.new)):** its PHP build has no `sodium` or `gd` extension. Install with `$env:COMPOSER_IGNORE_PLATFORM_REQ="ext-sodium"; composer setup`. That's safe here: the JWT library only needs sodium for EdDSA keys and falls back to plain PHP for HS256, which this app uses. The tests don't need GD (they upload a real JPEG, not a generated one). XAMPP's PHP 8.0 is too old for this app (PHP 8.3+).
 
 ### First time only
 
@@ -96,7 +98,7 @@ This starts the web server, the queue worker (emails, notifications) and the sch
 |---|---|---|
 | Applicant portal | http://127.0.0.1:8000/ | **Create account**, or a sample applicant (any email in the admin panel's Applicants list) / `password123` |
 | Admission office | http://127.0.0.1:8000/admin | `admissions@plpasig.edu.ph` / `password123` |
-| Clinic (medical) | http://127.0.0.1:8000/admin | `clinic@plpasig.edu.ph` / `password123` |
+| Clinic (medical) | http://127.0.0.1:8000/nurse | `clinic@plpasig.edu.ph` / `password123` |
 | Monitoring (Pulse) | http://127.0.0.1:8000/pulse | local only |
 
 ### After pulling new code

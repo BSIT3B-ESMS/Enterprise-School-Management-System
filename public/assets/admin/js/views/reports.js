@@ -112,22 +112,11 @@
 
   function render($el) {
     var ui = ADM.ui;
-    var apps = ADM.state.applicants;
-    var decided = apps.filter(function (a) { return a.result; });
-    var passed = decided.filter(function (a) { return a.result.decision === "passed"; }).length;
-    var scheduled = apps.filter(function (a) { return a.exam && a.exam.attendance; });
-    var present = scheduled.filter(function (a) { return a.exam.attendance === "present"; }).length;
     var days = daily();
     var people = passList();
 
     $el.html(
-      '<div class="page-title" data-reveal><p class="eyebrow">Monitoring and reporting</p><h1>Reports</h1>' +
-      '<p class="lede">Live numbers from the applicant records. Export any report as CSV instead of keeping separate spreadsheets.</p></div>' +
-      '<div class="kpi-grid kpi-grid-4" data-reveal>' +
-      ui.kpi({ label: "Applicants", value: apps.length, sub: apps.filter(function (a) { return a.submittedAt; }).length + " submitted", icon: "users" }) +
-      ui.kpi({ label: "Documents verified", value: ui.pct(apps.reduce(function (n, a) { return n + ADM.docSummary(a).verified; }, 0), apps.reduce(function (n, a) { return n + ADM.docSummary(a).total; }, 0)) + "%", sub: "Across all required uploads", icon: "folder" }) +
-      ui.kpi({ label: "Exam attendance", value: ui.pct(present, scheduled.length) + "%", sub: present + " of " + scheduled.length + " marked", icon: "calendar" }) +
-      ui.kpi({ label: "Pass rate", value: ui.pct(passed, decided.length) + "%", sub: passed + " of " + decided.length + " results", icon: "award" }) + "</div>" +
+      '<div class="page-title" data-reveal><h1>Reports</h1></div>' +
 
       '<div class="row g-3">' +
       '<div class="col-12" data-reveal><section class="card-soft"><div class="panel-heading"><div><h2>Daily submissions</h2><p>Applications submitted per day, last 30 days</p></div>' +

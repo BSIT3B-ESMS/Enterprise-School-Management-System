@@ -48,8 +48,10 @@ class ApplicantPortalPresenter
             'offer' => $this->offer($application),
             'interview' => $this->interview($application),
             'studentNumber' => $application->student_number,
-            // Official requirements keyed by requirement key. The portal's own cards
-            // are not mapped yet (PROGRESS.md, H1).
+            // The document cards this applicant must fill (H1: one card per official
+            // requirement that applies to them), and what they uploaded, by key.
+            'requirements' => $this->applications->requiredDocuments($application)
+                ->map(fn (Requirement $r) => ['key' => $r->key, 'title' => $r->title, 'icon' => $r->icon])->all(),
             'documents' => $this->documents($application, Requirement::STAGE_ADMISSION),
             'exam' => $this->exam($application),
             'result' => $released ? ['decision' => $released->decision, 'releasedAt' => $released->released_at->toDateString()] : null,
@@ -60,8 +62,8 @@ class ApplicantPortalPresenter
                 ['title' => 'Application deadline', 'date' => $period->application_deadline?->toDateString()],
                 ['title' => 'Entrance exam days', 'date' => $period->exam_starts_on?->toDateString(), 'end' => $period->exam_ends_on?->toDateString()],
                 ['title' => 'Release of results', 'date' => $period->results_release_on?->toDateString()],
-                // The offer letter reads its "confirm by" date from here: the applicant's own deadline once offered
-                ['title' => 'Reservation fee deadline', 'date' => $this->local($application->acceptance_deadline) ?? $period->reservation_deadline?->toDateString()],
+                // No fee (public university): only the applicant's own confirm-by date once offered
+                ['title' => 'Offer acceptance deadline', 'date' => $this->local($application->acceptance_deadline)],
             ], fn ($d) => $d['date'] !== null)),
         ];
     }

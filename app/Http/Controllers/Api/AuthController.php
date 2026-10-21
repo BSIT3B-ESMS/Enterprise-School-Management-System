@@ -51,7 +51,12 @@ class AuthController extends Controller
             throw ValidationException::withMessages(['email' => 'This account is disabled. Contact the admission office.']);
         }
         if (! $this->allowedOnPortal($user, $request->string('portal'))) {
-            throw ValidationException::withMessages(['email' => "This account can't sign in here."]);
+            $hint = match ($user->primaryRole()) {
+                Role::Clinic => ' Clinic accounts sign in at the clinic portal (/nurse).',
+                Role::Admission => ' Admission staff sign in at the admission office (/admin).',
+                default => '',
+            };
+            throw ValidationException::withMessages(['email' => "This account can't sign in here.".$hint]);
         }
         if ($this->twoFactor->mustEnrollFirst($user)) {
             throw ValidationException::withMessages(['email' => 'Two-factor sign-in must be set up for this account first. Ask the system administrator.']);
@@ -171,9 +176,12 @@ class AuthController extends Controller
 
     private function allowedOnPortal(User $user, string $portal): bool
     {
-        $role = $user->primaryRole();
-
-        return $portal === 'applicant' ? $role === Role::Applicant : (bool) $role?->isStaff();
+        // Each sign-in screen lets in its own roles only (NFR-01). The dean signs in on the office side.
+        return in_array($user->primaryRole(), match ($portal) {
+            'applicant' => [Role::Applicant],
+            'office' => [Role::Admission, Role::CollegeDean],
+            'clinic' => [Role::Clinic],
+        }, true);
     }
 
     private function tokenResponse(User $user, int $status = 200): JsonResponse

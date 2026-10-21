@@ -34,7 +34,7 @@ class OfferAndInterviewTest extends TestCase
             ->assertJsonPath('data.phase', 'result')
             ->assertJsonPath('data.accepted', false)
             ->assertJsonPath('data.offer.deadline', $deadline)
-            ->assertJsonFragment(['title' => 'Reservation fee deadline', 'date' => $deadline]);
+            ->assertJsonFragment(['title' => 'Offer acceptance deadline', 'date' => $deadline]);
 
         // The letter is a PDF the applicant can download
         $this->asUser($user)->get('/api/applicant/acceptance-letter')->assertOk()->assertHeader('Content-Type', 'application/pdf');

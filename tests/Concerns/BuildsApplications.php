@@ -28,7 +28,7 @@ trait BuildsApplications
 
     protected function uploadDoc(User $user, string $key, string $stage = 'documents')
     {
-        $file = $key === 'photo' ? UploadedFile::fake()->image('photo.jpg') : UploadedFile::fake()->create("{$key}.pdf", 200, 'application/pdf');
+        $file = $key === 'photo' ? $this->fakePhoto() : UploadedFile::fake()->create("{$key}.pdf", 200, 'application/pdf');
 
         return $this->asUser($user)->post("/api/applicant/{$stage}/{$key}", ['file' => $file], ['Accept' => 'application/json']);
     }
@@ -99,7 +99,7 @@ trait BuildsApplications
             $this->uploadDoc($user, $key, 'medical')->assertCreated();
         }
         $this->asUser($user)->postJson('/api/applicant/medical/submit')->assertOk();
-        $this->asUser($this->clinic())->postJson("/api/admin/applicants/{$this->number($user)}/medical/verify-pending")->assertOk();
+        $this->asUser($this->clinic())->postJson("/api/clinic/applicants/{$this->number($user)}/medical/approve")->assertOk();
 
         return $user;
     }

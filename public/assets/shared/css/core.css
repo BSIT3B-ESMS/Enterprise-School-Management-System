@@ -85,6 +85,37 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Faded PLP green across the top and bottom of every screen. Fixed to the
+   window and behind the content (z-index -1), so it never blocks clicks. */
+body::before,
+body::after {
+  content: "";
+  position: fixed;
+  left: 0;
+  right: 0;
+  height: 180px;
+  z-index: -1;
+  pointer-events: none;
+}
+
+body::before {
+  top: 0;
+  background: linear-gradient(180deg, rgba(11, 122, 62, .30) 0%, rgba(11, 122, 62, .12) 45%, rgba(11, 122, 62, 0) 100%);
+}
+
+body::after {
+  bottom: 0;
+  background: linear-gradient(0deg, rgba(11, 122, 62, .30) 0%, rgba(11, 122, 62, .12) 45%, rgba(11, 122, 62, 0) 100%);
+}
+
+/* No green bands when printing (forms, rosters) */
+@media print {
+  body::before,
+  body::after {
+    display: none;
+  }
+}
+
 [hidden] {
   display: none !important;
 }
@@ -471,6 +502,14 @@ h1 {
   color: var(--accent);
 }
 
+/* The university seal in place of the "PLP" badge */
+.brand-logo {
+  border-radius: 50%;
+  background: #fff;
+  object-fit: contain;
+  box-shadow: 0 4px 12px rgba(11, 122, 62, .25);
+}
+
 .brand-lg .brand-mark {
   width: 46px;
   height: 46px;
@@ -532,8 +571,12 @@ h1 {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 16px;
   padding: 16px;
-  /* Keep the form side clean; the photo lives in the art panel */
-  background: linear-gradient(165deg, #ffffff 0%, #f4faf6 60%, #eef7f0 100%);
+  /* Keep the form side clean; the photo lives in the art panel. Same faded
+     green at the top and bottom as the rest of the UI (body::before/after). */
+  background:
+    linear-gradient(180deg, rgba(11, 122, 62, .30) 0%, rgba(11, 122, 62, .12) 80px, rgba(11, 122, 62, 0) 180px),
+    linear-gradient(0deg, rgba(11, 122, 62, .30) 0%, rgba(11, 122, 62, .12) 80px, rgba(11, 122, 62, 0) 180px),
+    linear-gradient(165deg, #ffffff 0%, #f4faf6 60%, #eef7f0 100%);
 }
 
 .auth-art {

@@ -1,80 +1,70 @@
 /* ==========================================================================
-   View: Dashboard — review queues, today's workload, upcoming exams
+   View: Dashboard — a welcome banner, what needs the office today (one card
+   per task), and the admission pipeline at a glance. Detailed numbers and
+   charts live under More → Reports.
    ========================================================================== */
 (function ($) {
   "use strict";
 
-  var ADM = window.ADM, ui = null;
+  var ADM = window.ADM;
   var esc = AO.esc, icon = AO.icon;
 
   function render($el) {
-    ui = ADM.ui;
     var apps = ADM.state.applicants;
-    var by = ADM.countBy(ADM.statusOf);
-    var overdue = apps.filter(ADM.isOverdue);
+    var toReview = apps.filter(function (a) { return a.submittedAt && !a.exam && ADM.docSummary(a).pending; });
+    var overdue = toReview.filter(function (a) { return ADM.workingDaysSince(a.submittedAt) > ADM.REVIEW_SLA_DAYS; }).length;
     var ready = apps.filter(ADM.canApprove);
-    var decided = apps.filter(function (a) { return a.result; });
-    var passed = decided.filter(function (a) { return a.result.decision === "passed"; }).length;
-    var unreleased = decided.filter(function (a) { return !a.result.released; }).length;
-    var weekAgo = AO.toISO(new Date(AO.today().getTime() - 6 * 86400000));
-    var thisWeek = apps.filter(function (a) { return a.submittedAt && a.submittedAt.slice(0, 10) >= weekAgo; }).length;
-    var upcoming = ADM.sortedSessions().filter(function (s) { return !ADM.sessionPast(s); });
+    var toRecord = apps.filter(function (a) { return a.exam && a.exam.attendance === "present" && !a.result; });
+    var toRelease = apps.filter(function (a) { return a.result && !a.result.released; });
+    var today = ADM.sortedSessions().filter(function (s) { return s.date === AO.toISO(AO.today()); });
     var h = new Date().getHours();
     var left = AO.daysUntil(ADM.state.settings.deadline);
 
-    // Daily submissions, last 14 days
-    var days = [];
-    for (var i = 13; i >= 0; i--) {
-      var d = new Date(AO.today().getTime() - i * 86400000), iso = AO.toISO(d);
-      var n = apps.filter(function (a) { return a.submittedAt && a.submittedAt.slice(0, 10) === iso; }).length;
-      days.push({ label: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }), value: n, tick: i % 3 === 0 || i === 13, title: AO.fmt(iso, { weekday: "short", month: "short", day: "numeric" }) + ": " + n + " submitted" });
-    }
+    // { n, label, detail, href, icon, tone, attrs }; only tasks with something to do are shown
+    var tasks = [
+      { n: toReview.length, label: "Documents to review", detail: overdue ? overdue + " past the " + ADM.REVIEW_SLA_DAYS + "-day target" : "Oldest first", href: "#/documents", icon: "folder", tone: overdue ? "warn" : "green" },
+      { n: ready.length, label: "Ready to schedule", detail: "All documents verified", href: "#/applicants", icon: "calendar", tone: "blue", attrs: ' data-status-link="ready"' },
+      { n: toRecord.length, label: "Results to record", detail: "Took the exam", href: "#/results", icon: "pencil", tone: "gold" },
+      { n: toRelease.length, label: "Results to release", detail: "Recorded, not yet released", href: "#/results", icon: "send", tone: "gold" }
+    ].filter(function (t) { return t.n > 0; });
+    today.forEach(function (s) {
+      tasks.unshift({ n: ADM.sessionRoster(s.id).length, label: "Exam today · " + ADM.BATCHES[s.batch].label, detail: s.venue, href: "#/exams/" + s.id, icon: "ticket", tone: "blue" });
+    });
 
-    // Oldest applications still waiting for document review
-    var awaiting = apps.filter(function (a) { return ADM.statusOf(a) === "submitted" && ADM.docSummary(a).pending; })
-      .sort(function (x, y) { return x.submittedAt < y.submittedAt ? -1 : 1; });
-    var queue = awaiting.slice(0, 6);
+    // Where applicants are in the admission process
+    var stages = [
+      { label: "Applied", icon: "inbox", n: apps.filter(function (a) { return a.submittedAt; }).length },
+      { label: "Documents verified", icon: "folder", n: apps.filter(function (a) { return a.exam || ADM.canApprove(a); }).length },
+      { label: "Took the exam", icon: "pencil", n: apps.filter(function (a) { return a.result || (a.exam && a.exam.attendance === "present"); }).length },
+      { label: "Passed", icon: "award", n: apps.filter(function (a) { return a.result && a.result.decision === "passed"; }).length },
+      { label: "Admitted", icon: "shield", n: apps.filter(function (a) { return ADM.medStatus(a) === "cleared"; }).length }
+    ];
+    var top = Math.max(stages[0].n, 1);
 
     $el.html(
-      '<div class="welcome-row" data-reveal><div><p class="eyebrow">' + esc(ADM.state.settings.period) + "</p>" +
+      '<section class="dash-hero" data-reveal>' +
+      '<div class="dash-hero-text"><p class="dash-date">' + esc(new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })) + "</p>" +
       "<h1>" + (h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening") + ", " + esc(ADM.STAFF.name.split(" ")[0]) + "</h1>" +
-      '<p class="lede">Here is where the admission queue stands today.</p></div>' +
-      '<div class="deadline-chip"><span data-icon="clock"></span><span>Application deadline<strong>' + AO.fmt(ADM.state.settings.deadline, { month: "long", day: "numeric" }) +
-      " · " + (left > 0 ? left + " days left" : left === 0 ? "today" : "closed") + "</strong></span></div></div>" +
+      "<p>" + (tasks.length ? tasks.length + " thing" + (tasks.length === 1 ? "" : "s") + " need" + (tasks.length === 1 ? "s" : "") + " your attention today." : "You're all caught up. Nothing is waiting on the office.") + "</p></div>" +
+      '<div class="dash-deadline">' + icon("clock") + "<span>Application deadline<strong>" + AO.fmt(ADM.state.settings.deadline, { month: "long", day: "numeric" }) + "</strong>" +
+      "<em>" + (left > 0 ? left + " days left" : left === 0 ? "Closes today" : "Closed") + "</em></span></div></section>" +
 
-      '<div class="kpi-grid" data-reveal>' +
-      ui.kpi({ label: "Total applicants", value: apps.length, sub: "+" + thisWeek + " submitted this week", icon: "users", href: "#/applicants", status: "all" }) +
-      ui.kpi({ label: "Awaiting review", value: awaiting.length, sub: overdue.length + " past the " + ADM.REVIEW_SLA_DAYS + "-day target", icon: "inbox", tone: overdue.length ? "warn" : "", href: "#/documents" }) +
-      ui.kpi({ label: "Requires resubmission", value: by.resubmit || 0, sub: "Waiting on applicants", icon: "flag", href: "#/applicants", status: "resubmit" }) +
-      ui.kpi({ label: "Ready to schedule", value: ready.length, sub: "All documents verified", icon: "calendar", href: "#/applicants", status: "ready" }) +
-      ui.kpi({ label: "For exam", value: by.for_exam || 0, sub: upcoming.length + " upcoming sessions", icon: "pencil", href: "#/exams" }) +
-      ui.kpi({ label: "Pass rate", value: ui.pct(passed, decided.length) + "%", sub: unreleased + " results not released", icon: "award", href: "#/results" }) +
-      "</div>" +
+      '<div class="dash-section-head" data-reveal><h2>Needs you today</h2></div>' +
+      (tasks.length ? '<div class="task-grid" data-reveal>' + tasks.map(function (t) {
+        return '<a class="task-card tone-' + t.tone + '" href="' + t.href + '"' + (t.attrs || "") + ">" +
+          '<span class="task-icon">' + icon(t.icon) + "</span>" +
+          '<span class="task-text"><strong>' + esc(t.label) + "</strong><small>" + esc(t.detail) + "</small></span>" +
+          '<span class="task-count">' + t.n + "</span>" + icon("arrowR") + "</a>";
+      }).join("") + "</div>"
+        : '<section class="card-soft" data-reveal>' + ADM.ui.empty("check", "All caught up", "Nothing is waiting on the office right now.") + "</section>") +
 
-      '<div class="row g-3">' +
-      '<div class="col-xl-8" data-reveal><section class="card-soft h-100"><div class="panel-heading"><div><h2>Daily submissions</h2><p>Applications submitted in the last 14 days</p></div>' +
-      '<a class="text-link" href="#/reports">Reports' + icon("arrowR") + "</a></div>" + ui.columns(days, "Daily submissions for the last 14 days") + "</section></div>" +
-      '<div class="col-xl-4" data-reveal><section class="card-soft h-100"><div class="panel-heading"><div><h2>Review queues</h2><p>Applicants by status</p></div></div>' +
-      '<ul class="queue-list">' + ADM.STATUS_ORDER.map(function (st) {
-        return '<li><a href="#/applicants" data-status-link="' + st + '">' + ui.pill(st) + "<strong>" + (by[st] || 0) + "</strong>" + icon("arrowR") + "</a></li>";
-      }).join("") + "</ul></section></div>" +
-
-      '<div class="col-xl-7" data-reveal><section class="card-soft h-100"><div class="panel-heading"><div><h2>Oldest in the queue</h2><p>Review new applications within ' + ADM.REVIEW_SLA_DAYS + " working days</p></div>" +
-      '<a class="text-link" href="#/documents">Document review' + icon("arrowR") + "</a></div>" +
-      (queue.length ? '<ul class="mini-rows">' + queue.map(function (a) {
-        var wd = ADM.workingDaysSince(a.submittedAt);
-        return '<li><a href="#/applicants/' + esc(a.id) + '">' + ui.applicantCell(a) +
-          '<span class="mini-meta">' + ADM.docSummary(a).pending + " to verify</span>" +
-          '<span class="age' + (wd > ADM.REVIEW_SLA_DAYS ? " late" : "") + '">' + wd + " working day" + (wd === 1 ? "" : "s") + "</span>" + icon("arrowR") + "</a></li>";
-      }).join("") + "</ul>" : ui.empty("check", "Queue is clear", "Every submitted application has been reviewed.")) + "</section></div>" +
-
-      '<div class="col-xl-5" data-reveal><section class="card-soft h-100"><div class="panel-heading"><div><h2>Upcoming exam sessions</h2><p>Seats filled per batch</p></div>' +
-      '<a class="text-link" href="#/exams">All sessions' + icon("arrowR") + "</a></div>" +
-      (upcoming.length ? ui.hbars(upcoming.slice(0, 5).map(function (s) {
-        var used = ADM.sessionRoster(s.id).length;
-        return { label: ADM.sessionLabel(s), sub: s.venue, value: used, display: used + "/" + s.capacity, title: used + " of " + s.capacity + " seats filled" };
-      }), Math.max.apply(null, upcoming.map(function (s) { return s.capacity; }))) : ui.empty("calendar", "No upcoming sessions", "Create one under Entrance exams.")) +
-      "</section></div></div>"
+      '<div class="dash-section-head" data-reveal><h2>Admission pipeline</h2><a class="text-link" href="#/reports">Reports' + icon("arrowR") + "</a></div>" +
+      '<section class="card-soft pipeline" data-reveal><ol>' + stages.map(function (s, i) {
+        return '<li><span class="pipe-icon">' + icon(s.icon) + "</span>" +
+          '<strong class="pipe-n">' + s.n + "</strong><span class=\"pipe-label\">" + esc(s.label) + "</span>" +
+          '<span class="pipe-bar"><span style="--w:' + (s.n / top * 100).toFixed(1) + '%"></span></span>' +
+          (i < stages.length - 1 ? '<span class="pipe-arrow" aria-hidden="true">' + icon("arrowR") + "</span>" : "") + "</li>";
+      }).join("") + "</ol></section>"
     );
   }
 

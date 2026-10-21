@@ -27,8 +27,8 @@
     var page = list.slice((f.page - 1) * SIZE, f.page * SIZE);
 
     $el.html(
-      '<div class="page-title page-title-inline" data-reveal><div><p class="eyebrow">Accountability</p><h1>Audit log</h1>' +
-      '<p class="lede">Every change to an applicant record or office setting, with who made it and when.</p></div>' +
+      '<div class="page-title page-title-inline" data-reveal><div><h1>Audit log</h1>' +
+      '</div>' +
       '<button class="btn btn-ghost" type="button" id="export-audit">' + icon("download") + "Export CSV</button></div>" +
       '<div class="info-note" data-reveal>' + icon("lock") + "<p><strong>Read-only.</strong> Audit entries can't be edited or deleted by admission personnel.</p></div>" +
       '<section class="table-card" data-reveal><div class="table-toolbar">' +

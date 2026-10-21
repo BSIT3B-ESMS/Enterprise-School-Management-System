@@ -19,7 +19,7 @@
       <span class="float-star s4" data-icon="star"></span>
 
       <div class="brand brand-lg">
-        <span class="brand-mark" aria-hidden="true">PLP</span>
+        <img class="brand-mark brand-logo" src="{{ asset('assets/shared/img/plp-logo.png') }}" alt="" aria-hidden="true">
         <span class="brand-text"><span class="brand-name">Pamantasan ng Lungsod ng Pasig</span><span class="brand-sub">Online Admission</span></span>
       </div>
 
@@ -171,7 +171,7 @@
   <div class="app-shell" id="app" hidden>
     <aside class="sidebar" id="sidebar">
       <a class="brand" href="#" data-view="overview" aria-label="Pamantasan ng Lungsod ng Pasig, overview">
-        <span class="brand-mark" aria-hidden="true">PLP</span>
+        <img class="brand-mark brand-logo" src="{{ asset('assets/shared/img/plp-logo.png') }}" alt="" aria-hidden="true">
         <span class="brand-text"><span class="brand-name">Pamantasan ng Lungsod ng Pasig</span><span class="brand-sub">Online Admission</span></span>
       </a>
 
@@ -182,7 +182,7 @@
         <a class="nav-link" href="#" data-view="application"><span data-icon="file"></span>My application<span
             class="nav-count" id="nav-app-count">0/3</span></a>
         <a class="nav-link" href="#" data-view="documents"><span data-icon="folder"></span>Documents<span
-            class="nav-count" id="nav-doc-count">0/8</span></a>
+            class="nav-count" id="nav-doc-count">0</span></a>
       </nav>
 
       <div class="sidebar-help">
@@ -253,7 +253,7 @@
                 <div class="panel-heading">
                   <div>
                     <h2>Required documents</h2>
-                    <p>Upload all 8 to send your application for review.</p>
+                    <p>Upload all <span class="doc-total">7</span> to send your application for review.</p>
                   </div>
                   <a class="text-link" href="#" data-view="documents">Open documents<span data-icon="arrowR"></span></a>
                 </div>
@@ -263,7 +263,7 @@
                       <circle class="ring-track" cx="60" cy="60" r="52" />
                       <circle class="ring-fill" cx="60" cy="60" r="52" />
                     </svg>
-                    <div class="ring-label"><strong class="count" id="overview-doc-count">0</strong><span>of 8</span>
+                    <div class="ring-label"><strong class="count" id="overview-doc-count">0</strong><span>of <span class="doc-total">7</span></span>
                     </div>
                   </div>
                   <ul class="doc-mini-list" id="doc-mini-list"></ul>
@@ -291,7 +291,8 @@
               <section class="card-soft dates-panel">
                 <div class="panel-heading">
                   <div>
-                    <h2>Key dates</h2>
+                    <h2>Important dates to remember</h2>
+                    <p>Deadlines and schedules for your admission</p>
                   </div>
                 </div>
                 <ul class="key-dates" id="key-dates"></ul>
@@ -527,7 +528,7 @@
             </svg>
             <p class="eyebrow">Application form complete</p>
             <h2>Nice work, <span id="complete-name">Jordan</span>.</h2>
-            <p class="lede">Your personal, academic, and program details are saved. Next, upload your 8 required
+            <p class="lede">Your personal, academic, and program details are saved. Next, upload your <span class="doc-total">7</span> required
               documents so admissions can review your application.</p>
             <div class="d-flex gap-2 flex-wrap justify-content-center">
               <button class="btn btn-brand" type="button" data-view="documents">Upload documents<span
@@ -544,7 +545,7 @@
             <div>
               <p class="eyebrow">Application requirements</p>
               <h1>Documents</h1>
-              <p class="lede">Clear scans or photos · PDF, JPG, or PNG · up to 10 MB each. You can also drag a file onto a row.</p>
+              <p class="lede">Clear scans or photos · PDF, JPG, or PNG · up to 5 MB each. You can also drag a file onto a row.</p>
             </div>
           </div>
 
@@ -554,10 +555,10 @@
                 <circle class="ring-track" cx="60" cy="60" r="52" />
                 <circle class="ring-fill" cx="60" cy="60" r="52" />
               </svg>
-              <div class="ring-label"><strong class="count" id="docs-count">0</strong><span>of 8</span></div>
+              <div class="ring-label"><strong class="count" id="docs-count">0</strong><span>of <span class="doc-total">7</span></span></div>
             </div>
             <div class="docs-hero-text">
-              <h2 id="docs-headline">8 documents to go</h2>
+              <h2 id="docs-headline">Documents</h2>
               <p id="docs-subline">Upload every requirement, then send them to admissions for review.</p>
             </div>
             <button class="btn btn-brand" type="button" id="submit-docs" disabled><span data-icon="send"></span><span
@@ -584,8 +585,8 @@
           <section class="profile-hero" data-reveal>
             <span class="avatar avatar-xl" id="profile-avatar">JM</span>
             <div class="profile-hero-text">
-              <h2 id="profile-name">Jordan Mendoza</h2>
-              <p><span id="profile-email-label">jordan.mendoza@email.com</span> · Applicant</p>
+              <h2 id="profile-name">Applicant</h2>
+              <p><span id="profile-email-label"></span> · Applicant</p>
             </div>
             <span class="status-pill draft" id="profile-status">Draft</span>
           </section>
@@ -596,7 +597,7 @@
                 <div class="panel-heading">
                   <div>
                     <h2>Contact details</h2>
-                    <p>Changes here also update your application form.</p>
+                    <p id="profile-note">Changes here also update your application form.</p>
                   </div>
                 </div>
                 <form id="profile-form" class="mt-3" novalidate>
@@ -610,11 +611,11 @@
                       <div class="invalid-feedback" id="profile-last-error"></div>
                     </div>
                     <div class="col-md-6"><label class="form-label" for="profile-email">Email address</label><input
-                        class="form-control" id="profile-email" type="email" autocomplete="email" required>
-                      <div class="invalid-feedback" id="profile-email-error"></div>
+                        class="form-control" id="profile-email" type="email" autocomplete="email" readonly>
+                      <div class="form-text">Your sign-in email. Ask the admission office to change it.</div>
                     </div>
                     <div class="col-md-6"><label class="form-label" for="profile-phone">Mobile number</label><input
-                        class="form-control" id="profile-phone" type="tel" autocomplete="tel"
+                        class="form-control" id="profile-phone" type="tel" autocomplete="tel" required
                         placeholder="+63 9XX XXX XXXX" pattern="^(\+63|0)\s?9\d{2}\s?\d{3}\s?\d{4}$"
                         data-msg-pattern="Use a PH mobile number, like +63 917 123 4567.">
                       <div class="invalid-feedback" id="profile-phone-error"></div>
@@ -638,7 +639,7 @@
                 <dl class="summary-list">
                   <div>
                     <dt>Application ID</dt>
-                    <dd>AD-2026-08421</dd>
+                    <dd class="mono" id="profile-appid">—</dd>
                   </div>
                   <div>
                     <dt>Intake</dt>
@@ -654,7 +655,7 @@
                   </div>
                   <div>
                     <dt>Documents</dt>
-                    <dd id="profile-docs">0 of 8</dd>
+                    <dd id="profile-docs">—</dd>
                   </div>
                 </dl>
                 <button class="btn btn-ghost w-100 mt-3 logout-button" type="button"><span
@@ -675,7 +676,7 @@
         <div class="modal-body">
           <span class="modal-icon" data-icon="send"></span>
           <h2 class="modal-title-serif" id="submitModalTitle">Send your application for review?</h2>
-          <p>Your application form and all 8 documents go to the admissions team. You can't replace files while they're
+          <p>Your application form and all your documents go to the admissions team. You can't replace files while they're
             being reviewed.</p>
         </div>
         <div class="modal-footer">
@@ -692,7 +693,7 @@
     <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
       <div class="modal-content letter">
         <div class="modal-header">
-          <div class="brand"><span class="brand-mark" aria-hidden="true">PLP</span>
+          <div class="brand"><img class="brand-mark brand-logo" src="{{ asset('assets/shared/img/plp-logo.png') }}" alt="" aria-hidden="true">
         <span class="brand-text"><span class="brand-name">Pamantasan ng Lungsod ng Pasig</span><span class="brand-sub">Online Admission</span></span></div>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
