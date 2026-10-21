@@ -99,6 +99,7 @@
         <a class="nav-link" href="#/exams" data-nav="exams"><span data-icon="calendar"></span>Entrance exams</a>
         <a class="nav-link" href="#/results" data-nav="results"><span data-icon="award"></span>Results<span
             class="nav-count" id="nav-count-results">0</span></a>
+        <a class="nav-link" href="#/interviews" data-nav="interviews"><span data-icon="users"></span>Interviews</a>
         <a class="nav-link" href="#/medical" data-nav="medical"><span data-icon="shield"></span>Medical</a>
       </nav>
 
@@ -115,7 +116,7 @@
 
       <div class="sidebar-footer">
         <span class="avatar" id="sidebar-avatar">MS</span>
-        <div class="user-mini"><strong id="sidebar-name">Maria Santos</strong><span>Admission personnel</span></div>
+        <div class="user-mini"><strong id="sidebar-name">Maria Santos</strong><span id="sidebar-role">Admission personnel</span></div>
         <button class="icon-button logout-button" type="button" aria-label="Sign out" data-bs-toggle="tooltip"
           data-bs-title="Sign out"><span data-icon="logout"></span></button>
       </div>
@@ -148,6 +149,7 @@
         <section class="view-section" id="view-exams"></section>
         <section class="view-section" id="view-session"></section>
         <section class="view-section" id="view-results"></section>
+        <section class="view-section" id="view-interviews"></section>
         <section class="view-section" id="view-medical"></section>
         <section class="view-section" id="view-reports"></section>
         <section class="view-section" id="view-settings"></section>
@@ -366,6 +368,7 @@
   <script src="{{ asset('assets/admin/js/views/documents.js') }}"></script>
   <script src="{{ asset('assets/admin/js/views/exams.js') }}"></script>
   <script src="{{ asset('assets/admin/js/views/results.js') }}"></script>
+  <script src="{{ asset('assets/admin/js/views/interviews.js') }}"></script>
   <script src="{{ asset('assets/admin/js/views/medical.js') }}"></script>
   <script src="{{ asset('assets/admin/js/views/reports.js') }}"></script>
   <script src="{{ asset('assets/admin/js/views/settings.js') }}"></script>

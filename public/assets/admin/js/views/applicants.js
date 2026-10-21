@@ -196,14 +196,27 @@
           '<button class="btn btn-brand btn-sm" type="button" data-release>' + icon("send") + "Release result</button></div>" : "")
         : att === "present" ? ui.empty("award", "Result not recorded", "Record Passed or Did not pass. The score stays internal.") + '<div class="text-center pb-2"><button class="btn btn-brand" type="button" data-record>' + icon("award") + "Record result</button></div>"
           : ui.empty("clock", "Waiting for the exam", att === "absent" ? "The applicant missed the exam. Reschedule them to a new session." : "Mark attendance on the exam day roster first.")) +
-      "</section></div></div>";
+      "</section></div></div>" + interviewCard(a);
+  }
+
+  /* Interview (FR-17): only for first-choice programs that require one */
+  function interviewCard(a) {
+    var ui = ADM.ui, iv = a.interview;
+    if (!iv && a.status !== "for_interview") return "";
+    var outcome = !iv ? "Not scheduled yet" : iv.outcome === "passed" ? '<span class="tag tag-verified">' + icon("check") + "Passed</span>"
+      : iv.outcome === "failed" ? '<span class="tag tag-resubmit">Failed</span>' : '<span class="tag tag-review">Awaiting the dean</span>';
+    return '<section class="card-soft mt-3"><h3 class="card-title">College interview</h3><dl class="kv">' +
+      (iv ? kv("Schedule", esc(AO.fmt(iv.date, { weekday: "long", month: "long", day: "numeric" }) + (iv.time ? " · " + iv.time : "")) + " · " + icon("pin") + esc(iv.venue)) : "") +
+      kv("Outcome", outcome) +
+      (iv && iv.grade != null ? kv("Grade", '<span class="internal">' + iv.grade + " / 100</span> " + '<small class="text-muted">' + icon("lock") + "internal</small>") : "") + "</dl>" +
+      '<div class="mt-3"><a class="btn btn-ghost btn-sm" href="#/interviews">' + icon("users") + (iv ? "Open interviews" : "Schedule the interview") + "</a></div></section>";
   }
 
   function medicalTab(a) {
     var ui = ADM.ui;
     var st = ADM.medStatus(a);
     if (st === null) {
-      return '<section class="card-soft">' + ui.empty("shield", "Not yet", "Medical requirements open once the applicant passes and the result is released.") + "</section>";
+      return '<section class="card-soft">' + ui.empty("shield", "Not yet", "Medical requirements open once the applicant passes (exam, plus the interview where the program requires one) and accepts the offer.") + "</section>";
     }
     var ap = ADM.medApproval(a);
     var note = st === "cleared" ? "Approved by " + ap.by + (ap.at ? " · " + ui.dt(ap.at) : "") + ". This applicant's admission is complete."

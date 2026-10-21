@@ -11,7 +11,7 @@ $(function () {
   var ADM = window.ADM;
 
   // Hash → view name; the second segment is passed to render() as param
-  var ROUTES = { dashboard: "dashboard", applicants: "applicants", documents: "documents", exams: "exams", results: "results", medical: "medical", reports: "reports", settings: "settings", audit: "audit" };
+  var ROUTES = { dashboard: "dashboard", applicants: "applicants", documents: "documents", exams: "exams", results: "results", interviews: "interviews", medical: "medical", reports: "reports", settings: "settings", audit: "audit" };
   var DETAIL = { applicants: "applicant", exams: "session", documents: "docreview" };   // #/applicants/:id → view "applicant"
   var current = { view: null, param: null };
 
@@ -23,7 +23,11 @@ $(function () {
     $("#app").prop("hidden", false);
     $("#sidebar-name").text(ADM.STAFF.name);
     $("#sidebar-avatar").text(ADM.STAFF.initials);
-    if (!location.hash) location.replace("#/dashboard");
+    // A College Dean only records interviews (own college): every other screen is the office's
+    $("#sidebar-role").text(ADM.DEAN ? ADM.STAFF.role : "Admission personnel");
+    $(".sidebar-nav .nav-link").not('[data-nav="interviews"]').prop("hidden", ADM.DEAN);
+    $("#sidebar-more, #quick-search").prop("hidden", ADM.DEAN);
+    if (!location.hash || (ADM.DEAN && location.hash !== "#/interviews")) location.replace(ADM.DEAN ? "#/interviews" : "#/dashboard");
     route();
   }
 
@@ -65,7 +69,7 @@ $(function () {
      ========================================================================== */
   function parseHash() {
     var parts = location.hash.replace(/^#\/?/, "").split("/").map(decodeURIComponent);
-    var base = ROUTES[parts[0]] ? parts[0] : "dashboard";
+    var base = ADM.DEAN ? "interviews" : ROUTES[parts[0]] ? parts[0] : "dashboard";
     var param = parts[1] || null;
     return { view: param && DETAIL[base] ? DETAIL[base] : ROUTES[base], nav: base, param: param };
   }

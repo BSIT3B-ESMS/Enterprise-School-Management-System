@@ -26,9 +26,11 @@
     resubmit: { label: "Requires resubmission", pill: "resubmit" },
     for_exam: { label: "For exam", pill: "exam" },
     passed: { label: "Passed", pill: "admitted" },
-    failed: { label: "Did not pass", pill: "failed" }
+    failed: { label: "Did not pass", pill: "failed" },
+    for_interview: { label: "For interview", pill: "exam" },
+    interview_failed: { label: "Interview failed", pill: "failed" }
   };
-  var STATUS_ORDER = ["draft", "submitted", "resubmit", "for_exam", "passed", "failed"];
+  var STATUS_ORDER = ["draft", "submitted", "resubmit", "for_exam", "for_interview", "passed", "failed", "interview_failed"];
 
   var DOC_STATUS = {
     missing: { label: "Not uploaded", tag: "tag-missing" },
@@ -110,15 +112,35 @@
      STATE
      ========================================================================== */
   var state = { version: 2, programs: [], sessions: [], applicants: [], settings: { deadline: AO.toISO(AO.today()), period: "", inactiveDocs: [] }, audit: [] };
+  // Interviews (FR-17): { programs, schedules, waiting } from /api/admin/interviews or /api/dean/interviews
+  var interviews = { programs: [], schedules: [], waiting: [] };
 
   /* Load everything the panel shows. The state object is updated in place,
-     so code holding ADM.state keeps working. */
+     so code holding ADM.state keeps working. A College Dean signs in on the
+     office side too, but only gets the Interviews screen (own college). */
   function load() {
+    if (ROLE !== "admin") return loadState();
+    return AO.api("GET", "/api/auth/me").then(function (res) {
+      var me = res.data;
+      window.ADM.DEAN = me.role === "college_dean";
+      if (window.ADM.DEAN) {
+        $.extend(STAFF, { name: me.name, initials: me.initials, role: me.role_label, roleKey: me.role, email: me.email });
+        return loadInterviews();
+      }
+      return $.when(loadState(), loadInterviews());
+    });
+  }
+  function loadState() {
     return AO.api("GET", API + "/state").done(function (res) {
       var d = res.data;
       $.extend(STAFF, d.staff);
       ["version", "programs", "sessions", "applicants", "settings", "audit"].forEach(function (k) { state[k] = d[k]; });
       invalidate();
+    });
+  }
+  function loadInterviews() {
+    return AO.api("GET", (window.ADM.DEAN ? "/api/dean" : API) + "/interviews").done(function (res) {
+      ["programs", "schedules", "waiting"].forEach(function (k) { interviews[k] = res.data[k]; });
     });
   }
   // The server saves every change as it is made
@@ -163,6 +185,8 @@
 
   function statusOf(a) {
     if (!a.submittedAt) return "draft";
+    // Passed the exam, then an interview for programs that require one (D14)
+    if (a.status === "for_interview" || a.status === "interview_failed") return a.status;
     if (a.result) return a.result.decision;
     if (a.exam) return "for_exam";
     if (docSummary(a).resubmit) return "resubmit";
@@ -179,6 +203,8 @@
      "pending" = sent to the clinic nurse; "cleared" = the nurse approved. */
   function medStatus(a) {
     if (!a.result || a.result.decision !== "passed" || !a.result.released) return null;
+    // Medical opens once the slot is accepted, so after any required interview
+    if (["for_interview", "interview_failed", "offered", "forfeited"].indexOf(a.status) !== -1) return null;
     var med = a.medical || {};
     var files = med.files || {};
     var st = MED_TYPES.map(function (m) { return files[m.key] ? files[m.key].status : "missing"; });
@@ -282,7 +308,7 @@
     MED_TYPES: MED_TYPES, MED_STATUS: MED_STATUS, MED_REMARKS: MED_REMARKS, medStatus: medStatus, canApproveMedical: canApproveMedical, medApproval: medApproval,
     findType: findType, isMedical: isMedical, fileOf: fileOf, fileUrl: fileUrl,
     STRAND_SUGGEST: STRAND_SUGGEST, STRANDS: STRANDS, BARANGAYS: BARANGAYS, BATCHES: BATCHES,
-    state: state, load: load, invalidate: invalidate, save: save, reset: reset, replaceApplicant: replaceApplicant, nowISO: nowISO, logApplicant: logApplicant, logOffice: logOffice,
+    state: state, interviews: interviews, load: load, loadInterviews: loadInterviews, DEAN: false, invalidate: invalidate, save: save, reset: reset, replaceApplicant: replaceApplicant, nowISO: nowISO, logApplicant: logApplicant, logOffice: logOffice,
     requiredDocs: requiredDocs, docSummary: docSummary, statusOf: statusOf, workingDaysSince: workingDaysSince,
     isOverdue: isOverdue, canApprove: canApprove, fullName: fullName, initials: initials, residency: residency,
     program: program, session: session, sessionLabel: sessionLabel, sessionRoster: sessionRoster, sessionPast: sessionPast,

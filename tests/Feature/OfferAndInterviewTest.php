@@ -110,6 +110,11 @@ class OfferAndInterviewTest extends TestCase
         $number = $this->number($user);
         $this->assertSame(ApplicationStatus::ForInterview, $this->app_($user)->status);
         $this->asUser($user)->postJson('/api/applicant/offer/accept')->assertStatus(422);
+        // The portal shows its interview step, waiting for a schedule
+        $this->asUser($user)->getJson('/api/applicant/portal')
+            ->assertJsonPath('data.phase', 'interview')
+            ->assertJsonPath('data.requiresInterview', true)
+            ->assertJsonPath('data.interview', null);
 
         // Admission personnel schedule and assign
         $schedule = $this->asUser($this->officer())->postJson('/api/admin/interview-schedules', [
