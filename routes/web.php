@@ -114,6 +114,7 @@ Route::middleware(['staff', 'role:hr_admin,hr_staff'])->group(function () {
         Route::get('/applications/{application}', [RecruitmentController::class, 'show'])->whereNumber('application')->name('show');
         Route::post('/applications/{application}/interviews', [InterviewController::class, 'store'])->name('interviews.store');
         Route::post('/applications/{application}/reject', [RecruitmentActionController::class, 'reject'])->name('reject');
+        Route::post('/applications/{application}/reopen', [RecruitmentActionController::class, 'reopen'])->name('reopen');
         Route::post('/applications/{application}/offers', [RecruitmentActionController::class, 'issueOffer'])->name('offers.store');
         Route::put('/applications/{application}/offers/{offer}', [RecruitmentActionController::class, 'updateOffer'])->name('offers.update');
         Route::post('/applications/{application}/hire', [RecruitmentActionController::class, 'hire'])->name('hire');

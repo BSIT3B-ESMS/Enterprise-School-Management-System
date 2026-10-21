@@ -55,7 +55,8 @@ function showInModal(html, url) {
     const body = modalElement.querySelector('[data-application-modal-body]');
     const page = new DOMParser().parseFromString(html, 'text/html');
     const area = page.querySelector('.app-content');
-    const main = area ? Array.from(area.children).find((element) => !element.classList.contains('alert')) : null;
+    const main = page.querySelector('[data-application-content]')
+        ?? (area ? Array.from(area.children).find((element) => !element.classList.contains('alert')) : null);
 
     body.innerHTML = '';
 
@@ -65,7 +66,7 @@ function showInModal(html, url) {
         return;
     }
 
-    area.querySelectorAll(':scope > .alert').forEach((alert) => body.append(document.importNode(alert, true)));
+    area?.querySelectorAll(':scope > .alert').forEach((alert) => body.append(document.importNode(alert, true)));
     main.querySelectorAll('a.btn-outline-secondary[href$="/recruitment"]').forEach((link) => link.closest('div')?.remove());
     body.append(document.importNode(main, true));
     body.dataset.url = url;
@@ -84,6 +85,12 @@ $(document).on('click', 'a[data-application-modal]', async function (event) {
 
     try {
         const response = await fetch(url, { credentials: 'same-origin' });
+
+        if (response.redirected && new URL(response.url).pathname === '/login') {
+            window.location.assign(url);
+
+            return;
+        }
 
         showInModal(await response.text(), url);
     } catch {
@@ -109,6 +116,12 @@ $(document).on('submit', '#application-modal form', async function (event) {
             referrer: url,
             redirect: 'follow',
         });
+
+        if (response.redirected && new URL(response.url).pathname === '/login') {
+            window.location.assign(url);
+
+            return;
+        }
 
         changed = true;
         showInModal(await response.text(), url);

@@ -19,10 +19,11 @@
     One application. The resume and portfolio open immediately; the applicant’s information, history, and interview details are
     collapsible so the page stays short. The panel under the documents is the next step for the stage the application is in:
     Applied (review, then reject or schedule the demo interview), Demo Interview (reschedule, change interviewer, complete, then
-    reject or issue an offer), Offered (waiting for the answer; complete the hiring once accepted).
+    reject or issue an offer), Offered (waiting for the answer; complete the hiring once accepted). A rejected application has no
+    next step; instead HR can reopen it, which puts it back in Applied so a new demo interview can be scheduled.
 --}}
 @section('content')
-    <div class="d-grid gap-4">
+    <div class="d-grid gap-4" data-application-content>
         <div>
             <a class="btn btn-outline-secondary d-inline-flex align-items-center gap-2" href="{{ route('recruitment.index') }}">
                 <x-icon name="back" /> Back to Recruitment
@@ -79,6 +80,7 @@
             @endif
         </section>
 
+        @unless ($status->isFinal())
         {{-- The next step --}}
         <section class="card employee-form-card" aria-labelledby="next-title">
             <h2 class="fs-5" id="next-title">Next step</h2>
@@ -216,18 +218,28 @@
                 <p class="text-body-secondary mb-0">Nothing to do right now.</p>
             @endif
 
-            @unless ($status->isFinal())
-                <hr>
-                <details>
-                    <summary class="fw-medium text-danger">Reject this application</summary>
-                    <form method="post" action="{{ route('recruitment.reject', $application) }}" class="d-flex gap-2 mt-2">
-                        @csrf
-                        <input type="text" class="form-control" name="reason" placeholder="Reason (the applicant is told)" required aria-label="Reason for rejecting">
-                        <button type="submit" class="btn btn-outline-danger text-nowrap">Reject</button>
-                    </form>
-                </details>
-            @endunless
+            <hr>
+            <details>
+                <summary class="fw-medium text-danger">Reject this application</summary>
+                <form method="post" action="{{ route('recruitment.reject', $application) }}" class="d-flex gap-2 mt-2">
+                    @csrf
+                    <input type="text" class="form-control" name="reason" placeholder="Reason (the applicant is told)" required aria-label="Reason for rejecting">
+                    <button type="submit" class="btn btn-outline-danger text-nowrap">Reject</button>
+                </form>
+            </details>
         </section>
+        @endunless
+
+        @if ($status === ApplicationStatus::Rejected)
+            <section class="card employee-form-card" aria-labelledby="reopen-title">
+                <h2 class="fs-5" id="reopen-title">Reopen the application</h2>
+                <p class="text-body-secondary">This application was rejected. Reopening puts it back in the Applied stage so you can review it again and schedule a new demo interview.</p>
+                <form method="post" action="{{ route('recruitment.reopen', $application) }}">
+                    @csrf
+                    <button type="submit" class="btn btn-outline-primary">Reopen application</button>
+                </form>
+            </section>
+        @endif
 
         <section class="card employee-form-card">
             <details>

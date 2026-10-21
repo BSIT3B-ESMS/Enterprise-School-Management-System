@@ -285,6 +285,40 @@ describe('rejecting', function () {
 
         $this->actingAs($this->admin)->post(route('recruitment.reject', $this->application), ['reason' => 'x'])->assertSessionHas('error');
     });
+
+    it('shows the reopen option instead of a next step', function () {
+        $this->application->update(['status' => ApplicationStatus::Rejected, 'status_reason' => 'Not a fit']);
+
+        $this->actingAs($this->staff)->get(route('recruitment.show', $this->application))
+            ->assertSee('Reopen application')
+            ->assertSee('Not a fit')
+            ->assertDontSee('Next step');
+    });
+
+    it('reopens a rejected application, tells the applicant, and lets HR schedule a new demo interview', function () {
+        $this->application->update(['status' => ApplicationStatus::Rejected, 'status_reason' => 'Not a fit']);
+
+        $this->actingAs($this->staff)->post(route('recruitment.reopen', $this->application))->assertSessionHas('success');
+
+        expect($this->application->fresh()->status)->toBe(ApplicationStatus::Applied)
+            ->and($this->application->fresh()->status_reason)->toBeNull()
+            ->and($this->application->events()->where('type', 'reopened')->exists())->toBeTrue()
+            ->and($this->applicant->notifications()->first()->data['title'])->toBe('Application reopened');
+
+        $this->get(route('recruitment.show', $this->application))
+            ->assertSee('Schedule the demo interview')
+            ->assertDontSee('Reopen application');
+
+        $this->post(route('recruitment.interviews.store', $this->application), scheduleInput())->assertSessionHas('success');
+
+        expect($this->application->fresh()->status)->toBe(ApplicationStatus::DemoInterview);
+    });
+
+    it('cannot reopen an application that is not rejected', function () {
+        $this->actingAs($this->admin)->post(route('recruitment.reopen', $this->application))->assertSessionHas('error');
+
+        expect($this->application->fresh()->status)->toBe(ApplicationStatus::Applied);
+    });
 });
 
 describe('the offer', function () {

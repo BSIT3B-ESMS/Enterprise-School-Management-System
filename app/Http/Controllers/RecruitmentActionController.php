@@ -6,6 +6,7 @@ use App\Actions\Recruitment\HireApplicant;
 use App\Actions\Recruitment\IssueOffer;
 use App\Actions\Recruitment\RecruitmentException;
 use App\Actions\Recruitment\RejectApplication;
+use App\Actions\Recruitment\ReopenApplication;
 use App\Actions\Recruitment\UpdateOffer;
 use App\Enums\ContractTerm;
 use App\Enums\EmploymentType;
@@ -34,6 +35,17 @@ class RecruitmentActionController extends Controller
         }
 
         return to_route('recruitment.show', $application)->with('success', 'The application was rejected and the applicant was told.');
+    }
+
+    public function reopen(Request $request, Application $application, ReopenApplication $reopen): RedirectResponse
+    {
+        try {
+            $reopen->handle($request->user(), $application);
+        } catch (RecruitmentException $exception) {
+            return back()->with('error', $exception->getMessage());
+        }
+
+        return to_route('recruitment.show', $application)->with('success', 'The application was reopened. You can schedule a new demo interview.');
     }
 
     public function issueOffer(Request $request, Application $application, IssueOffer $issue, AcademicCalendar $calendar): RedirectResponse

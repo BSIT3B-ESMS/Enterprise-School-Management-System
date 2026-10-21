@@ -35,6 +35,7 @@ class ApplicationEvent extends Model
         'offer_declined' => 'Offer declined',
         'hired' => 'Hired',
         'rejected' => 'Rejected',
+        'reopened' => 'Reopened',
         'cancelled' => 'Cancelled by the applicant',
     ];
 
