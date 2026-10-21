@@ -13,6 +13,8 @@ $(function () {
      CONFIG
      ========================================================================== */
   var REMEMBER_KEY = "admitone.rememberEmail";
+  // Sent with sign-in so a device that already passed the email code skips it
+  var DEVICE_KEY = "admitone.deviceToken";
   var APP_ID = "";                             // from the server
 
   // My application: three sections only
@@ -217,7 +219,8 @@ $(function () {
     $("#signin-form").prop("hidden", panel !== "signin");
     $("#signup-form").prop("hidden", panel !== "signup");
     $("#forgot-form").prop("hidden", panel !== "forgot");
-    $(".auth-tabs").toggleClass("signup", panel === "signup");
+    $("#code-form").prop("hidden", panel !== "code");
+    $(".auth-tabs").prop("hidden", panel === "code").toggleClass("signup", panel === "signup");
     $("#tab-signin").toggleClass("active", panel !== "signup").attr("aria-selected", panel !== "signup");
     $("#tab-signup").toggleClass("active", panel === "signup").attr("aria-selected", panel === "signup");
   }
@@ -252,15 +255,14 @@ $(function () {
     if (!validateFields($(this))) return;
     var email = $("#signin-email").val().trim();
     if ($("#remember-me").is(":checked")) writeJSON("local", REMEMBER_KEY, email); else removeKey("local", REMEMBER_KEY);
-    var login = AO.api("POST", "/api/auth/login", { email: email, password: $("#signin-password").val(), portal: "applicant" })
+    var login = AO.api("POST", "/api/auth/login", { email: email, password: $("#signin-password").val(), portal: "applicant", device_token: readJSON("local", DEVICE_KEY) || undefined })
       .then(function (res) {
-        // UI pending: there is no 2FA code screen yet (see PROGRESS.md)
-        if (res.data.two_factor_required) return $.Deferred().reject({ responseJSON: { message: "Two-factor sign-in is on for this account, but this screen can't ask for the code yet." } });
+        if (res.data.two_factor_required) return res.data;
         AO.setToken(res.data.token);
         return loadPortal();
       });
     AO.busy($("#signin-submit"), login)
-      .done(enterApp)
+      .done(function (res) { if (res && res.two_factor_required) askForCode(res.challenge, email, "signin"); else enterApp(); })
       .fail(function (xhr) { AO.setToken(null); setError($("#signin-email"), AO.apiError(xhr)); });
   });
 
@@ -277,11 +279,13 @@ $(function () {
       email: $("#signup-email").val().trim(), phone: $("#signup-phone").val().trim(),
       password: $("#signup-password").val(), password_confirmation: $("#signup-confirm").val(), terms: $("#signup-terms").is(":checked")
     }).then(function (res) {
+      if (res.data.two_factor_required) return res.data;
       AO.setToken(res.data.token);
       return loadPortal();
     });
     AO.busy($("#signup-submit"), register)
-      .done(function () {
+      .done(function (res) {
+        if (res && res.two_factor_required) return askForCode(res.challenge, $("#signup-email").val().trim(), "signup");
         enterApp();
         showToast("Account created. Let's start your application.");
       })
@@ -291,6 +295,56 @@ $(function () {
         Object.keys(errors).forEach(function (k) { if (SIGNUP_FIELDS[k]) { setError($(SIGNUP_FIELDS[k]), errors[k][0]); shown = true; } });
         if (!shown) showToast(AO.apiError(xhr));
       });
+  });
+
+  /* Email code: the second step of sign-in on a new device, and of sign-up
+     (the code also confirms the email address). */
+  var pendingCode = null; // { challenge, mode: "signin" | "signup" }
+
+  function askForCode(challenge, email, mode) {
+    pendingCode = { challenge: challenge, mode: mode };
+    $("#code-title").text(mode === "signup" ? "Confirm your email" : "Check your email");
+    $("#code-email").text(email);
+    $("#code-input").val("");
+    clearError($("#code-input"));
+    $("#code-note").text("");
+    showAuth("code");
+    $("#code-input").trigger("focus");
+  }
+
+  // Digits only, and send as soon as all six are in
+  $("#code-input").on("input", function () {
+    var digits = this.value.replace(/\D/g, "").slice(0, 6);
+    if (digits !== this.value) this.value = digits;
+    if (digits.length === 6 && !$("#code-submit").prop("disabled")) $("#code-form").trigger("submit");
+  });
+
+  $("#code-form").on("submit", function (e) {
+    e.preventDefault();
+    if (!pendingCode || !validateFields($(this))) return;
+    var mode = pendingCode.mode;
+    var verify = AO.api("POST", "/api/auth/2fa/verify", { challenge: pendingCode.challenge, code: $("#code-input").val() })
+      .then(function (res) {
+        if (res.data.device_token) writeJSON("local", DEVICE_KEY, res.data.device_token);
+        AO.setToken(res.data.token);
+        return loadPortal();
+      });
+    AO.busy($("#code-submit"), verify)
+      .done(function () {
+        pendingCode = null;
+        enterApp();
+        if (mode === "signup") showToast("Account created. Let's start your application.");
+      })
+      .fail(function (xhr) { AO.setToken(null); setError($("#code-input"), AO.apiError(xhr)); });
+  });
+
+  $("#code-resend").on("click", function () {
+    if (!pendingCode) return;
+    var $btn = $(this).prop("disabled", true);
+    AO.api("POST", "/api/auth/2fa/resend", { challenge: pendingCode.challenge })
+      .done(function (res) { clearError($("#code-input")); $("#code-note").text(res.message); })
+      .fail(function (xhr) { $("#code-note").text(""); setError($("#code-input"), AO.apiError(xhr)); })
+      .always(function () { setTimeout(function () { $btn.prop("disabled", false); }, 30000); });
   });
 
   $("#forgot-form").on("submit", function (e) {

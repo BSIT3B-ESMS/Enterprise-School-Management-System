@@ -17,7 +17,7 @@ Account, key and backup commands write an audit-log entry; offers forfeited or r
 
 Applicants create their own accounts; to block one, use `user:active <email> off`.
 
-**2FA switches (`.env`):** `STAFF_2FA_REQUIRED` and `APPLICANT_EMAIL_2FA` are `false` until the office panel and the portal have a code-entry screen (no UI changes in this project). With them off, `user:2fa` still records the method, but sign-in doesn't ask for a code. Turn them on once the screens exist, after giving every staff member a TOTP secret.
+**2FA switches (`.env`):** `APPLICANT_EMAIL_2FA=true` emails applicants a 6-digit code when they create an account (it also confirms their email) and when they sign in on a new device; the portal has the code screen. `APPLICANT_ACCEPTANCE_2FA` (code again at slot acceptance) and `STAFF_2FA_REQUIRED` stay `false` until the "Accept offer" button and the office/clinic sign-in screens can ask for a code. With staff 2FA off, `user:2fa` still records the method, but sign-in doesn't ask for a code.
 
 ## Keys for other systems
 

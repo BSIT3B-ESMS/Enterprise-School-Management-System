@@ -16,9 +16,10 @@ JSON API under `/api`, used by the existing applicant portal and admission offic
 
 | Method | Path | Who | Notes |
 |---|---|---|---|
-| POST | `/api/auth/register` | guest | Applicant account; sends the verification email (FR-01) |
-| POST | `/api/auth/login` | guest | `{ email, password, portal: applicant\|office, device_token? }`. Returns the token, or `{ two_factor_required, method, challenge }` |
+| POST | `/api/auth/register` | guest | Applicant account (FR-01). With `APPLICANT_EMAIL_2FA=true`: emails a code and returns `{ two_factor_required, method, challenge }`, no token; the code also confirms the email. Otherwise returns the token and sends the verification link |
+| POST | `/api/auth/login` | guest | `{ email, password, portal: applicant\|office\|clinic, device_token? }`. Returns the token, or `{ two_factor_required, method, challenge }` |
 | POST | `/api/auth/2fa/verify` | guest | `{ challenge, code }` → token. Applicants also get a `device_token` that skips the code on that device |
+| POST | `/api/auth/2fa/resend` | guest | `{ challenge }`: emails a new code (old one stops working). 30 s apart, at most 3 per challenge |
 | POST | `/api/auth/email/resend` | signed in | Resend the verification link |
 | POST | `/api/auth/forgot-password` | guest | Emails a reset link (same answer whether the email exists or not) |
 | POST | `/api/auth/reset-password` | guest | `{ token, email, password, password_confirmation }` |
@@ -41,7 +42,7 @@ JSON API under `/api`, used by the existing applicant portal and admission offic
 | GET | `/api/applicant/exam-permit` | PDF with QR code (FR-07) |
 | GET | `/api/applicant/application-form` | Printable application form PDF |
 | GET | `/api/applicant/acceptance-letter` | PDF, once *Offered* (FR-09) |
-| POST | `/api/applicant/offer/accept` | Accept the slot before the deadline (email code when `APPLICANT_EMAIL_2FA=true`) |
+| POST | `/api/applicant/offer/accept` | Accept the slot before the deadline (email code when `APPLICANT_ACCEPTANCE_2FA=true`) |
 | POST / DELETE | `/api/applicant/medical/{key}` | Medical uploads after slot acceptance (FR-10) |
 | POST | `/api/applicant/medical/submit` | Send medical requirements to the Clinic |
 

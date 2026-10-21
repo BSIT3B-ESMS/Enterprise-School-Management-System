@@ -27,12 +27,16 @@ class TwoFactorCode extends Notification
 
     public function toMail(object $notifiable): MailMessage
     {
-        $acceptance = $this->purpose === TwoFactorService::SLOT_ACCEPTANCE;
+        [$subject, $intro, $ignore] = match ($this->purpose) {
+            TwoFactorService::SLOT_ACCEPTANCE => ['Your code to accept your slot', 'Use this code to confirm that you accept your slot:', "If this wasn't you, change your password."],
+            TwoFactorService::REGISTRATION => ['Confirm your PLP admission account', 'Use this code to confirm your email address and finish creating your account:', "If you didn't sign up, you can ignore this email."],
+            default => ['Your PLP admission sign-in code', 'Use this code to finish signing in:', "If this wasn't you, change your password."],
+        };
 
         return (new MailMessage)
-            ->subject($acceptance ? 'Your code to accept your slot' : 'Your PLP admission sign-in code')
-            ->line($acceptance ? 'Use this code to confirm that you accept your slot:' : 'Use this code to finish signing in:')
+            ->subject($subject)
+            ->line($intro)
             ->line("**{$this->code}**")
-            ->line("It expires in {$this->minutes} minutes. If this wasn't you, change your password.");
+            ->line("It expires in {$this->minutes} minutes. {$ignore}");
     }
 }

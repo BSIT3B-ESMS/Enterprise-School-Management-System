@@ -59,7 +59,10 @@ class ApplicationService
 
             return $user;
         });
-        $user->notify(new VerifyApplicantEmail);
+        // With applicant 2FA on, the emailed sign-up code confirms the address instead of a link
+        if (! config('admission.applicant_email_2fa')) {
+            $user->notify(new VerifyApplicantEmail);
+        }
 
         return $user;
     }

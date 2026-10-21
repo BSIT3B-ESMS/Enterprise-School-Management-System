@@ -1804,3 +1804,11 @@ button.step-dot:hover {
 .ticket-download .ticket-date {
   align-self: stretch;
 }
+
+/* Email code (two-step sign-in and sign-up) */
+.code-input {
+  font-size: 24px;
+  letter-spacing: .5em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}

@@ -8,6 +8,7 @@ use App\Models\Application;
 use App\Models\AuditLog;
 use App\Models\User;
 use App\Notifications\TwoFactorCode;
+use App\Notifications\VerifyApplicantEmail;
 use App\Services\TwoFactorService;
 use Illuminate\Support\Facades\Notification;
 use PragmaRX\Google2FA\Google2FA;
@@ -154,6 +155,51 @@ class AuthTest extends TestCase
             ->assertJsonStructure(['data' => ['token']]);
         // A challenge works once
         $this->postJson('/api/auth/2fa/verify', ['challenge' => $challenge, 'code' => $code])->assertUnprocessable();
+    }
+
+    /** Applicant 2FA at sign-up: no session until the emailed code; the code confirms the email */
+    public function test_register_with_email_code(): void
+    {
+        Notification::fake();
+        config(['admission.applicant_email_2fa' => true]);
+
+        $challenge = $this->postJson('/api/auth/register', $this->registerPayload())
+            ->assertCreated()
+            ->assertJsonPath('data.two_factor_required', true)
+            ->assertJsonMissingPath('data.token')
+            ->json('data.challenge');
+        $user = User::where('email', 'jordan@example.com')->first();
+        $this->assertFalse($user->hasVerifiedEmail());
+        Notification::assertNotSentTo($user, VerifyApplicantEmail::class);
+
+        $codes = [];
+        Notification::assertSentTo($user, TwoFactorCode::class, function (TwoFactorCode $n) use (&$codes) {
+            $codes[] = $n->code;
+
+            return true;
+        });
+
+        // Resend: too soon, then a new code that replaces the old one
+        $this->postJson('/api/auth/2fa/resend', compact('challenge'))->assertUnprocessable();
+        $this->travel(31)->seconds();
+        $this->postJson('/api/auth/2fa/resend', compact('challenge'))->assertOk();
+        $codes = [];
+        Notification::assertSentTo($user, TwoFactorCode::class, function (TwoFactorCode $n) use (&$codes) {
+            $codes[] = $n->code;
+
+            return true;
+        });
+        $this->assertCount(2, $codes);
+        [$old, $new] = $codes;
+        if ($old !== $new) {
+            $this->postJson('/api/auth/2fa/verify', ['challenge' => $challenge, 'code' => $old])->assertUnprocessable();
+        }
+
+        $this->postJson('/api/auth/2fa/verify', ['challenge' => $challenge, 'code' => $new])
+            ->assertOk()
+            ->assertJsonPath('data.user.role', 'applicant')
+            ->assertJsonStructure(['data' => ['token', 'device_token']]);
+        $this->assertTrue($user->fresh()->hasVerifiedEmail());
     }
 
     /** Decision T4: authenticator app for staff */

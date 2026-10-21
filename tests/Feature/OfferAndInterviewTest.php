@@ -80,10 +80,10 @@ class OfferAndInterviewTest extends TestCase
         $this->assertSame(0, Program::where('code', 'BSIT')->first()->filledSlots());
     }
 
-    /** NFR-04: with applicant 2FA on, accepting a slot needs the emailed code */
+    /** NFR-04: with acceptance 2FA on, accepting a slot needs the emailed code */
     public function test_slot_acceptance_with_email_code(): void
     {
-        config(['admission.applicant_email_2fa' => true]);
+        config(['admission.applicant_acceptance_2fa' => true]);
         Notification::fake();
         $user = $this->released();
 

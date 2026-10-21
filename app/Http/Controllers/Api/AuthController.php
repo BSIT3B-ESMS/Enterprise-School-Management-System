@@ -37,6 +37,15 @@ class AuthController extends Controller
     {
         $user = $applications->register($request->validated());
 
+        // Applicant 2FA: no session until the emailed code proves the address
+        if (config('admission.applicant_email_2fa')) {
+            return response()->json(['data' => [
+                'two_factor_required' => true,
+                'method' => 'email',
+                'challenge' => $this->twoFactor->challenge($user, TwoFactorService::REGISTRATION),
+            ]], 201);
+        }
+
         return $this->tokenResponse($user, 201);
     }
 
@@ -74,7 +83,7 @@ class AuthController extends Controller
         return $this->completeLogin($user);
     }
 
-    /** Second step of login (UI pending: there is no code screen yet). */
+    /** Second step of login or sign-up (the applicant portal's code screen). */
     public function verifyTwoFactor(Request $request): JsonResponse
     {
         $data = $request->validate([
@@ -82,9 +91,14 @@ class AuthController extends Controller
             'code' => ['required', 'digits:6'],
         ]);
 
-        $user = $this->twoFactor->verify($data['challenge'], $data['code']);
+        $user = $this->twoFactor->verify($data['challenge'], $data['code'], [TwoFactorService::LOGIN, TwoFactorService::REGISTRATION]);
         if (! $user) {
             throw ValidationException::withMessages(['code' => 'The code is wrong or has expired.']);
+        }
+
+        // An applicant's code came by email, so it also confirms the address (FR-01)
+        if ($user->hasRole('applicant') && $this->twoFactor->method($user) === 'email' && ! $user->hasVerifiedEmail()) {
+            $user->markEmailAsVerified();
         }
 
         $response = $this->completeLogin($user, twoFactor: true);
@@ -96,6 +110,17 @@ class AuthController extends Controller
         }
 
         return $response;
+    }
+
+    /** "Resend code" on the code screen: a new email code for the same challenge. */
+    public function resendTwoFactor(Request $request): JsonResponse
+    {
+        $data = $request->validate(['challenge' => ['required', 'string']]);
+        if ($error = $this->twoFactor->resend($data['challenge'])) {
+            throw ValidationException::withMessages(['code' => $error]);
+        }
+
+        return response()->json(['message' => 'We sent you a new code.']);
     }
 
     /** FR-01: send the verification link again. */

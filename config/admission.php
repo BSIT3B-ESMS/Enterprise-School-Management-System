@@ -107,13 +107,16 @@ return [
     | Sign-in security (NFR-04).
     | - require_verified_email: applicants must open the link in the
     |   verification email before they can submit.
-    | - applicant_email_2fa: email code on a new device and at slot
-    |   acceptance. Off until the portal has a code screen.
+    | - applicant_email_2fa: email code when creating an account and when
+    |   signing in on a new device (the applicant portal's code screen).
+    | - applicant_acceptance_2fa: email code again when accepting a slot.
+    |   Off until the portal's "Accept offer" button can ask for the code.
     | - staff_2fa_required: staff can't sign in without authenticator-app
     |   2FA. Off until the office panel has a code screen.
     */
     'require_verified_email' => (bool) env('REQUIRE_VERIFIED_EMAIL', true),
     'applicant_email_2fa' => (bool) env('APPLICANT_EMAIL_2FA', false),
+    'applicant_acceptance_2fa' => (bool) env('APPLICANT_ACCEPTANCE_2FA', false),
     'staff_2fa_required' => (bool) env('STAFF_2FA_REQUIRED', false),
     'trusted_device_days' => (int) env('TRUSTED_DEVICE_DAYS', 30),
 ];

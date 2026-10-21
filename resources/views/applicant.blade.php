@@ -161,6 +161,29 @@
           <button class="link-button align-self-center back-to-signin" type="button"><span
               data-icon="arrowL"></span>Back to sign in</button>
         </form>
+
+        <!-- Email code (two-step sign-in and sign-up) -->
+        <form id="code-form" class="auth-form" novalidate hidden>
+          <div class="auth-head">
+            <h2 id="code-title">Check your email</h2>
+            <p>We sent a 6-digit code to <strong id="code-email"></strong>. It expires in 10 minutes.</p>
+          </div>
+          <div>
+            <label class="form-label" for="code-input">Code</label>
+            <input class="form-control code-input" id="code-input" type="text" inputmode="numeric"
+              autocomplete="one-time-code" maxlength="6" pattern="^\d{6}$" placeholder="000000"
+              data-msg-pattern="Enter the 6 digits from the email." required>
+            <div class="invalid-feedback" id="code-input-error"></div>
+          </div>
+          <p class="form-note" id="code-note" role="status"></p>
+          <button class="btn btn-brand btn-lg w-100" type="submit" id="code-submit"><span
+              class="btn-label">Verify</span></button>
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <button class="link-button back-to-signin" type="button"><span data-icon="arrowL"></span>Back to sign
+              in</button>
+            <button class="link-button" type="button" id="code-resend">Resend code</button>
+          </div>
+        </form>
       </div>
     </section>
   </div>
