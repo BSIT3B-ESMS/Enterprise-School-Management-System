@@ -29,7 +29,7 @@ class ApplicantPortalPresenter
 
     public function present(Application $application): array
     {
-        $application->loadMissing(['applicant.user', 'period', 'examRegistration.session', 'result', 'documents.requirement', 'interview.schedule', 'offeredProgram']);
+        $application->loadMissing(['applicant.user', 'period', 'examRegistration.session', 'result', 'documents.requirement', 'interview.schedule', 'offeredProgram', 'choices.program']);
         $progress = $application->form_progress ?? ['step' => 1, 'completed' => []];
         $released = $application->result?->is_released ? $application->result : null;
         $period = $application->period;
@@ -46,6 +46,7 @@ class ApplicantPortalPresenter
             'submittedAt' => $application->submitted_at?->copy()->setTimezone(config('admission.display_timezone'))->toDateString(),
             'accepted' => $application->status->holdsSlot(),
             'offer' => $this->offer($application),
+            'requiresInterview' => (bool) $application->choices->first()?->program?->requires_interview,
             'interview' => $this->interview($application),
             'studentNumber' => $application->student_number,
             // The document cards this applicant must fill (H1: one card per official
@@ -69,8 +70,9 @@ class ApplicantPortalPresenter
     }
 
     /**
-     * The portal's four phases (draft → review → exam → result). An application
-     * sent back for resubmission reopens as "draft" so the applicant can replace
+     * The portal's phases: draft → review → exam → interview (only when the
+     * first-choice program requires one, D14) → result. An application sent
+     * back for resubmission reopens as "draft" so the applicant can replace
      * files and submit again with the existing screens.
      */
     private function phase(Application $application): string
@@ -78,9 +80,9 @@ class ApplicantPortalPresenter
         return match ($application->status) {
             ApplicationStatus::Draft, ApplicationStatus::Resubmit => 'draft',
             ApplicationStatus::Submitted => 'review',
-            // The portal has no "did not pass" or interview screens yet (UI pending)
-            ApplicationStatus::ForExam, ApplicationStatus::Passed, ApplicationStatus::Failed,
-            ApplicationStatus::ForInterview, ApplicationStatus::InterviewFailed => 'exam',
+            // The portal has no "did not pass" screen yet (UI pending)
+            ApplicationStatus::ForExam, ApplicationStatus::Passed, ApplicationStatus::Failed => 'exam',
+            ApplicationStatus::ForInterview, ApplicationStatus::InterviewFailed => 'interview',
             ApplicationStatus::Offered, ApplicationStatus::SlotAccepted, ApplicationStatus::ForMedical,
             ApplicationStatus::Admitted, ApplicationStatus::Forfeited => 'result',
         };

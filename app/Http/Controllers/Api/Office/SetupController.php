@@ -28,7 +28,7 @@ class SetupController extends Controller
     public function storeProgram(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'code' => ['required', 'string', 'max:20', 'regex:/^[A-Za-z0-9]+$/'],
+            'code' => ['required', 'string', 'regex:/^[A-Za-z]{2,10}$/'],
             'name' => ['required', 'string', 'max:255'],
             'slots' => ['required', 'integer', 'between:1,2000'],
         ]);

@@ -112,8 +112,13 @@
   display: grid;
 }
 
-.stepper-6 {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+.stepper-7 {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.status-pill.failed {
+  background: var(--tint-2);
+  color: var(--ink-2);
 }
 
 .stepper-3 {
@@ -1452,18 +1457,18 @@ button.step-dot:hover {
    RESPONSIVE (applicant views)
    ========================================================================== */
 @media (max-width: 1100px) {
-  .stepper-6 .step-sub {
+  .stepper-7 .step-sub {
     display: none;
   }
 }
 
 @media (max-width: 991.98px) {
-  .stepper-6 {
+  .stepper-7 {
     --dot: 34px;
     --gap: 6px;
   }
 
-  .stepper-6 .step-label {
+  .stepper-7 .step-label {
     font-size: 12px;
   }
 }
@@ -1486,16 +1491,16 @@ button.step-dot:hover {
     font-size: 22px;
   }
 
-  .stepper-6 {
+  .stepper-7 {
     --dot: 28px;
     --gap: 3px;
   }
 
-  .stepper-6 .step-text {
+  .stepper-7 .step-text {
     display: none;
   }
 
-  .stepper-6 .step-dot {
+  .stepper-7 .step-dot {
     font-size: 12.5px;
   }
 

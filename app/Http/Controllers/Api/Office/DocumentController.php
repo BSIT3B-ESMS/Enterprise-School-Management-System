@@ -67,7 +67,7 @@ class DocumentController extends Controller
     {
         $data = $request->validate([
             'status' => ['required', Rule::in(['verified', 'resubmit'])],
-            'remark' => ['nullable', 'string', 'max:500'],
+            'remark' => ['nullable', 'string', 'min:10', 'max:500'],
         ]);
         $requirement = $this->documents->requirement($key, $stage);
         $this->documents->review($application, $requirement, $data['status'], $data['remark'] ?? null, $request->user());

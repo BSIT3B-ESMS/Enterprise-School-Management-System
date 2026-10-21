@@ -49,6 +49,11 @@ class ApplicantForm
 
     public const PH_MOBILE = '/^(\+63|0)\s?9\d{2}\s?\d{3}\s?\d{4}$/';
 
+    /** Names and places: letters (ñ and accents included), spaces, periods, apostrophes, hyphens. */
+    public const NAME = "/^\\pL[\\pL .'\\-]*$/u";
+
+    public const NAME_MESSAGE = 'Use letters only (spaces, hyphens, periods and apostrophes are fine).';
+
     /**
      * Format rules, used for autosave: a value that breaks one is skipped
      * (the applicant is mid-typing), the rest of the form is still saved.
@@ -56,24 +61,24 @@ class ApplicantForm
     public static function formatRules(?int $applicantId = null): array
     {
         return [
-            'firstName' => ['string', 'max:100'],
-            'middleName' => ['nullable', 'string', 'max:100'],
-            'lastName' => ['string', 'max:100'],
+            'firstName' => ['string', 'max:100', 'regex:'.self::NAME],
+            'middleName' => ['nullable', 'string', 'max:100', 'regex:'.self::NAME],
+            'lastName' => ['string', 'max:100', 'regex:'.self::NAME],
             'phone' => ['nullable', 'regex:'.self::PH_MOBILE],
             'birthDate' => ['nullable', 'date', 'before:-14 years', 'after:-80 years'],
             'sex' => ['nullable', Rule::in(self::SEXES)],
             'civilStatus' => ['nullable', Rule::in(self::CIVIL_STATUSES)],
             'address' => ['nullable', 'string', 'max:255'],
-            'city' => ['nullable', 'string', 'max:100'],
-            'province' => ['nullable', 'string', 'max:100'],
+            'city' => ['nullable', 'string', 'max:100', 'regex:'.self::NAME],
+            'province' => ['nullable', 'string', 'max:100', 'regex:'.self::NAME],
             'zip' => ['nullable', 'regex:/^\d{4}$/'],
-            'guardianName' => ['nullable', 'string', 'max:150'],
+            'guardianName' => ['nullable', 'string', 'max:150', 'regex:'.self::NAME],
             'guardianPhone' => ['nullable', 'regex:'.self::PH_MOBILE],
             'lastSchool' => ['nullable', 'string', 'max:255'],
             'schoolType' => ['nullable', Rule::in(self::SCHOOL_TYPES)],
             'strand' => ['nullable', Rule::in(self::STRANDS)],
             'gradYear' => ['nullable', Rule::in(self::GRAD_YEARS)],
-            'gwa' => ['nullable', 'numeric', 'between:75,100'],
+            'gwa' => ['nullable', 'numeric', 'decimal:0,2', 'between:75,100'],
             'lrn' => ['nullable', 'regex:/^\d{12}$/', Rule::unique('applicants', 'lrn')->ignore($applicantId)],
             'program1' => ['nullable', Rule::in(self::programNames())],
             'program2' => ['nullable', Rule::in(self::programNames()), 'different:program1'],
@@ -89,6 +94,13 @@ class ApplicantForm
         'phone.regex' => 'Use a PH mobile number, like +63 917 123 4567.',
         'guardianPhone.regex' => 'Use a PH mobile number, like +63 917 123 4567.',
         'zip.regex' => 'ZIP codes have 4 digits.',
+        'firstName.regex' => self::NAME_MESSAGE,
+        'middleName.regex' => self::NAME_MESSAGE,
+        'lastName.regex' => self::NAME_MESSAGE,
+        'guardianName.regex' => self::NAME_MESSAGE,
+        'city.regex' => 'Use letters only, like Pasig City.',
+        'province.regex' => 'Use letters only, like Metro Manila.',
+        'gwa.decimal' => 'Use up to 2 decimal places, like 91.25.',
         'program2.different' => 'Pick a different program from your first choice.',
         'program1.in' => 'This program is not open for applications.',
         'program2.in' => 'This program is not open for applications.',
