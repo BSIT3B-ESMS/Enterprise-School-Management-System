@@ -18,6 +18,7 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 /**
  * Applicant registration and the application lifecycle (FR-01, FR-02, FR-05).
@@ -237,6 +238,7 @@ class ApplicationService
             $values[$field] = match (true) {
                 $value instanceof \DateTimeInterface => $value->format('Y-m-d'),
                 $value === null => null,
+                is_bool($value) => $value ? '1' : '0',
                 default => (string) $value,
             };
         }
@@ -259,6 +261,10 @@ class ApplicationService
                 $check[$field] = array_merge(['required'], array_diff($rules[$field], ['nullable']));
             }
         }
+        if (in_array(1, $sections) && ($values['isResident'] ?? null) === '1') {
+            $check['district'] = ['required', Rule::in([1, 2])];
+            $check['barangay'] = ['required', Rule::in(ApplicantForm::BARANGAYS[(int) ($values['district'] ?? 0)] ?? [])];
+        }
         if ($check) {
             Validator::make($values, $check, ApplicantForm::MESSAGES)->validate();
         }
@@ -274,10 +280,12 @@ class ApplicationService
         if (array_key_exists('gradYear', $valid)) {
             $applicant->applicant_type = ApplicantForm::applicantType($valid['gradYear']);
         }
-        if (array_key_exists('city', $valid)) {
-            // Decision T7: the form has no residency field yet
-            $applicant->is_resident = $valid['city'] ? (bool) preg_match('/\bpasig\b/i', $valid['city']) : null;
+        if ($applicant->is_resident === false) {
+            $applicant->district = null;
+            $applicant->barangay = null;
         }
+        // has_guardian is NOT NULL (default false)
+        $applicant->has_guardian = (bool) $applicant->has_guardian;
 
         $identityChanged = $applicant->isDirty(['last_name', 'first_name', 'birthday']);
 

@@ -16,11 +16,13 @@ use Illuminate\Database\Seeder;
 class CollegeSeeder extends Seeder
 {
     public const COLLEGES = [
-        'CCS' => ['College of Computer Studies', ['BSIT', 'BSCS', 'BSIS']],
-        'CBA' => ['College of Business and Accountancy', ['BSA', 'BSBA', 'BSHM']],
+        'CCS' => ['College of Computer Studies', ['BSIT', 'BSCS']],
+        'CBA' => ['College of Business and Accountancy', ['BSA', 'BSBA-ENT', 'BSBA-MM']],
+        'CHM' => ['College of Hospitality Management', ['BSHM']],
         'CON' => ['College of Nursing', ['BSN']],
-        'CAS' => ['College of Arts and Sciences', ['BSPSY', 'ABCOMM']],
-        'COED' => ['College of Education', ['BEED', 'BSED']],
+        'COE' => ['College of Engineering', ['BSECE']],
+        'CAS' => ['College of Arts and Sciences', ['BSMATH', 'ABPSY']],
+        'COED' => ['College of Education', ['BEED', 'BSED-ENG', 'BSED-FIL']],
     ];
 
     /** Programs that require an interview when first linked to a college (placeholder: BS Nursing). */

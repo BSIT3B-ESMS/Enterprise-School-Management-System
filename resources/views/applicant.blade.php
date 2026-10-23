@@ -365,7 +365,12 @@
               <!-- Section 1 -->
               <section class="stage" data-stage="1">
                 <div class="row g-3">
-                  <div class="col-md-4"><label class="form-label" for="first-name">First name <span
+                  <div class="col-md-4"><label class="form-label" for="last-name">Surname <span
+                        class="req">*</span></label><input class="form-control" id="last-name" name="lastName"
+                      autocomplete="family-name" required>
+                    <div class="invalid-feedback" id="last-name-error"></div>
+                  </div>
+                  <div class="col-md-4"><label class="form-label" for="first-name">Given name <span
                         class="req">*</span></label><input class="form-control" id="first-name" name="firstName"
                       autocomplete="given-name" required>
                     <div class="invalid-feedback" id="first-name-error"></div>
@@ -373,27 +378,6 @@
                   <div class="col-md-4"><label class="form-label" for="middle-name">Middle name</label><input
                       class="form-control" id="middle-name" name="middleName" autocomplete="additional-name">
                     <div class="invalid-feedback" id="middle-name-error"></div>
-                  </div>
-                  <div class="col-md-4"><label class="form-label" for="last-name">Last name <span
-                        class="req">*</span></label><input class="form-control" id="last-name" name="lastName"
-                      autocomplete="family-name" required>
-                    <div class="invalid-feedback" id="last-name-error"></div>
-                  </div>
-                  <div class="col-md-6"><label class="form-label" for="email">Email address <span
-                        class="req">*</span></label><input class="form-control" id="email" name="email" type="email"
-                      autocomplete="email" required>
-                    <div class="invalid-feedback" id="email-error"></div>
-                  </div>
-                  <div class="col-md-6"><label class="form-label" for="phone">Mobile number <span
-                        class="req">*</span></label><input class="form-control" id="phone" name="phone" type="tel"
-                      autocomplete="tel" placeholder="+63 9XX XXX XXXX" pattern="^(\+63|0)\s?9\d{2}\s?\d{3}\s?\d{4}$"
-                      data-msg-pattern="Use a PH mobile number, like +63 917 123 4567." required>
-                    <div class="invalid-feedback" id="phone-error"></div>
-                  </div>
-                  <div class="col-md-4"><label class="form-label" for="birth-date">Date of birth <span
-                        class="req">*</span></label><input class="form-control" id="birth-date" name="birthDate"
-                      type="date" required>
-                    <div class="invalid-feedback" id="birth-date-error"></div>
                   </div>
                   <div class="col-md-4"><label class="form-label" for="sex">Sex <span
                         class="req">*</span></label><select class="form-select" id="sex" name="sex" required>
@@ -404,46 +388,56 @@
                     </select>
                     <div class="invalid-feedback" id="sex-error"></div>
                   </div>
-                  <div class="col-md-4"><label class="form-label" for="civil-status">Civil status <span
-                        class="req">*</span></label><select class="form-select" id="civil-status" name="civilStatus"
+                  <div class="col-md-4"><label class="form-label" for="birth-date">Birthday <span
+                        class="req">*</span></label><input class="form-control" id="birth-date" name="birthDate"
+                      type="date" required>
+                    <div class="invalid-feedback" id="birth-date-error"></div>
+                  </div>
+                  <div class="col-md-4"><label class="form-label" for="phone">Contact number <span
+                        class="req">*</span></label><input class="form-control" id="phone" name="phone" type="tel"
+                      autocomplete="tel" placeholder="+63 9XX XXX XXXX" pattern="^(\+63|0)\s?9\d{2}\s?\d{3}\s?\d{4}$"
+                      data-msg-pattern="Use a PH mobile number, like +63 917 123 4567." required>
+                    <div class="invalid-feedback" id="phone-error"></div>
+                  </div>
+                  <div class="col-12"><label class="form-label" for="email">Email address <span
+                        class="req">*</span></label><input class="form-control" id="email" name="email" type="email"
+                      autocomplete="email" required>
+                    <div class="invalid-feedback" id="email-error"></div>
+                  </div>
+                  <div class="col-md-4"><label class="form-label" for="is-resident">Residency status <span
+                        class="req">*</span></label><select class="form-select" id="is-resident" name="isResident"
                       required>
                       <option value="">Select</option>
-                      <option>Single</option>
-                      <option>Married</option>
-                      <option>Other</option>
+                      <option value="1">Pasig resident</option>
+                      <option value="0">Not a Pasig resident</option>
                     </select>
-                    <div class="invalid-feedback" id="civil-status-error"></div>
+                    <div class="invalid-feedback" id="is-resident-error"></div>
                   </div>
-                  <div class="col-12"><label class="form-label" for="address">House no., street, barangay <span
+                  <div class="col-md-4 resident-only"><label class="form-label" for="district">District <span
+                        class="req">*</span></label><select class="form-select" id="district" name="district" required>
+                      <option value="">Select</option>
+                      <option value="1">District 1</option>
+                      <option value="2">District 2</option>
+                    </select>
+                    <div class="invalid-feedback" id="district-error"></div>
+                  </div>
+                  <div class="col-md-4 resident-only"><label class="form-label" for="barangay">Barangay <span
+                        class="req">*</span></label><select class="form-select" id="barangay" name="barangay"
+                      data-barangays='@json(\App\Support\ApplicantForm::BARANGAYS)' required>
+                      <option value="">Select a district first</option>
+                    </select>
+                    <div class="invalid-feedback" id="barangay-error"></div>
+                  </div>
+                  <div class="col-12"><label class="form-label" for="address">Address <span
                         class="req">*</span></label><input class="form-control" id="address" name="address"
-                      autocomplete="street-address" placeholder="e.g. 12 Mabini St., Brgy. San Isidro" required>
+                      autocomplete="street-address" placeholder="House no., street, city" required>
                     <div class="invalid-feedback" id="address-error"></div>
                   </div>
-                  <div class="col-md-5"><label class="form-label" for="city">City / municipality <span
-                        class="req">*</span></label><input class="form-control" id="city" name="city"
-                      autocomplete="address-level2" required>
-                    <div class="invalid-feedback" id="city-error"></div>
-                  </div>
-                  <div class="col-md-4"><label class="form-label" for="province">Province <span
-                        class="req">*</span></label><input class="form-control" id="province" name="province"
-                      autocomplete="address-level1" required>
-                    <div class="invalid-feedback" id="province-error"></div>
-                  </div>
-                  <div class="col-md-3"><label class="form-label" for="zip">ZIP code</label><input class="form-control"
-                      id="zip" name="zip" inputmode="numeric" autocomplete="postal-code" pattern="^\d{4}$"
-                      data-msg-pattern="ZIP codes have 4 digits.">
-                    <div class="invalid-feedback" id="zip-error"></div>
-                  </div>
-                  <div class="col-md-6"><label class="form-label" for="guardian-name">Parent / guardian name <span
-                        class="req">*</span></label><input class="form-control" id="guardian-name" name="guardianName"
-                      required>
-                    <div class="invalid-feedback" id="guardian-name-error"></div>
-                  </div>
-                  <div class="col-md-6"><label class="form-label" for="guardian-phone">Parent / guardian mobile <span
-                        class="req">*</span></label><input class="form-control" id="guardian-phone" name="guardianPhone"
-                      type="tel" placeholder="+63 9XX XXX XXXX" pattern="^(\+63|0)\s?9\d{2}\s?\d{3}\s?\d{4}$"
-                      data-msg-pattern="Use a PH mobile number, like +63 917 123 4567." required>
-                    <div class="invalid-feedback" id="guardian-phone-error"></div>
+                  <div class="col-md-6"><label class="form-label" for="has-guardian">Do you live with a guardian instead
+                      of a parent?</label><select class="form-select" id="has-guardian" name="hasGuardian">
+                      <option value="0">No</option>
+                      <option value="1">Yes (a notarized affidavit of guardianship is required)</option>
+                    </select>
                   </div>
                 </div>
               </section>
@@ -451,12 +445,14 @@
               <!-- Section 2 -->
               <section class="stage" data-stage="2">
                 <div class="row g-3">
-                  <div class="col-12"><label class="form-label" for="last-school">Last school attended <span
-                        class="req">*</span></label><input class="form-control" id="last-school" name="lastSchool"
-                      placeholder="Full school name" required>
-                    <div class="invalid-feedback" id="last-school-error"></div>
+                  <div class="col-md-6"><label class="form-label" for="lrn">Learner Reference Number (LRN) <span
+                        class="req">*</span></label><input class="form-control" id="lrn" name="lrn" inputmode="numeric"
+                      pattern="^\d{12}$" placeholder="12 digits" data-msg-pattern="The LRN has exactly 12 digits."
+                      required>
+                    <div class="invalid-feedback" id="lrn-error"></div>
+                    <div class="form-text">Printed on your Form 137 / Form 138.</div>
                   </div>
-                  <div class="col-md-6"><label class="form-label" for="school-type">School type <span
+                  <div class="col-md-6"><label class="form-label" for="school-type">Type of school <span
                         class="req">*</span></label><select class="form-select" id="school-type" name="schoolType"
                       required>
                       <option value="">Select</option>
@@ -465,7 +461,12 @@
                     </select>
                     <div class="invalid-feedback" id="school-type-error"></div>
                   </div>
-                  <div class="col-md-6"><label class="form-label" for="strand">SHS track / strand <span
+                  <div class="col-12"><label class="form-label" for="last-school">Last school attended <span
+                        class="req">*</span></label><input class="form-control" id="last-school" name="lastSchool"
+                      placeholder="Full school name" required>
+                    <div class="invalid-feedback" id="last-school-error"></div>
+                  </div>
+                  <div class="col-md-6"><label class="form-label" for="strand">SHS strand <span
                         class="req">*</span></label><select class="form-select" id="strand" name="strand" required>
                       <option value="">Select</option>
                       <option>STEM</option>
@@ -489,18 +490,7 @@
                       <option>2024 or earlier</option>
                     </select>
                     <div class="invalid-feedback" id="grad-year-error"></div>
-                  </div>
-                  <div class="col-md-6"><label class="form-label" for="gwa">Grade 11 general average <span
-                        class="req">*</span></label><input class="form-control" id="gwa" name="gwa" type="number"
-                      inputmode="decimal" min="75" max="100" step="0.01" placeholder="e.g. 91.25"
-                      data-msg-range="Enter an average between 75 and 100." required>
-                    <div class="invalid-feedback" id="gwa-error"></div>
-                  </div>
-                  <div class="col-12"><label class="form-label" for="lrn">Learner Reference Number (LRN)</label><input
-                      class="form-control" id="lrn" name="lrn" inputmode="numeric" pattern="^\d{12}$"
-                      placeholder="12 digits" data-msg-pattern="The LRN has exactly 12 digits.">
-                    <div class="invalid-feedback" id="lrn-error"></div>
-                    <div class="form-text">Printed on your Form 138. Leave blank if you don't have one.</div>
+                    <div class="form-text">Decides whether you upload Form 137 (graduates) or Form 138 (Grade 12).</div>
                   </div>
                 </div>
               </section>
@@ -522,13 +512,12 @@
                     </select>
                     <div class="invalid-feedback" id="program2-error"></div>
                   </div>
-                  <div class="col-md-6"><label class="form-label" for="campus">Campus <span
-                        class="req">*</span></label><select class="form-select" id="campus" name="campus" required>
-                      <option value="">Select</option>
-                      <option>Main Campus</option>
-                      <option>North Campus</option>
+                  <div class="col-12"><label class="form-label" for="program3">Third-choice program <span
+                        class="req">*</span></label><select class="form-select program-select" id="program3"
+                      name="program3" required>
+                      <option value="">Select a program</option>
                     </select>
-                    <div class="invalid-feedback" id="campus-error"></div>
+                    <div class="invalid-feedback" id="program3-error"></div>
                   </div>
                   <div class="col-md-6"><label class="form-label" for="intake">Intake</label><input class="form-control"
                       id="intake" value="AY 2027–2028 · 1st semester" readonly></div>

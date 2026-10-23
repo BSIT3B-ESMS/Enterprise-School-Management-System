@@ -21,10 +21,10 @@
     <tr><td class="label">Name</td><td>{{ $applicant->fullName() }}</td></tr>
     <tr><td class="label">LRN</td><td>{{ $values['lrn'] }}</td></tr>
     <tr><td class="label">Birthdate · Sex</td><td>{{ $values['birthDate'] }} · {{ $values['sex'] }}</td></tr>
-    <tr><td class="label">Civil status</td><td>{{ $values['civilStatus'] }}</td></tr>
     <tr><td class="label">Email · Mobile</td><td>{{ $values['email'] }} · {{ $values['phone'] }}</td></tr>
-    <tr><td class="label">Address</td><td>{{ implode(', ', array_filter([$values['address'], $applicant->barangay, $values['city'], $values['province'], $values['zip']])) }}</td></tr>
-    <tr><td class="label">Parent / guardian</td><td>{{ $values['guardianName'] }} · {{ $values['guardianPhone'] }}</td></tr>
+    <tr><td class="label">Residency</td><td>{{ $applicant->is_resident ? 'Pasig resident · District '.$applicant->district.' · Brgy. '.$applicant->barangay : 'Not a Pasig resident' }}</td></tr>
+    <tr><td class="label">Address</td><td>{{ $values['address'] }}</td></tr>
+    <tr><td class="label">Guardian</td><td>{{ $applicant->has_guardian ? 'Lives with a guardian' : 'Lives with a parent' }}</td></tr>
 </table>
 
 <h2>Education</h2>
@@ -40,7 +40,6 @@
             <tr><td class="label">Choice {{ $rank }}</td><td>{{ $values['program'.$rank] }}</td></tr>
         @endif
     @endforeach
-    <tr><td class="label">Campus</td><td>{{ $values['campus'] }}</td></tr>
 </table>
 
 <h2>Documentary requirements</h2>

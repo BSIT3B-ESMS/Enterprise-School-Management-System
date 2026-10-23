@@ -53,11 +53,11 @@ abstract class TestCase extends BaseTestCase
     {
         return array_merge([
             'firstName' => 'Jordan', 'lastName' => 'Mendoza', 'middleName' => 'Reyes', 'phone' => '+63 917 123 4567',
-            'birthDate' => '2009-03-14', 'sex' => 'Male', 'civilStatus' => 'Single', 'address' => '12 Mabini St.',
-            'city' => 'Pasig City', 'province' => 'Metro Manila', 'zip' => '1600', 'guardianName' => 'Teresa Mendoza',
-            'guardianPhone' => '+63 918 765 4321', 'lastSchool' => 'Rizal High School', 'schoolType' => 'Public',
-            'strand' => 'STEM', 'gradYear' => '2027 (expected)', 'gwa' => '92.40', 'lrn' => '123456789012',
-            'program1' => 'BS Information Technology', 'program2' => 'BS Computer Science', 'campus' => 'Main Campus',
+            'birthDate' => '2009-03-14', 'sex' => 'Male', 'address' => '12 Mabini St.',
+            'isResident' => '1', 'district' => '1', 'barangay' => 'Kapitolyo', 'hasGuardian' => '0',
+            'lastSchool' => 'Rizal High School', 'schoolType' => 'Public',
+            'strand' => 'STEM', 'gradYear' => '2027 (expected)', 'lrn' => '123456789012',
+            'program1' => 'BS Information Technology', 'program2' => 'BS Computer Science', 'program3' => 'AB Psychology',
             'step' => 3, 'completed' => [1, 2, 3],
         ], $overrides);
     }

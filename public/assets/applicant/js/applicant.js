@@ -20,8 +20,8 @@ $(function () {
   // My application: three sections only
   var SECTIONS = [
     { id: 1, title: "Personal information", short: "Personal", desc: "Tell us who you are and how to reach you." },
-    { id: 2, title: "Academic background", short: "Academic", desc: "Your most recent school and grades." },
-    { id: 3, title: "Program choice", short: "Program", desc: "Choose the programs and campus you're applying to." }
+    { id: 2, title: "Academic background", short: "Academic", desc: "Your LRN and most recent school." },
+    { id: 3, title: "Program choice", short: "Program", desc: "Choose your first, second, and third choice programs." }
   ];
 
   // Overview journey: six stages. Stage 1 covers all three form sections.
@@ -707,7 +707,22 @@ $(function () {
       var v = state.data[this.name];
       $(this).val(v != null ? v : "");
     });
+    syncResidency();
+    $("#barangay").val(state.data.barangay || "");
   }
+  // District and barangay only for Pasig residents; barangay list follows the district
+  function syncResidency() {
+    var resident = $("#is-resident").val() === "1", district = $("#district").val();
+    var $b = $("#barangay"), current = $b.val(), list = (resident && $b.data("barangays")[district]) || [];
+    $b.find("option").slice(1).remove();
+    list.forEach(function (name) { $b.append($("<option>").text(name).val(name)); });
+    $b.val(list.indexOf(current) !== -1 ? current : "");
+    if (!resident) $("#district").val("");
+    $("#district").prop("disabled", !resident);
+    $b.prop("disabled", !resident || !district);
+    $(".resident-only").toggleClass("opacity-50", !resident);
+  }
+  $("#is-resident, #district").on("change", syncResidency);
   function collectForm() {
     $("#application-form").find("[name]").each(function () { state.data[this.name] = $(this).val(); });
   }
@@ -732,6 +747,9 @@ $(function () {
     }
     if (n === 3 && $("#program1").val() && $("#program1").val() === $("#program2").val()) {
       setError($("#program2"), "Pick a different program from your first choice."); ok = false;
+    }
+    if (n === 3 && $("#program3").val() && [$("#program1").val(), $("#program2").val()].indexOf($("#program3").val()) !== -1) {
+      setError($("#program3"), "Pick a program different from your first and second choices."); ok = false;
     }
     return ok;
   }
@@ -1227,9 +1245,9 @@ $(function () {
      DEMO CONTROLS — delete this block and the .demo-strip markup for production
      ========================================================================== */
   var SAMPLE = {
-    1: { middleName: "Reyes", birthDate: "2009-03-14", phone: "+63 917 123 4567", sex: "Male", civilStatus: "Single", address: "12 Mabini St., Brgy. San Isidro", city: "Quezon City", province: "Metro Manila", zip: "1100", guardianName: "Teresa Mendoza", guardianPhone: "+63 918 765 4321" },
-    2: { lastSchool: "Rizal National High School", schoolType: "Public", strand: "STEM", gradYear: "2027 (expected)", gwa: "92.40" },
-    3: { program2: "Bachelor of Science in Computer Science", campus: "Main Campus" }
+    1: { middleName: "Reyes", birthDate: "2009-03-14", phone: "+63 917 123 4567", sex: "Male", isResident: "1", district: "1", barangay: "Kapitolyo", address: "12 Mabini St.", hasGuardian: "0" },
+    2: { lrn: "123456789012", lastSchool: "Rizal National High School", schoolType: "Public", strand: "STEM", gradYear: "2027 (expected)" },
+    3: { program2: "Bachelor of Science in Computer Science", program3: "Bachelor of Science in Nursing" }
   };
   $("#demo-advance").on("click", function () {
     var n = journeyCurrent();

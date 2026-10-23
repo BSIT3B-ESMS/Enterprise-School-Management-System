@@ -40,22 +40,27 @@ class AdmissionSetupSeeder extends Seeder
             'is_active' => true,
         ]);
 
+        // PLP's undergraduate programs (slots are placeholders until the office sets them)
         $programs = [
             ['BSIT', 'BS Information Technology', 120],
             ['BSCS', 'BS Computer Science', 80],
-            ['BSIS', 'BS Information Systems', 60],
             ['BSA', 'BS Accountancy', 80],
-            ['BSBA', 'BS Business Administration', 100],
+            ['BSBA-ENT', 'BS Business Administration major in Entrepreneurship', 50],
+            ['BSBA-MM', 'BS Business Administration major in Marketing Management', 50],
             ['BSHM', 'BS Hospitality Management', 80],
             ['BSN', 'BS Nursing', 60],
-            ['BSPSY', 'BS Psychology', 60],
-            ['ABCOMM', 'AB Communication', 50],
-            ['BEED', 'Bachelor of Elementary Education', 60],
-            ['BSED', 'Bachelor of Secondary Education', 60],
+            ['BSECE', 'BS Electronics and Communications Engineering', 50],
+            ['BSMATH', 'BS Mathematics', 40],
+            ['ABPSY', 'AB Psychology', 60],
+            ['BEED', 'Bachelor of Elementary Education major in Early Childhood Education', 60],
+            ['BSED-ENG', 'Bachelor of Secondary Education major in English', 40],
+            ['BSED-FIL', 'Bachelor of Secondary Education major in Filipino', 40],
         ];
         foreach ($programs as [$code, $name, $slots]) {
             Program::updateOrCreate(['code' => $code], ['name' => $name, 'slots' => $slots]);
         }
+        // Programs PLP doesn't offer: closed, not deleted (old applications may point to them)
+        Program::whereIn('code', ['BSIS', 'BSBA', 'BSPSY', 'ABCOMM', 'BSED'])->update(['is_open' => false]);
         // Colleges, deans' scope and interview programs (FR-17)
         $this->call(CollegeSeeder::class);
 

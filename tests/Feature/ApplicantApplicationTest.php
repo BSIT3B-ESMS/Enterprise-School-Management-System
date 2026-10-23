@@ -38,7 +38,7 @@ class ApplicantApplicationTest extends TestCase
             ->assertJsonPath('data.medical.status', 'none')
             ->assertJsonPath('data.exam', null)
             ->assertJsonPath('data.result', null)
-            ->assertJsonCount(11, 'data.programs')
+            ->assertJsonCount(13, 'data.programs')
             ->assertJsonPath('data.keyDates.0.date', '2026-11-28');
     }
 
@@ -48,15 +48,31 @@ class ApplicantApplicationTest extends TestCase
         $user = $this->makeApplicant();
 
         $res = $this->asUser($user)->putJson('/api/applicant/application', [
-            'middleName' => 'Reyes', 'lrn' => '12345', 'city' => 'Pasig City', 'step' => 2,
+            'middleName' => 'Reyes', 'lrn' => '12345', 'isResident' => '1', 'district' => '2', 'barangay' => 'Rosario', 'step' => 2,
         ])->assertOk();
 
         $res->assertJsonPath('data.data.middleName', 'Reyes')
             ->assertJsonPath('data.data.lrn', null)
+            ->assertJsonPath('data.data.isResident', '1')
             ->assertJsonPath('data.step', 2)
             ->assertJsonStructure(['skipped' => ['lrn']]);
-        // Decision T7: residency derived from the city
-        $this->assertTrue($user->applicant->fresh()->is_resident);
+        $this->assertSame('Rosario', $user->applicant->fresh()->barangay);
+    }
+
+    public function test_residency_district_and_barangay(): void
+    {
+        $user = $this->makeApplicant();
+
+        // A resident's barangay must be in the chosen district
+        $this->asUser($user)->putJson('/api/applicant/application', $this->completeForm(['barangay' => 'Rosario', 'completed' => [1]]))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['barangay']);
+
+        // Non-residents need neither, and any old district/barangay is cleared
+        $this->asUser($user)->putJson('/api/applicant/application', $this->completeForm(['isResident' => '0', 'district' => null, 'barangay' => null, 'completed' => [1]]))
+            ->assertOk();
+        $this->assertFalse($user->applicant->fresh()->is_resident);
+        $this->assertNull($user->applicant->fresh()->district);
     }
 
     public function test_marking_a_section_complete_validates_it(): void
@@ -65,7 +81,7 @@ class ApplicantApplicationTest extends TestCase
 
         $this->asUser($user)->putJson('/api/applicant/application', ['completed' => [1]])
             ->assertUnprocessable()
-            ->assertJsonValidationErrors(['birthDate', 'address', 'guardianName']);
+            ->assertJsonValidationErrors(['birthDate', 'address', 'isResident']);
 
         $this->asUser($user)->putJson('/api/applicant/application', $this->completeForm(['completed' => [1, 2, 3]]))
             ->assertOk()

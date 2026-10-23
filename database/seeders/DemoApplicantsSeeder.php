@@ -14,6 +14,7 @@ use App\Services\DocumentService;
 use App\Services\ExamService;
 use App\Services\InterviewService;
 use App\Services\OfferService;
+use App\Support\ApplicantForm;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 use Illuminate\Http\UploadedFile;
@@ -101,16 +102,19 @@ class DemoApplicantsSeeder extends Seeder
             $user->markEmailAsVerified();
             $application = $this->applications->current($user->applicant);
             [$school, $type] = self::SCHOOLS[mt_rand(0, count(self::SCHOOLS) - 1)];
-            $choices = $this->sample($programs, 2);
+            $choices = $this->sample($programs, 3);
+            $resident = self::CITIES[mt_rand(0, count(self::CITIES) - 1)] === 'Pasig City';
+            $district = mt_rand(1, 2);
             $this->applications->saveForm($application, [
                 'firstName' => $first, 'lastName' => $last, 'middleName' => self::LAST[mt_rand(0, count(self::LAST) - 1)],
                 'phone' => $user->applicant->phone, 'birthDate' => (2007 + mt_rand(0, 1)).'-'.sprintf('%02d-%02d', mt_rand(1, 12), mt_rand(1, 28)),
-                'sex' => mt_rand(0, 1) ? 'Female' : 'Male', 'civilStatus' => 'Single', 'address' => mt_rand(1, 199).' Mabini St.',
-                'city' => self::CITIES[mt_rand(0, count(self::CITIES) - 1)], 'province' => 'Metro Manila', 'zip' => '1600',
-                'guardianName' => 'Parent '.$last, 'guardianPhone' => '+63 918 765 4321', 'lastSchool' => $school, 'schoolType' => $type,
+                'sex' => mt_rand(0, 1) ? 'Female' : 'Male', 'address' => mt_rand(1, 199).' Mabini St.',
+                'isResident' => $resident ? '1' : '0', 'district' => $resident ? (string) $district : null,
+                'barangay' => $resident ? ApplicantForm::BARANGAYS[$district][mt_rand(0, count(ApplicantForm::BARANGAYS[$district]) - 1)] : null,
+                'hasGuardian' => mt_rand(0, 9) ? '0' : '1', 'lastSchool' => $school, 'schoolType' => $type,
                 'strand' => self::STRANDS[mt_rand(0, count(self::STRANDS) - 1)], 'gradYear' => mt_rand(0, 9) < 7 ? '2027 (expected)' : '2026',
-                'gwa' => (string) (mt_rand(8000, 9800) / 100), 'lrn' => (string) (100000000000 + $i * 7919),
-                'program1' => $choices[0], 'program2' => $choices[1], 'campus' => 'Main Campus', 'step' => 3, 'completed' => [1, 2, 3],
+                'lrn' => (string) (100000000000 + $i * 7919),
+                'program1' => $choices[0], 'program2' => $choices[1], 'program3' => $choices[2], 'step' => 3, 'completed' => [1, 2, 3],
             ], $user);
 
             $required = $this->applications->requiredDocuments($application);

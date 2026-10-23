@@ -85,14 +85,14 @@
 
   // Strand → suggested programs (shown to applicants as guidance)
   var STRAND_SUGGEST = {
-    "STEM": ["BSCS", "BSIT", "BSN", "BSPSY"],
-    "ABM": ["BSA", "BSBA", "BSHM"],
-    "HUMSS": ["ABCOMM", "BSPSY", "BSED", "BEED"],
-    "GAS": ["BSBA", "BEED", "ABCOMM"],
-    "TVL – ICT": ["BSIT", "BSIS", "BSCS"],
-    "TVL – HE": ["BSHM", "BSBA"],
-    "Arts and Design": ["ABCOMM", "BSIT"],
-    "Sports": ["BSED", "BEED"]
+    "STEM": ["BSCS", "BSIT", "BSECE", "BSMATH", "BSN"],
+    "ABM": ["BSA", "BSBA-ENT", "BSBA-MM", "BSHM"],
+    "HUMSS": ["ABPSY", "BSED-ENG", "BSED-FIL", "BEED"],
+    "GAS": ["BSBA-ENT", "BEED", "ABPSY"],
+    "TVL – ICT": ["BSIT", "BSCS"],
+    "TVL – HE": ["BSHM", "BSBA-ENT"],
+    "Arts and Design": ["ABPSY", "BSIT"],
+    "Sports": ["BSED-ENG", "BEED"]
   };
   var STRANDS = Object.keys(STRAND_SUGGEST);
 

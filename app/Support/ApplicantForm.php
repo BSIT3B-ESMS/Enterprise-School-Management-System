@@ -33,6 +33,16 @@ class ApplicantForm
         'gradYear' => 'grad_year',
         'gwa' => 'gwa',
         'lrn' => 'lrn',
+        'isResident' => 'is_resident',
+        'district' => 'district',
+        'barangay' => 'barangay',
+        'hasGuardian' => 'has_guardian',
+    ];
+
+    /** Pasig barangays by district (same list as admin-store.js BARANGAYS). */
+    public const BARANGAYS = [
+        1 => ['Bagong Ilog', 'Bagong Katipunan', 'Bambang', 'Buting', 'Caniogan', 'Kalawaan', 'Kapasigan', 'Kapitolyo', 'Malinao', 'Oranbo', 'Palatiw', 'Pineda', 'Sagad', 'San Antonio', 'San Joaquin', 'San Jose', 'San Nicolas', 'Santa Cruz', 'Santa Rosa', 'Santo Tomas', 'Sumilang', 'Ugong'],
+        2 => ['Dela Paz', 'Manggahan', 'Maybunga', 'Pinagbuhatan', 'Rosario', 'San Miguel', 'Santa Lucia', 'Santolan'],
     ];
 
     public const SEXES = ['Female', 'Male', 'Prefer not to say'];
@@ -75,6 +85,10 @@ class ApplicantForm
             'gradYear' => ['nullable', Rule::in(self::GRAD_YEARS)],
             'gwa' => ['nullable', 'numeric', 'between:75,100'],
             'lrn' => ['nullable', 'regex:/^\d{12}$/', Rule::unique('applicants', 'lrn')->ignore($applicantId)],
+            'isResident' => ['nullable', 'boolean'],
+            'district' => ['nullable', Rule::in([1, 2])],
+            'barangay' => ['nullable', Rule::in(array_merge(...self::BARANGAYS))],
+            'hasGuardian' => ['nullable', 'boolean'],
             'program1' => ['nullable', Rule::in(self::programNames())],
             'program2' => ['nullable', Rule::in(self::programNames()), 'different:program1'],
             'program3' => ['nullable', Rule::in(self::programNames()), 'different:program1', 'different:program2'],
@@ -90,17 +104,24 @@ class ApplicantForm
         'guardianPhone.regex' => 'Use a PH mobile number, like +63 917 123 4567.',
         'zip.regex' => 'ZIP codes have 4 digits.',
         'program2.different' => 'Pick a different program from your first choice.',
+        'program3.different' => 'Pick a program different from your first and second choices.',
+        'program3.in' => 'This program is not open for applications.',
+        'barangay.in' => 'Pick a barangay in your district.',
         'program1.in' => 'This program is not open for applications.',
         'program2.in' => 'This program is not open for applications.',
         'birthDate.before' => 'Check your date of birth.',
         'birthDate.after' => 'Check your date of birth.',
     ];
 
-    /** Fields each section needs before it can be marked complete (the form's `required`). */
+    /**
+     * Fields each section needs before it can be marked complete (the form's `required`).
+     * Pasig residents also need district and barangay (ApplicationService::assertSectionsComplete).
+     * gradYear stays: it decides Form 137 (graduate) vs Form 138 (Grade 12).
+     */
     public const SECTION_REQUIRED = [
-        1 => ['firstName', 'lastName', 'phone', 'birthDate', 'sex', 'civilStatus', 'address', 'city', 'province', 'guardianName', 'guardianPhone'],
-        2 => ['lastSchool', 'schoolType', 'strand', 'gradYear', 'gwa'],
-        3 => ['program1', 'program2', 'campus'],
+        1 => ['lastName', 'firstName', 'sex', 'phone', 'isResident', 'address', 'birthDate'],
+        2 => ['lrn', 'schoolType', 'lastSchool', 'strand', 'gradYear'],
+        3 => ['program1', 'program2', 'program3'],
     ];
 
     /** Names of programs applicants can choose (FR-02: open programs only). */
