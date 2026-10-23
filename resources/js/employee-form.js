@@ -1,7 +1,7 @@
 import $ from './jquery.js';
 import { formatSalaryRange } from './format.js';
 import { bindDocumentFields, readDocuments, setDocuments, todayIsoDate } from './employee-documents.js';
-import { addEmployee, findEmployee, getEmployeeFormOptions, updateEmployee } from './mock-data.js';
+import { addEmployee, collegeChoiceError, findEmployee, getEmployeeFormOptions, updateEmployee } from './mock-data.js';
 import { queueToast, showToast } from './toast.js';
 import { idNumberRule } from './validation-rules.js';
 
@@ -11,7 +11,7 @@ const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const validationRules = {
     name: (value) => (value.trim() ? '' : 'Enter the employee’s full name.'),
     email: (value) => (emailPattern.test(value.trim()) ? '' : 'Enter a valid email address.'),
-    departmentId: (value) => (value ? '' : 'Select a department.'),
+    departmentId: (value) => collegeChoiceError(value),
     jobTitleId: (value) => (value ? '' : 'Select a job title.'),
     hiredOn: (value) => (value ? '' : 'Enter the date hired.'),
     sssNumber: idNumberRule,
@@ -59,7 +59,7 @@ function prepareForm($form, employee) {
     $form[0].reset();
     $form.find('.is-invalid').removeClass('is-invalid').removeAttr('aria-invalid');
     $form.find('[data-employee-id]').val(isEditing ? employee.id : options.nextEmployeeId);
-    $form.find('[data-department-options]').empty().append(...optionsFor('Select department', options.departments));
+    $form.find('[data-department-options]').empty().append(...optionsFor('Select college', options.departments));
     $form.find('[data-job-title-options]').empty().append(...optionsFor('Select job title', options.jobTitles));
     fieldFor($form, 'hiredOn').val(todayIsoDate());
 

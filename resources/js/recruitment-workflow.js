@@ -1,15 +1,17 @@
 // Recruitment workflow rules. An application's status is not picked by hand: it moves forward only
 // when a milestone is reached, and the milestones are recorded as they happen.
 //
-//   Applied ──complete demo interview──▶ Demo Interview ──complete interview──▶ Interview
-//   Interview ──issue offer──▶ Offered ──offer accepted + complete hiring──▶ Hired
-//   Any open stage ──reject──▶ Rejected
+//   Applied ──complete demo interview──▶ Demo Interview ──complete final interview──▶ Final Interview
+//   Final Interview ──HR issues offer──▶ Offered ──applicant accepts + pre-employment information + HR completes hiring──▶ Hired
+//   Offered ──applicant declines──▶ Rejected
+//   Any open stage ──HR rejects──▶ Rejected
 //
-// Scheduling a demo interview or interview only puts it on the calendar; the status changes when that
-// activity is marked completed. Hired and Rejected are final. These functions only read plain
-// application objects, so they hold no state and can move to a backend unchanged.
+// Scheduling a demo interview or final interview only puts it on the calendar; the status changes when that
+// activity is marked completed. Once the final interview is completed nothing more is scheduled. Only the applicant
+// answers an offer. Hired and Rejected are final. These functions only read plain application objects, so they hold
+// no state and can move to a backend unchanged.
 
-export const stageOrder = ['Applied', 'Demo Interview', 'Interview', 'Offered', 'Hired'];
+export const stageOrder = ['Applied', 'Demo Interview', 'Final Interview', 'Offered', 'Hired'];
 
 export const finalStatuses = ['Hired', 'Rejected'];
 
@@ -21,29 +23,35 @@ export function statusClass(status) {
 export const milestoneLabels = {
     applied: 'Application received',
     demoInterview: 'Demo Interview completed',
-    interview: 'Interview completed',
+    interview: 'Final Interview completed',
     offered: 'Offer issued',
-    accepted: 'Offer accepted',
+    accepted: 'Offer accepted by the applicant',
+    declined: 'Offer declined by the applicant',
+    preEmployment: 'Pre-employment information submitted',
     hired: 'Hired',
     rejected: 'Rejected',
 };
 
 // The status each activity type moves an application to once it is completed.
-export const statusAfterCompleting = { 'Demo Interview': 'Demo Interview', Interview: 'Interview' };
+export const statusAfterCompleting = { 'Demo Interview': 'Demo Interview', 'Final Interview': 'Final Interview' };
 
 // The milestone recorded when an activity of each type is completed.
-export const milestoneKeyFor = { 'Demo Interview': 'demoInterview', Interview: 'interview' };
+export const milestoneKeyFor = { 'Demo Interview': 'demoInterview', 'Final Interview': 'interview' };
 
 /**
- * What can be done next for an application, from its status, offer response, and activities.
+ * What can be done next for an application, from its status, offer response, pre-employment information, and
+ * activities. `canRespondToOffer` and `canSubmitPreEmployment` are the applicant's own steps; HR has no way to take them.
  *
- * @param {{ status: string, offerResponse?: string, activities?: Array<{ type: string, status: string }> }} application
+ * @param {{ status: string, offerResponse?: string, preEmploymentSubmittedAt?: number, activities?: Array<{ type: string, status: string }> }} application
  * @returns {{
  *   isFinal: boolean,
  *   pendingActivity: object|null,
- *   scheduleType: 'Demo Interview'|'Interview'|null,
+ *   scheduleType: 'Demo Interview'|'Final Interview'|null,
  *   canIssueOffer: boolean,
- *   canRecordAcceptance: boolean,
+ *   canUpdateOffer: boolean,
+ *   canRespondToOffer: boolean,
+ *   canSubmitPreEmployment: boolean,
+ *   hasPreEmployment: boolean,
  *   canCompleteHiring: boolean,
  *   canReject: boolean,
  * }}
@@ -56,19 +64,27 @@ export function workflowFor(application) {
     const isFree = !isFinal && !pendingActivity;
     let scheduleType = null;
 
+    // A completed final interview (status Final Interview) leaves nothing more to schedule: the next step is the offer.
     if (isFree && status === 'Applied') {
         scheduleType = 'Demo Interview';
-    } else if (isFree && (status === 'Demo Interview' || status === 'Interview')) {
-        scheduleType = 'Interview';
+    } else if (isFree && status === 'Demo Interview') {
+        scheduleType = 'Final Interview';
     }
+
+    const isAwaitingResponse = status === 'Offered' && application.offerResponse === 'Pending';
+    const hasAccepted = status === 'Offered' && application.offerResponse === 'Accepted';
+    const hasPreEmployment = Boolean(application.preEmploymentSubmittedAt);
 
     return {
         isFinal,
         pendingActivity,
         scheduleType,
-        canIssueOffer: isFree && status === 'Interview',
-        canRecordAcceptance: status === 'Offered' && application.offerResponse === 'Pending',
-        canCompleteHiring: status === 'Offered' && application.offerResponse === 'Accepted',
+        canIssueOffer: isFree && status === 'Final Interview',
+        canUpdateOffer: isAwaitingResponse,
+        canRespondToOffer: isAwaitingResponse,
+        canSubmitPreEmployment: hasAccepted,
+        hasPreEmployment,
+        canCompleteHiring: hasAccepted && hasPreEmployment && !pendingActivity,
         canReject: !isFinal,
     };
 }
@@ -84,15 +100,21 @@ export function waitingMessage(application) {
     }
 
     if (application.status === 'Rejected') {
-        return 'This application was rejected and cannot move forward.';
+        return application.offerResponse === 'Declined'
+            ? 'The applicant declined the offer. The application cannot move forward.'
+            : 'This application was rejected and cannot move forward.';
     }
 
     if (workflow.pendingActivity) {
-        return `Complete or reschedule the ${workflow.pendingActivity.type.toLowerCase()} below to continue.`;
+        return `Complete or reschedule the ${workflow.pendingActivity.type.toLowerCase()} in Demo and Final Interviews to continue.`;
     }
 
-    if (application.status === 'Offered' && application.offerResponse === 'Pending') {
-        return 'Waiting for the applicant to respond to the offer.';
+    if (workflow.canRespondToOffer) {
+        return 'Waiting for the applicant to accept or decline the offer. Only the applicant can respond.';
+    }
+
+    if (workflow.canSubmitPreEmployment && !workflow.hasPreEmployment) {
+        return 'The applicant accepted the offer. Waiting for their pre-employment information before hiring can be completed.';
     }
 
     return '';
@@ -106,7 +128,7 @@ export function waitingMessage(application) {
  */
 export function progressSteps(application) {
     const reachedKeys = new Set((application.milestones ?? []).map((milestone) => milestone.key));
-    const reached = { Applied: true, 'Demo Interview': reachedKeys.has('demoInterview'), Interview: reachedKeys.has('interview'), Offered: reachedKeys.has('offered'), Hired: reachedKeys.has('hired') };
+    const reached = { Applied: true, 'Demo Interview': reachedKeys.has('demoInterview'), 'Final Interview': reachedKeys.has('interview'), Offered: reachedKeys.has('offered'), Hired: reachedKeys.has('hired') };
 
     return stageOrder.map((stage) => {
         if (application.status === stage) {
@@ -148,7 +170,7 @@ export function progressForStatus(application, today) {
 
     if (reached >= 3) {
         milestones.push({ key: 'interview', at: on(5) });
-        activities.push({ id: 'a2', type: 'Interview', date: on(5), time: '14:00', status: 'Completed', completedOn: on(5) });
+        activities.push({ id: 'a2', type: 'Final Interview', date: on(5), time: '14:00', status: 'Completed', completedOn: on(5) });
     }
 
     if (reached >= 4) {
@@ -156,7 +178,7 @@ export function progressForStatus(application, today) {
     }
 
     if (status === 'Hired') {
-        milestones.push({ key: 'accepted', at: on(10) }, { key: 'hired', at: on(12) });
+        milestones.push({ key: 'accepted', at: on(10) }, { key: 'preEmployment', at: on(11) }, { key: 'hired', at: on(12) });
     }
 
     if (status === 'Rejected') {

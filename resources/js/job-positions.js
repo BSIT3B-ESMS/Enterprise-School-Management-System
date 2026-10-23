@@ -3,11 +3,12 @@ import $ from './jquery.js';
 import { formatSalaryRange } from './format.js';
 import {
     addJobTitle,
+    collegeChoiceError,
     deleteJobTitle,
+    employmentTypes,
     findJobTitle,
     getBenefitNames,
     getEmployeeFormOptions,
-    employmentTypes,
     isJobTitleNameTaken,
     listJobTitles,
     onMockDataChange,
@@ -31,11 +32,15 @@ const sortValue = {
     employmentType: (posting) => posting.employmentType.toLowerCase(),
     salary: (posting) => Number(posting.salaryMin),
     openings: (posting) => (posting.isOpen ? Number(posting.openings) : 0),
+    applied: (posting) => Number(posting.applicationCount),
     status: (posting) => (posting.isOpen ? 0 : 1),
 };
 
 // Numbers sort highest first when chosen; text columns sort A to Z (Status puts Open first).
-const descendingByDefault = ['salary', 'openings'];
+const descendingByDefault = ['salary', 'openings', 'applied'];
+
+// The statuses a job posting can have.
+const postingStatuses = ['Open', 'Closed'];
 
 // Table view state: search text, department, employment type and status filters, sort column and direction (1 ascending, -1 descending), page.
 const view = { query: '', departmentId: '', employmentType: '', status: '', sortKey: 'status', sortDirection: 1, page: 1 };
@@ -97,7 +102,7 @@ function renderFilterOptions($root) {
         view.departmentId = '';
     }
 
-    $root.find('[data-job-position-filter="departmentId"]').empty().append(...departmentOptions('All Departments')).val(view.departmentId);
+    $root.find('[data-job-position-filter="departmentId"]').empty().append(...departmentOptions('All Colleges')).val(view.departmentId);
 
     // The same two employment types the posting form offers.
     $root.find('[data-job-position-filter="employmentType"]').empty().append(
@@ -122,6 +127,8 @@ function rowFor(posting) {
         $('<td>', { text: posting.employmentType || notSpecified }),
         $('<td>', { class: 'tabular-nums text-nowrap', text: formatSalaryRange(posting.salaryMin, posting.salaryMax) }),
         $('<td>', { class: 'tabular-nums', text: posting.isOpen ? posting.openings : '—' }),
+        // Counted from the application records, so it always agrees with Recruitment.
+        $('<td>', { class: 'tabular-nums', text: posting.applicationCount }),
         $('<td>').append(statusPill(posting)),
     );
 }
@@ -301,10 +308,17 @@ function validationRules($form, editingId) {
 
             const departmentId = String(fieldFor($form, 'departmentId').val() ?? '');
 
-            return isJobTitleNameTaken(value, departmentId, editingId) ? 'This title already exists in that department.' : '';
+            return isJobTitleNameTaken(value, departmentId, editingId) ? 'This title already exists in that college.' : '';
         },
-        departmentId: (value) => (value ? '' : 'Select a department.'),
-        employmentType: (value) => (value ? '' : 'Select an employment type.'),
+        departmentId: (value) => collegeChoiceError(value),
+        employmentType: (value) => {
+            if (!value) {
+                return 'Select an employment type.';
+            }
+
+            return employmentTypes.includes(value) ? '' : 'Choose Full-time or Part-time.';
+        },
+        status: (value) => (postingStatuses.includes(value) ? '' : 'Choose Open or Closed.'),
         location: requiredText('Enter the location.'),
         // The minimum and maximum are checked together: both needed, 0 or more, the maximum not lower than the minimum.
         salaryMin: () => salaryRangeErrors(fieldFor($form, 'salaryMin').val(), fieldFor($form, 'salaryMax').val()).salaryMin ?? '',
@@ -354,7 +368,7 @@ function initFormModal($modal, $root) {
     const $form = $modal.find('[data-job-position-form]');
     let editingId = null;
 
-    $form.find('[data-job-position-department-options]').append(...departmentOptions('Select department'));
+    $form.find('[data-job-position-department-options]').append(...departmentOptions('Select college'));
     fieldFor($form, 'employmentType').append(...employmentTypes.map((type) => $('<option>', { value: type, text: type })));
 
     $modal.on('show.bs.modal', function (event) {
@@ -363,7 +377,7 @@ function initFormModal($modal, $root) {
         editingId = posting ? posting.id : null;
         $form.find('.is-invalid').removeClass('is-invalid').removeAttr('aria-invalid');
         $form.find('.invalid-feedback').text('');
-        $form.find('[data-job-position-department-options]').empty().append(...departmentOptions('Select department'));
+        $form.find('[data-job-position-department-options]').empty().append(...departmentOptions('Select college'));
         $modal.find('[data-job-position-form-title]').text(posting ? 'Edit Job Posting' : 'Add Job Posting');
 
         const values = posting

@@ -17,7 +17,7 @@
             Only a signed-in applicant can stay on these pages; anyone else is sent to the shared Login page
             (resources/js/applicant-portal.js).
         --}}
-        <div class="app-shell" data-app-shell data-applicant-shell data-login-url="{{ route('login') }}">
+        <div class="app-shell" data-app-shell data-applicant-shell data-login-url="{{ route('applicant.portal') }}">
             <x-applicant-header />
 
             <x-applicant-sidebar />

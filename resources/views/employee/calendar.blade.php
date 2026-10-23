@@ -1,31 +1,45 @@
 @extends('layouts.employee')
 
-@section('title', 'Calendar · '.config('app.name'))
+@section('title', (request()->query('view') === 'leave-requests' ? 'Leave Request' : 'Calendar').' · '.config('app.name'))
 
 @php
-    // Leave goes through Filed (submitted), Pending (under review), and Approved, the same as in the HR Calendar.
-    $eventStatuses = ['Filed', 'Pending', 'Approved'];
+    // A request is Pending until HR approves (or rejects) it; the calendar draws Approved leave solid and Pending dashed.
+    // Rejected and cancelled requests are listed only on the Leave Request page.
+    $eventStatuses = ['Pending', 'Approved'];
     $weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 @endphp
 
 {{--
     The signed-in employee's own leave on the same calendar the HR pages use (resources/js/calendar.js, in its
-    "own" mode), drawn from the mock data. Only this employee's leave is passed to the page, and nothing here
-    changes a request's status; HR approves leave.
+    "own" mode), drawn from the mock data. Only this employee's leave is passed to the page; they file a request here.
+    Their requests are on the separate Leave Request page, where a Pending one can be cancelled; only HR approves or rejects.
 --}}
 @section('content')
-    <div class="d-grid gap-4" data-page="calendar" data-calendar-scope="own">
+    {{-- Leave Request is a separate page from the Calendar: the same route with ?view=leave-requests (no extra route). --}}
+    @if (request()->query('view') === 'leave-requests')
+        <div class="d-grid gap-4">
+            <x-leave-requests-section scope="own">
+                <x-slot:actions>
+                    <button type="button" class="btn btn-primary d-inline-flex align-items-center gap-2" data-bs-toggle="modal"
+                        data-bs-target="#leave-request-modal">
+                        <x-icon name="plus" />
+                        Request Leave
+                    </button>
+                </x-slot:actions>
+            </x-leave-requests-section>
+        </div>
+
+        <x-leave-request-modals scope="own" />
+        <x-leave-request-form-modal />
+    @else
+    <div class="d-grid gap-4" data-page="calendar" data-calendar-scope="own"
+        data-leave-requests-url="{{ route('employee.calendar', ['view' => 'leave-requests']) }}">
         <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
             <div>
                 <h1 class="page-title">Calendar</h1>
-                <p class="text-body-secondary mt-1 mb-0">Your filed, pending, and approved leave.</p>
+                <p class="text-body-secondary mt-1 mb-0">Your pending and approved leave.</p>
             </div>
 
-            <button type="button" class="btn btn-primary d-inline-flex align-items-center gap-2" data-bs-toggle="modal"
-                data-bs-target="#leave-request-modal">
-                <x-icon name="plus" />
-                Request Leave
-            </button>
         </div>
 
         <div class="card employees-filters">
@@ -95,49 +109,5 @@
             </div>
         </div>
     </div>
-
-    {{-- Files leave for HR to approve (resources/js/portal-leave-request.js); it shows as Filed until HR decides. --}}
-    <div class="modal fade" id="leave-request-modal" tabindex="-1" aria-labelledby="leave-request-modal-title"
-        aria-hidden="true" data-leave-request-modal>
-        <div class="modal-dialog">
-            <form class="modal-content" novalidate data-leave-request-form>
-                <div class="modal-header">
-                    <h2 class="modal-title fs-5" id="leave-request-modal-title">Request Leave</h2>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-
-                <div class="modal-body">
-                    <div class="row g-3">
-                        <div class="col-12">
-                            <label for="leave-type" class="form-label">Leave Type</label>
-                            <select class="form-select" id="leave-type" name="type" aria-describedby="leave-type-error" required
-                                data-leave-type-options></select>
-                            <div class="invalid-feedback" id="leave-type-error"></div>
-                        </div>
-
-                        <div class="col-sm-6">
-                            <label for="leave-start" class="form-label">First Day</label>
-                            <input type="date" class="form-control" id="leave-start" name="startDate"
-                                aria-describedby="leave-start-error" required>
-                            <div class="invalid-feedback" id="leave-start-error"></div>
-                        </div>
-
-                        <div class="col-sm-6">
-                            <label for="leave-end" class="form-label">Last Day</label>
-                            <input type="date" class="form-control" id="leave-end" name="endDate"
-                                aria-describedby="leave-end-error" required>
-                            <div class="invalid-feedback" id="leave-end-error"></div>
-                        </div>
-                    </div>
-
-                    <p class="small text-body-secondary mt-3 mb-0">HR approves leave. Until then it shows as Filed.</p>
-                </div>
-
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">File Request</button>
-                </div>
-            </form>
-        </div>
-    </div>
+    @endif
 @endsection

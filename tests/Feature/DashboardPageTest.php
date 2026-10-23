@@ -4,7 +4,7 @@ it('renders the dashboard sections in order', function () {
     $this->get(route('dashboard'))
         ->assertOk()
         ->assertSeeInOrder([
-            'Headcount by department',
+            'Headcount by college',
             'Recruitment pipeline',
             'Hires per year',
             'Recent hires',

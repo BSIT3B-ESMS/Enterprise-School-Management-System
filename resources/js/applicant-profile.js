@@ -5,22 +5,20 @@ import { fillDocuments, fillFields } from './applicant-application.js';
 import { accountId, isSignedIn } from './applicant-portal.js';
 import { getApplicantAccount, onMockDataChange, updateApplicantAccount, validateApplicantEmail } from './mock-data.js';
 import { bindMasks, maskedForDisplay } from './input-masks.js';
-import { emailRule, idNumberRule, pagibigRule, philhealthRule, phoneRule, sssRule, tinRule } from './validation-rules.js';
+import { birthdateRule, choiceRule, civilStatusOptions, emailRule, phoneRule, sexOptions } from './validation-rules.js';
 import { showToast } from './toast.js';
 
-// The profile details the form edits (the 201 file's field names); the name is not one of them.
-const editableFields = ['email', 'phone', 'address', 'birthdate', 'sex', 'civilStatus', 'sssNumber', 'philhealthNumber', 'pagibigNumber', 'tin', 'birNumber'];
+// The profile details the form edits (the 201 file's field names); the name is not one of them, and the government and
+// tax numbers are asked for later, with the pre-employment information.
+const editableFields = ['email', 'phone', 'address', 'birthdate', 'sex', 'civilStatus'];
 
-// Each rule returns an error message, or '' when the value is valid (the same rules as the job application form).
+// Each rule returns an error message, or '' when the value is valid (the same rules as Create Account and the job application).
 const validationRules = {
-    birthdate: (value) => (value && value > todayIsoDate() ? 'The birthdate cannot be in the future.' : ''),
+    birthdate: birthdateRule('Enter your birthdate.'),
+    sex: choiceRule(sexOptions, 'Select your sex.'),
+    civilStatus: choiceRule(civilStatusOptions, 'Select your civil status.'),
     email: (value) => (value.trim() ? emailRule(value) || validateApplicantEmail(accountId, value).email || '' : 'Enter your email address.'),
     phone: phoneRule,
-    sssNumber: sssRule,
-    philhealthNumber: philhealthRule,
-    pagibigNumber: pagibigRule,
-    tin: tinRule,
-    birNumber: idNumberRule,
 };
 
 function renderProfile($root) {
@@ -33,6 +31,9 @@ function renderProfile($root) {
     fillFields($root, {
         initials: initialsOf(account.name),
         name: account.name,
+        lastName: account.lastName,
+        firstName: account.firstName,
+        middleName: account.middleName,
         createdOn: account.createdOn ? formatDate(account.createdOn) : '',
         birthdate: account.birthdate ? formatDate(account.birthdate) : '',
         sex: account.sex,
@@ -40,11 +41,6 @@ function renderProfile($root) {
         email: account.email,
         phone: account.phone,
         address: account.address,
-        sssNumber: account.sssNumber,
-        philhealthNumber: account.philhealthNumber,
-        pagibigNumber: account.pagibigNumber,
-        tin: account.tin,
-        birNumber: account.birNumber,
     });
     fillDocuments($root, account.documents);
 }
@@ -86,7 +82,7 @@ function initEdit($root) {
 
         $form.find('.is-invalid').removeClass('is-invalid').removeAttr('aria-invalid');
         $form.find('.invalid-feedback').text('');
-        $form.find('[data-applicant-input="name"]').val(account.name);
+        ['lastName', 'firstName', 'middleName'].forEach((part) => $form.find(`[data-applicant-input="${part}"]`).val(account[part]));
         editableFields.forEach((name) => field(name).val(maskedForDisplay(field(name).attr('data-mask'), account[name] ?? '')));
         setEditing(true);
         field('birthdate').trigger('focus');
@@ -120,12 +116,14 @@ function initEdit($root) {
             return;
         }
 
-        const result = updateApplicantAccount(accountId, Object.fromEntries(editableFields.map((name) => [name, String(field(name).val() ?? '')])));
+        const result = updateApplicantAccount(accountId, Object.fromEntries(editableFields.map((name) => [name, String(field(name).val() ?? '').trim()])));
 
         if (!result.ok) {
-            if (result.errors.email) {
-                setFieldError(field('email'), result.errors.email);
-                field('email').trigger('focus');
+            const [name] = Object.keys(result.errors);
+
+            if (name) {
+                setFieldError(field(name), result.errors[name]);
+                field(name).trigger('focus');
             } else {
                 showToast(result.error, { isError: true });
             }

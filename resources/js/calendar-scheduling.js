@@ -4,7 +4,6 @@ import { formatDate, formatDateTime, formatTime } from './format.js';
 import { eventTypes, isoDateOf } from './calendar-events.js';
 import {
     addCalendarEvent,
-    approveLeave,
     calendarEventTypes,
     cancelActivity,
     findApplication,
@@ -317,15 +316,21 @@ export function initCalendarScheduling($root, calendar) {
                 detailRow('Leave Type', leave.type),
                 detailRow('Dates', leave.startDate === leave.endDate ? longDate(leave.startDate) : `${formatDate(leave.startDate)} to ${formatDate(leave.endDate)}`),
                 detailRow('Status', statusPill(leave.status)),
-                detailRow('Department', leave.department),
-                detailRow('Filed On', formatDate(leave.filedOn)),
+                detailRow('College', leave.department),
+                detailRow('Date Filed', formatDate(leave.filedOn)),
+                detailRow('Reason', leave.reason || 'No reason given', true),
+                ...(leave.hrRemarks ? [detailRow('HR Remarks', leave.hrRemarks, true)] : []),
             ));
+            // Leave is approved or rejected only on the Leave Requests page (resources/js/leave-requests.js), where rejecting
+            // asks for a reason; this opens the request there.
             $actions.append(
                 $('<a>', { class: 'btn btn-outline-secondary me-auto', href: `${$root.attr('data-employees-url')}/${encodeURIComponent(leave.employeeId)}`, text: 'View 201 File' }),
                 $('<button>', { type: 'button', class: 'btn btn-outline-secondary', 'data-bs-dismiss': 'modal', text: 'Close' }),
-                leave.status !== 'Approved'
-                    ? $('<button>', { type: 'button', class: 'btn btn-primary', text: 'Approve Leave', 'data-event-approve': leave.id })
-                    : null,
+                $('<a>', {
+                    class: 'btn btn-primary',
+                    href: `${$root.attr('data-leave-requests-url')}&request=${encodeURIComponent(leave.id)}`,
+                    text: leave.status === 'Pending' ? 'Review Request' : 'View Request',
+                }),
             );
 
             return true;
@@ -374,18 +379,6 @@ export function initCalendarScheduling($root, calendar) {
             switchTo(eventModal);
         }
     }
-
-    $(eventModal).on('click', '[data-event-approve]', function () {
-        const result = approveLeave($(this).attr('data-event-approve'));
-
-        if (!result.ok) {
-            $(eventModal).find('[data-calendar-event-modal-error]').text(result.error).removeClass('d-none');
-
-            return;
-        }
-
-        showToast(`${result.leave.type} for ${result.leave.employeeName} approved.`);
-    });
 
     $(eventModal).on('click', '[data-event-edit]', function () {
         startEventForm({ eventId: $(this).attr('data-event-edit') });
@@ -575,7 +568,7 @@ export function initCalendarScheduling($root, calendar) {
         };
     }
 
-    // The statuses follow the type: leave is Filed, Pending, or Approved; everything else is Scheduled or Completed.
+    // The statuses follow the type: leave is Pending or Approved; everything else is Scheduled or Completed.
     function renderStatusOptions(type, selected = '') {
         const kind = calendarEventTypes.find((candidate) => candidate.value === type);
         const $status = $eventForm.find('[name="status"]');

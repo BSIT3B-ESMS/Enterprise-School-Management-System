@@ -1,6 +1,6 @@
 import $ from './jquery.js';
 import { formatDate, formatDateTime, formatTime, greetingForHour } from './format.js';
-import { accountId, isSignedIn, nextStepHints, plural, statusMessages, stepsList } from './applicant-portal.js';
+import { accountId, isSignedIn, nextStepHints, plural, statusMessageFor, stepsList } from './applicant-portal.js';
 import { applicationBlockFor, findPosition, getApplicantAccount, listApplicantApplications, listApplicantDrafts, onMockDataChange } from './mock-data.js';
 import { finalStatuses, statusClass } from './recruitment-workflow.js';
 
@@ -28,7 +28,7 @@ function whenText(activity) {
     return days === 0 ? 'Today' : `In ${plural(days, 'day')}`;
 }
 
-// Every scheduled demo interview and interview across the applicant's applications, soonest first.
+// Every scheduled demo interview and final interview across the applicant's applications, soonest first.
 function upcomingActivities(applications) {
     return applications
         .flatMap((application) => application.activities
@@ -78,7 +78,7 @@ function renderApplications($root, applications) {
                 ),
                 $('<span>', { class: `status-pill ${statusClass(application.status)}`, text: application.status }),
             ),
-            $('<small>', { class: 'text-body-secondary', text: statusMessages[application.status] ?? '' }),
+            $('<small>', { class: 'text-body-secondary', text: statusMessageFor(application) }),
             stepsList(application),
         )
     )));

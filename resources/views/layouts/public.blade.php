@@ -18,9 +18,10 @@
 
         {{--
             The public PLP Careers website, open to anyone without an account. The navigation bar offers Home, Open
-            Positions, and About, the shared Login page, and Create Account (which asks for the Terms and Conditions first),
-            or the dashboard when an applicant is already signed in this session (resources/js/applicant-positions.js).
-            On narrow screens the links fold into a menu.
+            Positions, and About, the Applicant Portal's Login (applicants sign in there, apart from the EMS Login for HR
+            and employees), and Create Account (which asks for the Terms and Conditions first), or the dashboard when an
+            applicant is already signed in this session (resources/js/applicant-positions.js). On narrow screens the links
+            fold into a menu.
         --}}
         <header class="public-header" data-bs-theme="dark">
             <nav class="navbar navbar-expand-lg" aria-label="PLP Careers">
@@ -61,7 +62,7 @@
                         </ul>
 
                         <div class="d-flex flex-wrap align-items-center gap-2 pb-3 pb-lg-0 me-lg-2" data-public-signed-out>
-                            <a class="btn btn-sm btn-outline-light" href="{{ route('login') }}">Login</a>
+                            <a class="btn btn-sm btn-outline-light" href="{{ route('applicant.portal') }}">Applicant Login</a>
                             <a class="btn btn-sm btn-light" href="{{ route('applicant.register') }}" data-terms-continue>Create Account</a>
                         </div>
 
@@ -113,8 +114,9 @@
                             <li><a href="{{ route('careers.index') }}">Home</a></li>
                             <li><a href="{{ route('careers.index') }}#open-positions">Open Positions</a></li>
                             <li><a href="{{ route('careers.index') }}#about">About PLP Careers</a></li>
-                            <li><a href="{{ route('login') }}">Login</a></li>
+                            <li><a href="{{ route('applicant.portal') }}">Applicant Login</a></li>
                             <li><a href="{{ route('applicant.register') }}" data-terms-continue>Create Account</a></li>
+                            <li><a href="{{ route('home') }}">EMS Login for HR and Employees</a></li>
                         </ul>
                     </div>
                 </div>

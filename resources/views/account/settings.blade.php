@@ -8,7 +8,7 @@
     $notifications = [
         'leave' => ['Leave requests', 'Leave that is filed or approved.'],
         'recruitment' => ['Recruitment updates', 'New applicants and changes to applications.'],
-        'employees' => ['Employee updates', 'Changes to employees, departments, and job titles.'],
+        'employees' => ['Employee updates', 'Changes to employees, colleges, and job titles.'],
     ];
 @endphp
 

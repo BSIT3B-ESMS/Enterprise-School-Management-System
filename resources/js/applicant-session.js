@@ -50,7 +50,29 @@ export function signIn(accountId) {
 }
 
 /**
- * Ends the session: signs out and clears the Terms acceptance, so the next sign-in asks for it again.
+ * What the signed-in applicant has typed on the job application form and not yet submitted, so it is still there when
+ * they go back to a position's details and return (this tab only). Null when there is none.
+ */
+export function getApplicationProgress() {
+    const session = readSession();
+
+    return session.applicationProgress?.accountId === session.accountId ? session.applicationProgress : null;
+}
+
+export function saveApplicationProgress(progress) {
+    writeSession({ ...readSession(), applicationProgress: { ...progress, accountId: readSession().accountId } });
+}
+
+export function clearApplicationProgress() {
+    const session = readSession();
+
+    delete session.applicationProgress;
+    writeSession(session);
+}
+
+/**
+ * Ends the session: signs out and clears the Terms acceptance (and any unsent application form), so the next sign-in
+ * asks for it again.
  */
 export function signOut() {
     writeSession({});

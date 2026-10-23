@@ -8,7 +8,7 @@ it('lays out PLP Careers in order: navigation, hero, featured openings, open pos
             // Navigation bar
             'class="public-header"', 'PLP Careers', 'Pamantasan ng Lungsod ng Pasig',
             '>Home</a>', '#open-positions" data-public-nav="positions">Open Positions</a>', '#about" data-public-nav="about">About</a>',
-            'href="'.route('login').'">Login</a>',
+            'href="'.route('applicant.portal').'">Applicant Login</a>',
             // Hero
             'Build Your Career with PLP', 'href="#open-positions" data-careers-explore>Explore Open Positions',
             // Featured Job Openings
@@ -16,11 +16,22 @@ it('lays out PLP Careers in order: navigation, hero, featured openings, open pos
             // Open Positions
             'id="open-positions"', 'Open Positions', 'data-positions-search', 'data-positions-type', 'data-positions-open>',
             // About PLP Careers
-            'id="about"', 'About PLP Careers', 'How applying works', 'Benefits of working at PLP', 'data-careers-benefits',
+            'id="about"', 'About PLP Careers', 'How applying works',
             // Footer
             'class="public-footer"', 'Contact', 'Explore',
+            'href="'.route('applicant.portal').'">Applicant Login</a>', 'href="'.route('home').'">EMS Login for HR and Employees</a>',
         ], escape: false)
         ->assertDontSee('data-app-shell', escape: false);
+});
+
+it('leaves out the Benefits section and the colleges-hiring figure', function () {
+    $this->get(route('careers.index'))
+        ->assertDontSee('Benefits of working at PLP')
+        ->assertDontSee('data-careers-benefits', escape: false)
+        ->assertDontSee('data-careers-stat="departments"', escape: false)
+        ->assertDontSee('Departments hiring')
+        ->assertDontSee('Colleges hiring')
+        ->assertSee('data-careers-stat="positions"', escape: false);
 });
 
 it('marks Home as the current page and folds the links into a menu on narrow screens', function () {
@@ -43,7 +54,7 @@ it('shows the same navigation and footer on the other public pages', function (s
         ->assertSee('class="public-header"', escape: false)
         ->assertSee('class="public-footer"', escape: false)
         ->assertSee('href="'.route('careers.index').'#open-positions"', escape: false);
-})->with(['careers.show', 'applicant.portal']);
+})->with(['careers.show']);
 
 it('shows PLP\'s published contact details on the Careers website', function () {
     $this->get(route('careers.index'))
@@ -56,19 +67,20 @@ it('shows PLP\'s published contact details on the Careers website', function () 
         ], escape: false);
 });
 
-it('serves Create Account with Login here back to the shared Login page and continues to the dashboard', function () {
+it('serves Create Account with a way back to the Applicant Portal\'s Log In and continues to the dashboard', function () {
     $this->get(route('applicant.register', ['position' => 't5']))
         ->assertOk()
-        ->assertSee('data-page="applicant-register"', escape: false)
-        ->assertSee('data-back-url="'.route('careers.index').'"', escape: false)
-        ->assertSee('novalidate data-applicant-register-form', escape: false)
+        ->assertSee('data-page="applicant-portal"', escape: false)
+        ->assertSee('data-initial-form="register"', escape: false)
+        ->assertSee('data-applicant-register-form', escape: false)
         ->assertSee('data-dashboard-url="'.route('applicant.dashboard').'"', escape: false)
         ->assertSeeInOrder([
-            'Create an Applicant Account',
             'data-auth-position',
-            'name="name"', 'name="email"', 'name="password"', 'name="confirmPassword"',
+            'Create an Applicant Account',
+            'name="lastName"', 'name="firstName"', 'name="middleName"', 'name="birthdate"', 'name="sex"', 'name="civilStatus"',
+            'name="email"', 'name="password"', 'name="confirmPassword"',
             'Create Account</button>',
-            'Already have an account?', 'href="'.route('login').'" data-login-here>Login here</a>',
+            'Already have an account?', 'data-portal-switch="login">Log In</a>',
             'href="'.route('careers.index').'">Back to Careers',
         ], escape: false);
 });

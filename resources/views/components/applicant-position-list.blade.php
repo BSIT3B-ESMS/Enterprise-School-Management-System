@@ -1,8 +1,8 @@
 @props(['title' => 'Open positions', 'subtitle' => null])
 
 {{--
-    The open positions as cards (title, department, employment type, location, salary range, and a short description),
-    with a search box, an Employment Type filter (Full-Time or Part-Time), and a department filter. Filled in by
+    The open positions as cards (title, college, employment type, location, salary range, and a short description),
+    with a search box, an Employment Type filter (Full-Time or Part-Time), and a college filter. Filled in by
     resources/js/applicant-positions.js from the job titles HR manages: a position is open while it has at least one
     opening. Used on the public PLP Careers page and in the Applicant interface.
 --}}
@@ -35,7 +35,7 @@
                 </select>
             </div>
             <div class="col-sm-6 col-md-3">
-                <label for="positions-department" class="visually-hidden">Department</label>
+                <label for="positions-department" class="visually-hidden">College</label>
                 <select class="form-select" id="positions-department" data-positions-department></select>
             </div>
         </div>

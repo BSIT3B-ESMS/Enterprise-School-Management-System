@@ -38,3 +38,4 @@ import './recruitment-report.js';
 import './audit-logs.js';
 import './audit-report.js';
 import './calendar.js';
+import './leave-requests.js';

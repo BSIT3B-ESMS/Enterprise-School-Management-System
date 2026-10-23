@@ -1,6 +1,6 @@
 @extends('layouts.admin')
 
-@section('title', 'Calendar · '.config('app.name'))
+@section('title', (request()->query('view') === 'leave-requests' ? 'Leave Requests' : 'Calendar').' · '.config('app.name'))
 
 @php
     $eventTypes = [
@@ -9,12 +9,14 @@
         'interview' => 'Applicant Final Interview',
         'other' => 'Other Applicant Event',
     ];
-    $eventStatuses = ['Filed', 'Pending', 'Approved', 'Scheduled', 'Completed'];
+    // Leave shows while Pending (dashed) or once Approved (solid); rejected and cancelled requests are listed only in
+    // Leave Requests below.
+    $eventStatuses = ['Pending', 'Approved', 'Scheduled', 'Completed'];
     $weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 @endphp
 
 {{--
-    Calendar of employee leave and applicant demo interviews and interviews. Everything is rendered by
+    Calendar of employee leave and applicant demo interviews and final interviews. Everything is rendered by
     resources/js/calendar.js from the same mock data as Employees and Recruitment
     (resources/js/calendar-events.js builds the events), so changes there appear here.
     Filters: event types and statuses are multi-select; an event shows when its type AND its status
@@ -27,11 +29,23 @@
     resources/js/calendar-scheduling.js.
 --}}
 @section('content')
+    {{--
+        Leave Requests is a separate page from the Calendar: the same route with ?view=leave-requests (no extra route),
+        reached from its own sidebar item. Neither page repeats the other's content.
+    --}}
+    @if (request()->query('view') === 'leave-requests')
+        <div class="d-grid gap-4">
+            <x-leave-requests-section scope="hr" />
+        </div>
+
+        <x-leave-request-modals scope="hr" />
+    @else
     <div class="d-grid gap-4" data-page="calendar" data-calendar-interactive data-employees-url="{{ url('/employees') }}"
+        data-leave-requests-url="{{ route('calendar.index', ['view' => 'leave-requests']) }}"
         data-recruitment-url="{{ route('recruitment.index') }}">
         <div>
             <h1 class="page-title">Calendar</h1>
-            <p class="text-body-secondary mt-1 mb-0">Employee leave and applicant demo interviews and interviews.</p>
+            <p class="text-body-secondary mt-1 mb-0">Employee leave and applicant demo interviews and final interviews.</p>
         </div>
 
         <div class="card employees-filters">
@@ -121,4 +135,5 @@
     </div>
 
     <x-calendar-schedule-modals />
+    @endif
 @endsection

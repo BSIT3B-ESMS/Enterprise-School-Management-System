@@ -1,6 +1,7 @@
 import $ from './jquery.js';
-import { findPosition, registerApplicant } from './mock-data.js';
+import { findPosition, registerApplicant, validateApplicantPersonal } from './mock-data.js';
 import { currentAccountId, hasAcceptedTerms, signIn } from './applicant-session.js';
+import { todayIsoDate } from './employee-documents.js';
 import { requestTerms } from './applicant-terms.js';
 import { emailRule, newPasswordRule } from './validation-rules.js';
 
@@ -81,31 +82,41 @@ function leave($root) {
     if (cameFromHere && window.history.length > 1) {
         window.history.back();
     } else {
-        window.location.assign(withPosition($root.attr('data-back-url')));
+        window.location.assign(withPosition($root.attr('data-careers-url')));
     }
 }
 
 /**
- * The Terms gate: the registration form is not shown until the terms are accepted, and declining leaves the page
- * without registering. Also the chosen position and Show/Hide on password fields.
+ * One portal page, one form at a time. Log In is the default; Create Account replaces it (and Log In replaces it again),
+ * keeping what was typed in each. Create Account is not shown until the Terms and Conditions are accepted: declining
+ * stays on Log In, or, when the page was opened on Create Account, leaves without registering. Also the chosen position
+ * and Show/Hide on the register password fields (Log In's are handled in login.js).
  */
 function initAuthPage($root) {
-    const $form = $root.find('[data-applicant-register-form]');
+    const $login = $root.find('[data-portal-form="login"]');
+    const $register = $root.find('[data-applicant-register-form]');
     const position = selectedPosition;
 
-    function showForm() {
-        $form.removeClass('d-none');
-        $form.find('input').first().trigger('focus');
+    function show(name) {
+        $login.toggleClass('d-none', name !== 'login');
+        $register.toggleClass('d-none', name !== 'register');
+        $root.find(`[data-portal-form="${name}"] input`).first().trigger('focus');
+    }
+
+    function showRegister() {
+        show('register');
     }
 
     if (position) {
         $root.find('[data-auth-position-name]').text(`${position.name} · ${position.department}`);
         $root.find('[data-auth-position]').removeClass('d-none');
+    } else if (positionParam) {
+        $root.find('[data-portal-position-closed]').removeClass('d-none');
     }
 
-    $root.find('[data-login-here]').attr('href', withPosition($root.find('[data-login-here]').attr('href')));
+    $root.find('[data-portal-back]').attr('href', withPosition($root.attr('data-careers-url')));
 
-    $root.on('click', '[data-password-toggle]', function () {
+    $register.on('click', '[data-password-toggle]', function () {
         const $input = $(`#${$(this).attr('aria-controls')}`);
         const isHidden = $input.attr('type') === 'password';
 
@@ -113,13 +124,34 @@ function initAuthPage($root) {
         $(this).find('[data-password-toggle-label]').text(isHidden ? 'Hide' : 'Show');
     });
 
-    requestTerms({ onAccept: showForm, onDecline: () => leave($root) });
+    // The links keep working as links (to the Log In and Create Account addresses) if scripts do not load.
+    $root.on('click', '[data-portal-switch="login"]', (event) => {
+        event.preventDefault();
+        show('login');
+    });
+
+    $root.on('click', '[data-portal-switch="register"]', (event) => {
+        event.preventDefault();
+        requestTerms({ force: true, onAccept: showRegister, onDecline: () => {} });
+    });
+
+    if ($root.attr('data-initial-form') === 'register') {
+        $login.addClass('d-none');
+        requestTerms({ onAccept: showRegister, onDecline: () => leave($root) });
+    }
 }
 
 function initRegisterForm($root) {
     const $form = $root.find('[data-applicant-register-form]');
+    // The name parts, birthdate, sex, and civil status use the same checks the account itself is saved with.
+    const personalRule = (field) => (values) => validateApplicantPersonal({ [field]: values[field] })[field] ?? '';
     const rules = {
-        name: ({ name }) => (name.trim() ? '' : 'Enter your full name.'),
+        lastName: personalRule('lastName'),
+        firstName: personalRule('firstName'),
+        middleName: personalRule('middleName'),
+        birthdate: personalRule('birthdate'),
+        sex: personalRule('sex'),
+        civilStatus: personalRule('civilStatus'),
         email: ({ email }) => (email.trim() ? emailRule(email) : 'Enter your email address.'),
         password: ({ password }) => newPasswordRule(password),
         confirmPassword: ({ password, confirmPassword }) => {
@@ -132,6 +164,7 @@ function initRegisterForm($root) {
     };
 
     revalidateOnInput($form, rules);
+    $form.find('[name="birthdate"]').attr('max', todayIsoDate());
 
     $form.on('submit', function (event) {
         event.preventDefault();
@@ -141,16 +174,24 @@ function initRegisterForm($root) {
             return;
         }
 
+        const value = (name) => String($form.find(`[name="${name}"]`).val() ?? '').trim();
         const result = registerApplicant({
-            name: String($form.find('[name="name"]').val()),
-            email: String($form.find('[name="email"]').val()),
+            lastName: value('lastName'),
+            firstName: value('firstName'),
+            middleName: value('middleName'),
+            birthdate: value('birthdate'),
+            sex: value('sex'),
+            civilStatus: value('civilStatus'),
+            email: value('email'),
             password: String($form.find('[name="password"]').val()),
         });
 
         if (!result.ok) {
-            setFieldError($form.find('[name="email"]'), result.errors.email ?? '');
-            showError($root, result.errors.email ? '' : result.error);
-            $form.find('[name="email"]').trigger('focus');
+            const [field] = Object.keys(result.errors);
+
+            Object.entries(result.errors).forEach(([name, message]) => setFieldError($form.find(`[name="${name}"]`), message));
+            showError($root, field ? '' : result.error);
+            $form.find(`[name="${field ?? 'email'}"]`).trigger('focus');
 
             return;
         }
@@ -160,41 +201,14 @@ function initRegisterForm($root) {
     });
 }
 
-/**
- * The public Applicant Portal: Create Account and Login keep the selected position. Create Account shows the Terms
- * (see applicant-terms.js) and, when declined, returns to Open Positions with the position still selected.
- */
-function initPortal($root) {
-    if (selectedPosition) {
-        $root.find('[data-portal-position-name]').text(`${selectedPosition.name} · ${selectedPosition.department}`);
-        $root.find('[data-portal-position]').removeClass('d-none');
-    } else if (positionParam) {
-        $root.find('[data-portal-position-closed]').removeClass('d-none');
-    }
-
-    $root.find('[data-portal-create]')
-        .attr('href', withPosition($root.attr('data-register-url')))
-        .attr('data-terms-decline-url', withPosition($root.attr('data-careers-url')));
-    $root.find('[data-portal-login]').attr('href', withPosition($root.attr('data-login-url')));
-    $root.find('[data-portal-back]').attr('href', withPosition($root.attr('data-careers-url')));
-}
-
 $(function () {
-    const $portal = $('[data-page="applicant-portal"]');
-
-    if ($portal.length) {
-        initPortal($portal);
-
-        return;
-    }
-
-    const $root = $('[data-page="applicant-register"]');
+    const $root = $('[data-page="applicant-portal"]');
 
     if (!$root.length) {
         return;
     }
 
-    // Already signed in this session: continue to the dashboard instead of registering again.
+    // Already signed in this session: continue to the dashboard instead of logging in or registering again.
     if (currentAccountId()) {
         window.location.replace(withPosition($root.attr('data-dashboard-url')));
 

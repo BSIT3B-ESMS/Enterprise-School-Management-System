@@ -9,15 +9,18 @@ export const eventTypes = {
     other: 'Other Applicant Event',
 };
 
-// The calendar event type of each kind of applicant schedule (Interview is the final interview).
-const activityEventTypes = { 'Demo Interview': 'demo-interview', Interview: 'interview', Other: 'other' };
+// The calendar event type of each kind of applicant schedule.
+const activityEventTypes = { 'Demo Interview': 'demo-interview', 'Final Interview': 'interview', Other: 'other' };
 
-// Leave requests are Filed (submitted), Pending (under review), or Approved; demo interviews and interviews
-// are Scheduled until they are marked Completed. A past scheduled activity is still Scheduled.
-export const eventStatuses = ['Filed', 'Pending', 'Approved', 'Scheduled', 'Completed'];
+// Leave on a calendar is Pending (waiting for HR) or Approved; rejected and cancelled requests are not drawn. Demo
+// interviews and final interviews are Scheduled until HR marks them Completed: a past scheduled activity is still Scheduled.
+export const eventStatuses = ['Pending', 'Approved', 'Scheduled', 'Completed'];
 
-// Statuses drawn solid on the calendar; the others are drawn dashed (not final yet).
+// Statuses drawn solid on the calendar (confirmed); the others are drawn dashed (not final yet).
 export const confirmedStatuses = ['Approved', 'Completed'];
+
+// The leave statuses a calendar draws: confirmed (Approved) and still waiting for HR (Pending).
+const calendarLeaveStatuses = ['Pending', 'Approved'];
 
 function addDays(isoDate, days) {
     const [year, month, day] = isoDate.split('-').map(Number);
@@ -32,14 +35,14 @@ export function isoDateOf(date) {
 }
 
 /**
- * Every calendar event. Leave spans startDate to endDate; demo interviews and interviews fall on one date
- * at a time.
+ * Every calendar event. Leave spans startDate to endDate (Pending and Approved only); demo interviews and final
+ * interviews fall on one date at a time.
  *
  * @param {{ leaveRequests: object[], applications: object[], customEvents?: object[] }} data (customEvents are the events HR added on the Calendar)
  * @returns {Array<{ id: string, type: string, name: string, startDate: string, endDate: string, time: string, status: string, detail: object }>}
  */
 export function buildCalendarEvents({ leaveRequests, applications, customEvents = [] }) {
-    const leaveEvents = leaveRequests.map((leave) => ({
+    const leaveEvents = leaveRequests.filter((leave) => calendarLeaveStatuses.includes(leave.status)).map((leave) => ({
         id: `leave-${leave.id}`,
         type: 'leave',
         name: leave.employeeName,
@@ -90,7 +93,7 @@ export function occursOn(event, isoDate) {
 }
 
 /**
- * Events on one day, with timed ones (demo interviews and interviews) after leave and in time order.
+ * Events on one day, with timed ones (demo interviews and final interviews) after leave and in time order.
  */
 export function eventsOn(events, isoDate) {
     return events

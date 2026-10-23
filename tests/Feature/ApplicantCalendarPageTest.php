@@ -7,12 +7,12 @@ it('serves the applicant calendar with Calendar current in the applicant sidebar
         ->assertSee('aria-current="page" href="'.route('applicant.calendar').'"', escape: false);
 });
 
-it('offers demo interview and interview types and scheduled and completed statuses, all selected', function () {
+it('offers demo interview and final interview types and scheduled and completed statuses, all selected', function () {
     $this->get(route('applicant.calendar'))
         ->assertSeeInOrder([
             'Event Type',
             'id="calendar-type-demo-interview" value="demo-interview"', 'checked data-calendar-type-filter', 'Demo Interview',
-            'id="calendar-type-interview" value="interview"', 'Interview',
+            'id="calendar-type-interview" value="interview"', 'Final Interview',
             'Event Status',
             'value="Scheduled"', 'checked data-calendar-status-filter', 'value="Completed"',
             'data-calendar-clear>Clear Filters</button>',
@@ -50,7 +50,7 @@ it('has no HR actions, other applicants, or HR links on the applicant calendar',
 it('leaves the HR calendar unchanged', function () {
     $this->get(route('calendar.index'))
         ->assertSee('value="leave"', escape: false)
-        ->assertSee('value="Filed"', escape: false)
+        ->assertSee('value="Pending"', escape: false)
         ->assertSee('data-employees-url', escape: false)
         ->assertDontSee('data-calendar-scope', escape: false);
 });

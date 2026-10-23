@@ -1,24 +1,25 @@
 <?php
 
-it('adds Open Job Positions to the HR sidebar, after Recruitment, and marks it current', function () {
+it('adds Open Positions to the HR sidebar, after Recruitment, and marks it current', function () {
     $this->get(route('job-positions.index'))
         ->assertOk()
         ->assertSee('aria-current="page" href="'.route('job-positions.index').'"', escape: false)
         ->assertSeeInOrder([
             'href="'.route('recruitment.index').'"', 'Recruitment',
-            'href="'.route('job-positions.index').'"', 'Open Job Positions',
+            'href="'.route('job-positions.index').'"', 'Open Positions',
             'href="'.route('calendar.index').'"',
         ], escape: false);
 });
 
-it('lists the job postings with filters and sorting, and no Actions column', function () {
+it('lists the job postings with filters and sorting, an Applied count, and no Actions column', function () {
     $this->get(route('job-positions.index'))
         ->assertSee('data-page="job-positions"', escape: false)
+        ->assertDontSee('Open Job Positions')
         ->assertSeeInOrder([
-            'Open Job Positions', 'Add Job Posting',
+            'Open Positions', 'Add Job Posting',
             'data-job-position-search', 'data-job-position-filter="departmentId"', 'data-job-position-filter="status"',
             'data-sort-key="name"', 'data-sort-key="department"', 'data-sort-key="employmentType"',
-            'data-sort-key="salary"', 'data-sort-key="openings"', 'data-sort-key="status"',
+            'data-sort-key="salary"', 'data-sort-key="openings"', 'data-sort-key="applied"', 'Applied', 'data-sort-key="status"',
             'data-job-position-rows', 'data-job-position-empty', 'data-job-position-pagination',
         ], escape: false);
 });

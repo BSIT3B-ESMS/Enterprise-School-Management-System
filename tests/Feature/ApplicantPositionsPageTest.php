@@ -15,7 +15,7 @@ it('lets anyone browse the open positions before creating an account', function 
         ->assertSee('data-details-url="'.route('careers.index').'"', escape: false)
         ->assertSeeInOrder([
             'data-public-signed-out',
-            'href="'.route('login').'">Login</a>',
+            'href="'.route('applicant.portal').'">Applicant Login</a>',
             'href="'.route('applicant.register').'" data-terms-continue>Create Account',
             'data-public-signed-in', 'href="'.route('applicant.dashboard').'">My Dashboard',
         ], escape: false)
@@ -23,7 +23,7 @@ it('lets anyone browse the open positions before creating an account', function 
         ->assertDontSee('href="'.route('recruitment.index').'"', escape: false);
 });
 
-it('lists only open positions, with search, employment type and department filters, and empty states', function (string $route) {
+it('lists only open positions, with search, employment type and college filters, and empty states', function (string $route) {
     $this->get(route($route))
         ->assertSeeInOrder([
             'Open Positions',

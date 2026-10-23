@@ -38,7 +38,7 @@
             </nav>
 
             <div class="app-sidebar-footer">
-                <a class="app-sidebar-logout" href="{{ route('login') }}" data-applicant-logout>
+                <a class="app-sidebar-logout" href="{{ route('applicant.portal') }}" data-applicant-logout>
                     <x-icon name="logout" />
                     Log Out
                 </a>

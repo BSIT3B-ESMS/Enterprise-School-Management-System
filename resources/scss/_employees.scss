@@ -201,6 +201,11 @@ th[aria-sort="descending"] .sort-icon-descending {
     }
 }
 
+// Document fields: the hidden file input's keyboard focus shows on its Choose Files button.
+[data-document-input]:focus-visible + .document-picker .btn {
+    box-shadow: var(--bs-focus-ring-x, 0) var(--bs-focus-ring-y, 0) var(--bs-focus-ring-blur, 0) var(--bs-focus-ring-width) var(--bs-focus-ring-color);
+}
+
 // Employee profile (201 file)
 
 .profile-avatar {

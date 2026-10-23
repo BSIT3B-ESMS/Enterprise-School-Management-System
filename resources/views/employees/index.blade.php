@@ -6,7 +6,7 @@
     $columns = [
         'id' => 'Employee ID',
         'name' => 'Name',
-        'department' => 'Department',
+        'department' => 'College',
         'jobTitle' => 'Job Title',
         'salary' => 'Base Salary',
         'hiredOn' => 'Date Hired',
@@ -54,7 +54,7 @@
                     <select class="form-select" id="employee-job-title-filter" data-employee-filter="jobTitleId"></select>
                 </div>
                 <div class="col-md-6 col-xl-4">
-                    <label for="employee-department-filter" class="visually-hidden">Department</label>
+                    <label for="employee-department-filter" class="visually-hidden">College</label>
                     <select class="form-select" id="employee-department-filter" data-employee-filter="departmentId"></select>
                 </div>
             </div>

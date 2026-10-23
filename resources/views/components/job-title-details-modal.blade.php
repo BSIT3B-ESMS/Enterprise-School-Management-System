@@ -1,7 +1,8 @@
 @php
     $fields = [
-        'department' => 'Department',
+        'department' => 'College',
         'salary' => 'Base Salary Range (monthly)',
+        'leaveCredits' => 'Leave Credits',
         'headcount' => 'Employees',
         'benefitCount' => 'Benefits',
     ];

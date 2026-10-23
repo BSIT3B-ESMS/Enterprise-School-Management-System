@@ -90,17 +90,19 @@ it('has an Archived Employees button in the lower right of the Employees page', 
         ], escape: false);
 });
 
-it('serves the Archived Employees page with Restore and Delete, and the only delete confirmation', function () {
+it('serves the Archived Employees page with no Actions column, Restore and Delete in the details, and the only delete confirmation', function () {
     $this->get(route('employees.archived'))
         ->assertOk()
         ->assertSee('data-page="archived-employees"', escape: false)
         ->assertSee('aria-current="page" href="'.route('employees.index').'"', escape: false)
         ->assertSeeInOrder([
             'Archived Employees', 'data-archived-search',
-            'Employee ID', 'Name', 'Department', 'Job Title', 'Date Hired', 'Archived On', 'Actions',
+            'Employee ID', 'Name', 'College', 'Job Title', 'Date Hired', 'Archived On',
             'data-archived-rows', 'data-archived-empty', 'No archived employees',
+            'id="archived-employee-details-modal"', 'data-archived-details-body', 'data-employee-delete>Delete', 'data-archived-restore>Restore',
             'id="employee-delete-modal"', 'Delete archived employee', 'data-employee-delete-confirm',
-        ], escape: false);
+        ], escape: false)
+        ->assertDontSee('>Actions<', escape: false);
 });
 
 it('shows a sortable Base Salary column between Job Title and Date Hired', function () {

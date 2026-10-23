@@ -3,13 +3,14 @@
 @section('title', 'Archived Employees · '.config('app.name'))
 
 @php
-    $columns = ['Employee ID', 'Name', 'Department', 'Job Title', 'Date Hired', 'Archived On'];
+    $columns = ['Employee ID', 'Name', 'College', 'Job Title', 'Date Hired', 'Archived On'];
 @endphp
 
 {{--
     Archived Employees: the employees HR archived from the Employees page, rendered by resources/js/archived-employees.js
-    from the same mock data. Their information is kept as it was. Restore returns an employee to the Employees list;
-    Delete (the only place an employee can be deleted) removes the record for good after a confirmation.
+    from the same mock data. Their information is kept as it was. A row opens the employee's details, where Restore returns
+    them to the Employees list and Delete (the only place an employee can be deleted) removes the record for good after
+    a confirmation.
 --}}
 @section('content')
     <div class="d-grid gap-4" data-page="archived-employees">
@@ -40,7 +41,6 @@
                             @foreach ($columns as $label)
                                 <th scope="col">{{ $label }}</th>
                             @endforeach
-                            <th scope="col" class="text-end">Actions</th>
                         </tr>
                     </thead>
                     <tbody data-archived-rows></tbody>
@@ -61,5 +61,6 @@
         </div>
     </div>
 
+    <x-archived-employee-details-modal />
     <x-employee-delete-modal />
 @endsection

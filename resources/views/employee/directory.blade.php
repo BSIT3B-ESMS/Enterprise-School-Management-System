@@ -3,9 +3,9 @@
 @section('title', 'Directory · '.config('app.name'))
 
 {{--
-    Directory of the signed-in employee's own department, filled in by resources/js/portal-directory.js from the
-    mock data. Only people in that department are passed to the page (with name, position, and work email), so
-    there is no department filter and search covers just those colleagues.
+    Directory of the signed-in employee's own college, filled in by resources/js/portal-directory.js from the
+    mock data. Only people in that college are passed to the page (with name, position, and work email), so
+    there is no college filter and search covers just those colleagues.
 --}}
 @section('content')
     <div class="d-grid gap-4" data-page="portal-directory">
@@ -23,14 +23,14 @@
 
         <div class="card d-none" data-directory-no-department>
             <div class="employees-empty">
-                <strong>No department assigned</strong>
-                Your profile has no department, so there are no colleagues to show. Contact HR to have one assigned.
+                <strong>No college assigned</strong>
+                Your profile has no college, so there are no colleagues to show. Contact HR to have one assigned.
             </div>
         </div>
 
         <div class="d-grid gap-4" data-portal-content>
             <div class="card employees-filters">
-                <label for="directory-search" class="visually-hidden">Search your department</label>
+                <label for="directory-search" class="visually-hidden">Search your college</label>
                 <div class="search-field">
                     <x-icon name="search" />
                     <input type="search" class="form-control" id="directory-search"

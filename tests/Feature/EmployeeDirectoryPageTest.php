@@ -7,7 +7,7 @@ it('serves the directory with the sidebar Directory item current', function () {
         ->assertSee('aria-current="page" href="'.route('employee.directory').'"', escape: false);
 });
 
-it('has search, the list, and the empty states, but no department filter', function () {
+it('has search, the list, and the empty states, but no college filter', function () {
     $this->get(route('employee.directory'))
         ->assertSeeInOrder([
             'Directory', 'data-directory-subtitle',
@@ -18,7 +18,7 @@ it('has search, the list, and the empty states, but no department filter', funct
             'data-directory-summary', 'data-directory-pagination',
         ], escape: false)
         ->assertDontSee('data-directory-department', escape: false)
-        ->assertDontSee('All Departments')
+        ->assertDontSee('All Colleges')
         ->assertDontSee('<select', escape: false);
 });
 

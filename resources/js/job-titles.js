@@ -3,6 +3,8 @@ import $ from './jquery.js';
 import { formatDate, formatSalaryRange, initialsOf } from './format.js';
 import {
     addJobTitle,
+    collegeChoiceError,
+    defaultLeaveCredits,
     deleteJobTitle,
     findJobTitle,
     getBenefitNames,
@@ -13,7 +15,7 @@ import {
     updateJobTitle,
 } from './mock-data.js';
 import { renderPagination } from './pagination.js';
-import { salaryRangeErrors } from './validation-rules.js';
+import { leaveCreditsError, salaryRangeErrors } from './validation-rules.js';
 import { showToast } from './toast.js';
 
 const pageSize = 8;
@@ -88,7 +90,7 @@ function renderFilterOptions($root) {
         view.departmentId = '';
     }
 
-    $root.find('[data-job-title-filter="departmentId"]').empty().append(...departmentOptions('All Departments')).val(view.departmentId);
+    $root.find('[data-job-title-filter="departmentId"]').empty().append(...departmentOptions('All Colleges')).val(view.departmentId);
 }
 
 function rowFor(jobTitle) {
@@ -238,6 +240,7 @@ function initDetailsModal($modal, employeesUrl) {
             name: jobTitle.name,
             department: jobTitle.department,
             salary: formatSalaryRange(jobTitle.salaryMin, jobTitle.salaryMax),
+            leaveCredits: `${jobTitle.leaveCredits ?? 0} ${Number(jobTitle.leaveCredits) === 1 ? 'day' : 'days'} per year`,
             headcount: String(jobTitle.headcount),
             benefitCount: String(jobTitle.benefits.length),
         };
@@ -313,12 +316,13 @@ function validationRules($form, editingId) {
 
             const departmentId = String(fieldFor($form, 'departmentId').val() ?? '');
 
-            return isJobTitleNameTaken(value, departmentId, editingId) ? 'This title already exists in that department.' : '';
+            return isJobTitleNameTaken(value, departmentId, editingId) ? 'This title already exists in that college.' : '';
         },
-        departmentId: (value) => (value ? '' : 'Select a department.'),
+        departmentId: (value) => collegeChoiceError(value),
         // The minimum and maximum are checked together: both needed, 0 or more, the maximum not lower than the minimum.
         salaryMin: () => salaryRangeErrors(fieldFor($form, 'salaryMin').val(), fieldFor($form, 'salaryMax').val()).salaryMin ?? '',
         salaryMax: () => salaryRangeErrors(fieldFor($form, 'salaryMin').val(), fieldFor($form, 'salaryMax').val()).salaryMax ?? '',
+        leaveCredits: (value) => leaveCreditsError(value),
     };
 }
 
@@ -352,7 +356,7 @@ function prepareForm($form, jobTitle) {
     $form[0].reset();
     $form.find('.is-invalid').removeClass('is-invalid').removeAttr('aria-invalid');
     $form.find('.invalid-feedback').text('');
-    $form.find('[data-job-title-department-options]').empty().append(...departmentOptions('Select department'));
+    $form.find('[data-job-title-department-options]').empty().append(...departmentOptions('Select college'));
 
     $form.find('[data-job-title-benefit-options]').empty().append(...benefitNames.map((benefit, index) => (
         $('<div>', { class: 'col' }).append(
@@ -374,6 +378,7 @@ function prepareForm($form, jobTitle) {
     fieldFor($form, 'departmentId').val(jobTitle?.departmentId ?? '');
     fieldFor($form, 'salaryMin').val(jobTitle?.salaryMin ?? '');
     fieldFor($form, 'salaryMax').val(jobTitle?.salaryMax ?? '');
+    fieldFor($form, 'leaveCredits').val(jobTitle?.leaveCredits ?? defaultLeaveCredits);
 }
 
 function readJobTitle($form) {
@@ -384,6 +389,7 @@ function readJobTitle($form) {
         departmentId: value('departmentId'),
         salaryMin: Number(value('salaryMin')),
         salaryMax: Number(value('salaryMax')),
+        leaveCredits: Number(value('leaveCredits')),
         benefits: $form.find('[name="benefits"]:checked').map(function () {
             return $(this).val();
         }).get(),

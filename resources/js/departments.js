@@ -3,9 +3,10 @@ import $ from './jquery.js';
 import { formatDate, formatSalaryRange, initialsOf } from './format.js';
 import {
     addDepartment,
+    availableColleges,
+    collegeNameError,
     deleteDepartment,
     findDepartment,
-    isDepartmentNameTaken,
     listDepartments,
     onMockDataChange,
     updateDepartment,
@@ -46,7 +47,7 @@ function visibleDepartments() {
 }
 
 /**
- * Why a department cannot be deleted yet, or '' when nothing is assigned to it.
+ * Why a college cannot be deleted yet, or '' when nothing is assigned to it.
  */
 function deleteBlockedMessage({ name, headcount, jobTitleCount, applicationCount }) {
     const assigned = [
@@ -150,15 +151,16 @@ function renderTable($root) {
     } else {
         $root.find('[data-department-empty]').removeClass('d-none');
         $root.find('[data-department-empty-hint]').text(
-            view.query.trim() ? 'Try a different search.' : 'Add a department to get started.',
+            view.query.trim() ? 'Try a different search.' : 'Add a college to get started.',
         );
     }
 
     $root.find('[data-department-summary]').text(
-        `Showing ${departments.length ? start + 1 : 0} to ${start + pageRows.length} of ${departments.length} departments`,
+        `Showing ${departments.length ? start + 1 : 0} to ${start + pageRows.length} of ${departments.length} colleges`,
     );
     renderSortHeaders($root);
     renderPagination($root.find('[data-department-pagination]'), view.page, pageCount);
+    renderAddButton($root);
 }
 
 /**
@@ -206,7 +208,7 @@ function initDetailsModal($modal, employeesUrl) {
 
         if (!department) {
             event.preventDefault();
-            showToast('That department no longer exists.', { isError: true });
+            showToast('That college no longer exists.', { isError: true });
 
             return;
         }
@@ -222,7 +224,7 @@ function initDetailsModal($modal, employeesUrl) {
                     $('<small>', { class: 'text-body-secondary', text: 'Base salary range' }),
                     formatSalaryRange(jobTitle.salaryMin, jobTitle.salaryMax),
                 ))
-                : [emptyItem('No job titles under this department yet.')]),
+                : [emptyItem('No job titles under this college yet.')]),
         );
 
         $modal.find('[data-department-faculty]').empty().append(
@@ -266,11 +268,25 @@ function setNameError($field, message) {
 }
 
 function nameError(name, editingId) {
-    if (!name.trim()) {
-        return 'Enter a department name.';
-    }
+    return collegeNameError(name, editingId);
+}
 
-    return isDepartmentNameTaken(name, editingId) ? 'A department with this name already exists.' : '';
+/**
+ * The college choice: the approved colleges not already listed, plus the one being edited.
+ */
+function fillCollegeOptions($name, editingId, selected) {
+    $name.empty().append(
+        $('<option>', { value: '', text: 'Select a college' }),
+        ...availableColleges(editingId).map((college) => $('<option>', { value: college, text: college })),
+    ).val(selected);
+}
+
+// Add College is offered only while an approved college is missing from the list.
+function renderAddButton($root) {
+    const isComplete = availableColleges().length === 0;
+
+    $root.find('[data-department-add]').prop('disabled', isComplete)
+        .attr('title', isComplete ? 'Every approved college is already listed.' : null);
 }
 
 function initFormModal($modal, $root) {
@@ -284,7 +300,7 @@ function initFormModal($modal, $root) {
 
         if (requestedId && !department) {
             event.preventDefault();
-            showToast('That department no longer exists.', { isError: true });
+            showToast('That college no longer exists.', { isError: true });
 
             return;
         }
@@ -292,12 +308,12 @@ function initFormModal($modal, $root) {
         editingId = department?.id ?? null;
         $form[0].reset();
         setNameError($name, '');
-        $name.val(department?.name ?? '');
-        $modal.find('[data-department-form-title]').text(department ? 'Edit Department' : 'Add Department');
+        fillCollegeOptions($name, editingId, department?.name ?? '');
+        $modal.find('[data-department-form-title]').text(department ? 'Edit College' : 'Add College');
     });
-    $modal.on('shown.bs.modal', () => $name.trigger('focus').trigger('select'));
+    $modal.on('shown.bs.modal', () => $name.trigger('focus'));
 
-    $name.on('input', function () {
+    $name.on('change', function () {
         if ($name.hasClass('is-invalid')) {
             setNameError($name, nameError(String($name.val()), editingId));
         }
@@ -324,13 +340,13 @@ function initFormModal($modal, $root) {
 
         if (editingId) {
             updateDepartment(editingId, name);
-            showToast('Department updated.');
+            showToast('College updated.');
         } else {
             const department = addDepartment(name);
 
             showPageWith(department.id);
             renderTable($root);
-            showToast(`Department added: ${department.name}.`);
+            showToast(`College added: ${department.name}.`);
         }
 
         Modal.getOrCreateInstance($modal[0]).hide();
@@ -366,9 +382,9 @@ function initDeleteModal($modal) {
         Modal.getOrCreateInstance($modal[0]).hide();
 
         if (department) {
-            showToast(`Department deleted: ${department.name}.`);
+            showToast(`College deleted: ${department.name}.`);
         } else {
-            showToast(deleteBlockedMessage({ name: 'this department', ...usage }) || 'That department no longer exists.', {
+            showToast(deleteBlockedMessage({ name: 'this college', ...usage }) || 'That college no longer exists.', {
                 isError: true,
             });
         }

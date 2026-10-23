@@ -6,19 +6,12 @@
     $tabs = [
         'personal' => 'Personal Information',
         'contact' => 'Contact Information',
-        'government' => 'Government and Tax',
         'documents' => 'Documents',
     ];
 
-    // The 201 file's government and tax fields, with the same names, labels, and rules as the HR employee form.
-    $governmentFields = [
-        // name => [id, label, mask, example, format hint]: the format each number is checked against (the BIR number has no fixed one).
-        'sssNumber' => ['sss-number', 'SSS Number', 'sss', '00-1234567-8', 'Format: 00-1234567-8 (10 digits)'],
-        'philhealthNumber' => ['philhealth-number', 'PhilHealth Number', 'philhealth', '12-123456789-0', 'Format: 12-123456789-0 (12 digits)'],
-        'pagibigNumber' => ['pagibig-number', 'Pag-IBIG (HDMF) Number', 'pagibig', '1234-5678-9012', 'Pag-IBIG MID. Format: 1234-5678-9012 (12 digits)'],
-        'tin' => ['tin', 'Tax Identification Number (TIN)', 'tin', '123-456-789', 'Format: 123-456-789 (9 digits), or 123-456-789-000 with a branch code'],
-        'birNumber' => ['bir-number', 'BIR Number', null, null, null],
-    ];
+    // The same choices as the 201 file (resources/js/validation-rules.js sexOptions and civilStatusOptions).
+    $sexOptions = ['Female', 'Male', 'Prefer not to say'];
+    $civilStatusOptions = ['Single', 'Married', 'Widowed', 'Separated'];
 
     // The documents from the applicant's latest application (file names only).
     $documents = [
@@ -30,9 +23,10 @@
 
 {{--
     The signed-in applicant's profile, filled in by resources/js/applicant-profile.js from their account. It is separate
-    from the Employee and HR profiles. The details follow the 201 file and fill in the next job application. Edit swaps
-    the tabs for a form on this page: everything but the name can be changed; the email address and phone number also
-    change on submitted applications, so HR can reach the applicant.
+    from the Employee and HR profiles. The details follow the 201 file and fill in the next job application; government
+    and tax numbers are not kept here, because they are pre-employment information asked for only after an offer is
+    accepted. Edit swaps the tabs for a form on this page: everything but the name can be changed; the email address and
+    phone number also change on submitted applications, so HR can reach the applicant.
 --}}
 @section('content')
     <div class="d-grid gap-4" data-page="applicant-profile">
@@ -67,7 +61,9 @@
                 <section class="tab-pane fade show active" id="applicant-personal" role="tabpanel"
                     aria-labelledby="applicant-personal-tab" tabindex="0">
                     <dl class="row row-cols-1 row-cols-md-2 g-3 mb-0 employee-details">
-                        <div class="col"><dt>Full Name</dt><dd class="mb-0" data-applicant-field="name"></dd></div>
+                        <div class="col"><dt>Last Name</dt><dd class="mb-0" data-applicant-field="lastName"></dd></div>
+                        <div class="col"><dt>First Name</dt><dd class="mb-0" data-applicant-field="firstName"></dd></div>
+                        <div class="col"><dt>Middle Name</dt><dd class="mb-0" data-applicant-field="middleName"></dd></div>
                         <div class="col"><dt>Birthdate</dt><dd class="mb-0" data-applicant-field="birthdate"></dd></div>
                         <div class="col"><dt>Sex</dt><dd class="mb-0" data-applicant-field="sex"></dd></div>
                         <div class="col"><dt>Civil Status</dt><dd class="mb-0" data-applicant-field="civilStatus"></dd></div>
@@ -84,14 +80,6 @@
                     </dl>
                 </section>
 
-                <section class="tab-pane fade" id="applicant-government" role="tabpanel"
-                    aria-labelledby="applicant-government-tab" tabindex="0">
-                    <dl class="row row-cols-1 row-cols-md-2 g-3 mb-0 employee-details">
-                        @foreach ($governmentFields as $name => [$id, $label])
-                            <div class="col"><dt>{{ $label }}</dt><dd class="mb-0 tabular-nums" data-applicant-field="{{ $name }}"></dd></div>
-                        @endforeach
-                    </dl>
-                </section>
 
                 <section class="tab-pane fade" id="applicant-documents" role="tabpanel"
                     aria-labelledby="applicant-documents-tab" tabindex="0">
@@ -115,39 +103,41 @@
                 <h2 class="employee-form-section">Personal Information</h2>
 
                 <div class="row g-3">
-                    <div class="col-md-6">
-                        <label for="applicant-name" class="form-label">Full Name</label>
-                        <input type="text" class="form-control" id="applicant-name" readonly aria-describedby="applicant-name-hint"
-                            data-applicant-input="name">
-                        <div class="form-text" id="applicant-name-hint">Your name is used on your applications and cannot be changed here.</div>
-                    </div>
+                    @foreach (['lastName' => 'Last Name', 'firstName' => 'First Name', 'middleName' => 'Middle Name'] as $part => $label)
+                        <div class="col-md-4">
+                            <label for="applicant-{{ $part }}" class="form-label">{{ $label }}</label>
+                            <input type="text" class="form-control" id="applicant-{{ $part }}" readonly data-applicant-input="{{ $part }}">
+                        </div>
+                    @endforeach
+                    <div class="col-12 form-text mt-1">Your name is used on your applications and cannot be changed here.</div>
 
-                    <div class="col-md-6">
-                        <label for="applicant-birthdate" class="form-label">Birthdate</label>
-                        <input type="date" class="form-control" id="applicant-birthdate" name="birthdate"
-                            autocomplete="bday" aria-describedby="applicant-birthdate-error">
+                    <div class="col-md-4">
+                        <label for="applicant-birthdate" class="form-label is-required">Birthdate</label>
+                        <input type="date" class="form-control" id="applicant-birthdate" name="birthdate" min="1900-01-01"
+                            autocomplete="bday" aria-describedby="applicant-birthdate-error" required>
                         <div class="invalid-feedback" id="applicant-birthdate-error"></div>
                     </div>
 
-                    <div class="col-md-6">
-                        <label for="applicant-sex" class="form-label">Sex</label>
-                        <select class="form-select" id="applicant-sex" name="sex">
-                            <option value="">Not provided</option>
-                            <option>Female</option>
-                            <option>Male</option>
-                            <option>Prefer not to say</option>
+                    <div class="col-md-4">
+                        <label for="applicant-sex" class="form-label is-required">Sex</label>
+                        <select class="form-select" id="applicant-sex" name="sex" aria-describedby="applicant-sex-error" required>
+                            <option value="">Select sex</option>
+                            @foreach ($sexOptions as $option)
+                                <option>{{ $option }}</option>
+                            @endforeach
                         </select>
+                        <div class="invalid-feedback" id="applicant-sex-error"></div>
                     </div>
 
-                    <div class="col-md-6">
-                        <label for="applicant-civil-status" class="form-label">Civil Status</label>
-                        <select class="form-select" id="applicant-civil-status" name="civilStatus">
-                            <option value="">Not provided</option>
-                            <option>Single</option>
-                            <option>Married</option>
-                            <option>Widowed</option>
-                            <option>Separated</option>
+                    <div class="col-md-4">
+                        <label for="applicant-civil-status" class="form-label is-required">Civil Status</label>
+                        <select class="form-select" id="applicant-civil-status" name="civilStatus" aria-describedby="applicant-civil-status-error" required>
+                            <option value="">Select civil status</option>
+                            @foreach ($civilStatusOptions as $option)
+                                <option>{{ $option }}</option>
+                            @endforeach
                         </select>
+                        <div class="invalid-feedback" id="applicant-civil-status-error"></div>
                     </div>
                 </div>
             </section>
@@ -173,30 +163,11 @@
 
                     <div class="col-12">
                         <label for="applicant-address" class="form-label">Address</label>
-                        <input type="text" class="form-control" id="applicant-address" name="address" autocomplete="street-address">
+                        <input type="text" class="form-control" id="applicant-address" name="address" maxlength="200" autocomplete="street-address">
                     </div>
                 </div>
             </section>
 
-            <section class="mb-4">
-                <h2 class="employee-form-section">Government and Tax</h2>
-
-                <div class="row g-3">
-                        @foreach ($governmentFields as $name => [$id, $label, $mask, $example, $hint])
-                        <div class="col-md-6">
-                            <label for="applicant-{{ $id }}" class="form-label">{{ $label }}</label>
-                            <input type="text" class="form-control tabular-nums" id="applicant-{{ $id }}" name="{{ $name }}"
-                                inputmode="numeric" autocomplete="off"
-                                @if ($mask) data-mask="{{ $mask }}" placeholder="{{ $example }}" @endif
-                                aria-describedby="{{ $hint ? 'applicant-'.$id.'-hint ' : '' }}applicant-{{ $id }}-error">
-                            @if ($hint)
-                                <div class="form-text" id="applicant-{{ $id }}-hint">{{ $hint }}</div>
-                            @endif
-                            <div class="invalid-feedback" id="applicant-{{ $id }}-error"></div>
-                        </div>
-                    @endforeach
-                </div>
-            </section>
 
             <p class="small text-body-secondary mb-2">
                 <span class="text-danger fw-semibold" aria-hidden="true">*</span> Required field

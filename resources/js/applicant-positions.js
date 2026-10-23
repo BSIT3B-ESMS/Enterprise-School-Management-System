@@ -4,7 +4,6 @@ import {
     applicationBlockFor,
     findPosition,
     getApplicantAccount,
-    getOpenPositionBenefits,
     listApplicantApplications,
     listPositions,
     onMockDataChange,
@@ -138,7 +137,7 @@ function initPositionList($root) {
         const appliedIds = new Set(listApplicantApplications(accountId).map((application) => application.jobTitleId));
 
         $department.empty().append(
-            $('<option>', { value: '', text: 'All departments' }),
+            $('<option>', { value: '', text: 'All colleges' }),
             ...departments.map((department) => $('<option>', { value: department, text: department })),
         );
         $department.val(departments.includes(selectedDepartment) ? selectedDepartment : '');
@@ -162,12 +161,8 @@ function initPositionList($root) {
     $type.on('change', render);
     $department.on('change', render);
     render();
-    renderBenefits($root);
     document.getElementById(`position-${selectedId}`)?.scrollIntoView({ block: 'center' });
-    onMockDataChange(() => {
-        render();
-        renderBenefits($root);
-    });
+    onMockDataChange(render);
 }
 
 // PLP Careers' Featured Job Openings: the open positions with the most openings (then A to Z), up to three.
@@ -188,26 +183,10 @@ function renderFeatured($root, open, appliedIds, accountId) {
     $root.find('[data-positions-featured-empty]').toggleClass('d-none', featured.length > 0);
 }
 
-// The hero's figures: how many positions are open, in how many departments, and how many openings in all.
+// The hero's figures: how many positions are open, and how many openings in all.
 function renderHiringStats($root, open) {
     $root.find('[data-careers-stat="positions"]').text(open.length);
-    $root.find('[data-careers-stat="departments"]').text(new Set(open.map((position) => position.department)).size);
     $root.find('[data-careers-stat="openings"]').text(open.reduce((total, position) => total + position.openings, 0));
-}
-
-// The Careers website's benefits: what the open positions offer, from the same job titles HR manages.
-function renderBenefits($root) {
-    const benefits = getOpenPositionBenefits();
-    const $benefits = $root.find('[data-careers-benefits]');
-
-    $benefits.empty().append(...(benefits.length
-        ? benefits.map((benefit) => $('<div>', { class: 'col' }).append(
-            $('<div>', { class: 'quick-link' }).append(
-                $('<span>', { class: 'quick-link-label', text: benefit.name }),
-                $('<small>', { text: benefit.description }),
-            ),
-        ))
-        : [$('<p>', { class: 'col text-body-secondary mb-0', text: 'Benefits are listed when positions are open.' })]));
 }
 
 function fillList($details, name, items) {

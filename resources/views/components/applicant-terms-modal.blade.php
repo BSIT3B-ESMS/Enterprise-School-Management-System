@@ -25,7 +25,7 @@
                         <li>Give true, complete, and current information. False or misleading information may disqualify your application.</li>
                         <li>Keep your login details to yourself. You are responsible for what is done with your account.</li>
                         <li>Applying does not guarantee a demo interview, an interview, or a job offer. HR decides how each application moves forward.</li>
-                        <li>Demo interview and interview schedules are set by HR and may change. Check your Calendar and Applications pages for the latest schedule.</li>
+                        <li>Demo interview and final interview schedules are set by HR and may change. Check your Calendar and Applications pages for the latest schedule.</li>
                     </ol>
                 </section>
 
@@ -36,7 +36,7 @@
                         contact details, birthdate, government ID numbers, and the documents you attach.
                     </p>
                     <ul>
-                        <li><strong>Purpose:</strong> to assess your application, contact you, and schedule your demo interview and interview.</li>
+                        <li><strong>Purpose:</strong> to assess your application, contact you, and schedule your demo interview and final interview.</li>
                         <li><strong>Access:</strong> only the HR staff who handle recruitment can view your application.</li>
                         <li><strong>If you are hired:</strong> the details you submitted are used to start your employee record.</li>
                         <li><strong>Your rights:</strong> you can view and update your profile at any time from the Applicant Portal.</li>

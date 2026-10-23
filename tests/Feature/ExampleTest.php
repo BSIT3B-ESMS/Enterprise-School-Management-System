@@ -1,7 +1,8 @@
 <?php
 
-test('the application opens on PLP Careers, with the login page still at /login', function () {
-    $this->get('/')->assertRedirect(route('careers.index'));
+test('the application opens on the Login page, with PLP Careers at /careers', function () {
+    $this->get('/')->assertOk()->assertSee('Welcome Back');
 
-    $this->get('/login')->assertStatus(200);
+    $this->get('/login')->assertOk();
+    $this->get('/careers')->assertOk();
 });

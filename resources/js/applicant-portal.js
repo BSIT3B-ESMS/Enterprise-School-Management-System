@@ -1,6 +1,6 @@
 import $ from './jquery.js';
 import { formatDate, formatTime, initialsOf } from './format.js';
-import { getApplicantAccount, onMockDataChange } from './mock-data.js';
+import { activityEndTime, getApplicantAccount, interviewTypeLabel, onMockDataChange } from './mock-data.js';
 import { currentAccountId, signOut } from './applicant-session.js';
 import { progressSteps } from './recruitment-workflow.js';
 
@@ -14,7 +14,7 @@ export const accountId = $shell.length ? currentAccountId() : '';
 
 /**
  * Whether someone is signed in (this tab's session) with an account that still exists. When not,
- * the page sends them to the shared Login page and the page scripts draw nothing.
+ * the page sends them to the Applicant Portal's Log In and the page scripts draw nothing.
  */
 export function isSignedIn() {
     return Boolean(accountId) && Boolean(getApplicantAccount(accountId));
@@ -25,19 +25,37 @@ const stepText = { done: 'completed', current: 'current stage', pending: 'not re
 // Where an application stands, in the applicant's terms (each status follows what HR has completed).
 export const statusMessages = {
     Applied: 'Your application has been received. HR will schedule your demo interview.',
-    'Demo Interview': 'Your demo interview is done. HR will schedule your interview.',
-    Interview: 'Your interview is done. HR is reviewing your application.',
-    Offered: 'You have been offered the position. HR will be in touch about your response.',
+    'Demo Interview': 'Your demo interview is done. HR will schedule your final interview.',
+    'Final Interview': 'Your final interview is done. HR is reviewing your application.',
+    Offered: 'You have been offered the position. Open the application to accept or decline the offer.',
     Hired: 'Congratulations, you have been hired.',
     Rejected: 'Your application was not selected for this position.',
 };
 
-// What happens next when nothing is scheduled, by status (who acts is HR; the applicant only waits).
+/**
+ * Where an application stands for the applicant, including their own steps once an offer is made: answering it, then
+ * giving the pre-employment information.
+ */
+export function statusMessageFor(application) {
+    if (application.status === 'Offered' && application.offerResponse === 'Accepted') {
+        return application.preEmploymentSubmittedAt
+            ? 'You accepted the offer and sent your pre-employment information. HR will complete your hiring.'
+            : 'You accepted the offer. Submit your pre-employment information so HR can complete your hiring.';
+    }
+
+    if (application.status === 'Rejected' && application.offerResponse === 'Declined') {
+        return 'You declined the offer for this position.';
+    }
+
+    return statusMessages[application.status] ?? '';
+}
+
+// What happens next when nothing is scheduled, by status (HR acts, except on an offer, which only the applicant answers).
 export const nextStepHints = {
     Applied: 'HR will schedule your demo interview',
-    'Demo Interview': 'HR will schedule your interview',
-    Interview: 'HR is reviewing your application',
-    Offered: 'HR will contact you about the offer',
+    'Demo Interview': 'HR will schedule your final interview',
+    'Final Interview': 'HR is reviewing your application',
+    Offered: 'Respond to your offer',
     Hired: 'You have been hired',
     Rejected: 'There are no further steps',
 };
@@ -68,15 +86,19 @@ export function renderSteps($root, application) {
 }
 
 /**
- * One demo interview or interview as a list row: its type (and position, when given), date, time, and status.
+ * One demo interview or final interview as a list row: its type (and position, when given), date, time, venue, and
+ * status (Scheduled until HR marks it completed).
  */
 export function activityItem(activity, jobTitle = '') {
     const isCompleted = activity.status === 'Completed';
 
     return $('<li>', { class: 'list-group-item d-flex justify-content-between align-items-center gap-3 flex-wrap' }).append(
         $('<div>', { class: 'min-w-0' }).append(
-            $('<div>', { class: 'fw-medium', text: jobTitle ? `${activity.type} · ${jobTitle}` : activity.type }),
-            $('<small>', { class: 'text-body-secondary', text: `${formatDate(activity.date)} at ${formatTime(activity.time)}` }),
+            $('<div>', { class: 'fw-medium', text: jobTitle ? `${interviewTypeLabel(activity.type)} · ${jobTitle}` : interviewTypeLabel(activity.type) }),
+            $('<small>', {
+                class: 'text-body-secondary',
+                text: `${formatDate(activity.date)}, ${formatTime(activity.time)} to ${formatTime(activityEndTime(activity))}${activity.venue ? ` · ${activity.venue}` : ''}`,
+            }),
         ),
         $('<span>', {
             class: `status-pill activity-${isCompleted ? 'completed' : 'scheduled'}`,
@@ -114,6 +136,6 @@ $(function () {
     // The account can disappear while the page is open (for example, the mock data was reset in another tab).
     onMockDataChange(() => (isSignedIn() ? renderHeader() : sendToLogIn()));
 
-    // Log Out ends this tab's session; the link then opens the shared Login page.
+    // Log Out ends this tab's session; the link then opens the Applicant Portal's Log In.
     $shell.on('click', '[data-applicant-logout]', () => signOut());
 });

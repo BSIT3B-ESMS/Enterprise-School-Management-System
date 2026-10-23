@@ -3,14 +3,14 @@
 @section('title', 'Calendar · '.config('app.name'))
 
 @php
-    $eventTypes = ['demo-interview' => 'Demo Interview', 'interview' => 'Interview', 'other' => 'Other'];
-    // Scheduled until HR marks the demo interview or interview completed; the same two statuses as in the HR Calendar.
+    $eventTypes = ['demo-interview' => 'Demo Interview', 'interview' => 'Final Interview', 'other' => 'Other'];
+    // Scheduled until HR marks the demo interview or final interview completed; the same two statuses as in the HR Calendar.
     $eventStatuses = ['Scheduled', 'Completed'];
     $weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 @endphp
 
 {{--
-    The signed-in applicant's own demo interview and interview schedule, across all of their applications, on the same
+    The signed-in applicant's own demo interview and final interview schedule, across all of their applications, on the same
     calendar the HR pages use (resources/js/calendar.js, in its "applicant" mode), from the same Recruitment data HR
     schedules in, so a new or rescheduled activity there shows here. Nothing here schedules, completes, or changes
     the status of anything.
@@ -19,7 +19,7 @@
     <div class="d-grid gap-4" data-page="calendar" data-calendar-scope="applicant">
         <div>
             <h1 class="page-title">Calendar</h1>
-            <p class="text-body-secondary mt-1 mb-0">Your demo interview and interview schedule.</p>
+            <p class="text-body-secondary mt-1 mb-0">Your demo interview and final interview schedule.</p>
         </div>
 
         <div class="d-grid gap-4">

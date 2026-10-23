@@ -71,11 +71,23 @@ function documentsOf($form) {
     return $form.data('documents');
 }
 
+// "No file chosen", or the files listed for the field ("Transcript.pdf" or "2 files: Transcript.pdf, Diploma.pdf").
+function documentStatus(files) {
+    if (!files.length) {
+        return 'No file chosen';
+    }
+
+    const names = files.map((file) => file.name).join(', ');
+
+    return files.length === 1 ? names : `${files.length} files: ${names}`;
+}
+
 function renderDocuments($form) {
     $form.find('[data-document-field]').each(function () {
         const files = documentsOf($form)[$(this).attr('data-document-field')];
 
         $(this).find('[data-document-list]').empty().append(...files.map((file, index) => documentItem(file, index)));
+        $(this).find('[data-document-status]').text(documentStatus(files)).toggleClass('text-body-secondary', !files.length);
     });
 }
 
@@ -106,9 +118,11 @@ export function readDocuments($form) {
 
 /**
  * Lets the form's document fields add files (listed by name only; the input is cleared so the same file can
- * be picked again later) and remove them. Nothing is uploaded or stored.
+ * be picked again later) and remove them. Nothing is uploaded or stored. `onChange` runs after files are added or removed.
+ *
+ * @param {{ onChange?: () => void }} [options]
  */
-export function bindDocumentFields($form) {
+export function bindDocumentFields($form, { onChange = () => {} } = {}) {
     $form.on('change', '[data-document-input]', function () {
         const files = documentsOf($form)[$(this).closest('[data-document-field]').attr('data-document-field')];
 
@@ -119,6 +133,7 @@ export function bindDocumentFields($form) {
         });
         this.value = '';
         renderDocuments($form);
+        onChange();
     });
 
     $form.on('click', '[data-document-remove]', function () {
@@ -127,5 +142,6 @@ export function bindDocumentFields($form) {
         documentsOf($form)[$field.attr('data-document-field')].splice(Number($(this).attr('data-document-remove')), 1);
         renderDocuments($form);
         $field.find('[data-document-input]').trigger('focus');
+        onChange();
     });
 }

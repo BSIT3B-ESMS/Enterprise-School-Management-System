@@ -39,6 +39,6 @@ it('links audit logs from the sidebar and the notifications menu with nothing le
 
 it('marks both logout links so the sign-out is recorded', function () {
     $this->get(route('dashboard'))
-        ->assertSee('href="'.route('login').'" data-logout>', escape: false)
-        ->assertSee('class="app-sidebar-logout" href="'.route('login').'" data-logout', escape: false);
+        ->assertSee('href="'.route('home').'" data-logout>', escape: false)
+        ->assertSee('class="app-sidebar-logout" href="'.route('home').'" data-logout', escape: false);
 });

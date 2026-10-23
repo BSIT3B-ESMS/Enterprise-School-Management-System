@@ -13,24 +13,14 @@ import {
     submitApplication,
 } from './mock-data.js';
 import { accountId, isSignedIn } from './applicant-portal.js';
+import { clearApplicationProgress, getApplicationProgress, saveApplicationProgress } from './applicant-session.js';
 import { showToast } from './toast.js';
 import { bindMasks, maskedForDisplay } from './input-masks.js';
-import {
-    idNumberRule,
-    mobileNumberRule,
-    pagibigRule,
-    personNameRule,
-    philhealthRule,
-    phoneRule,
-    sssRule,
-    tinRule,
-} from './validation-rules.js';
+import { birthdateRule, choiceRule, civilStatusOptions, phoneRule, sexOptions } from './validation-rules.js';
 
-// The 201 file details on the form, with the employee record's field names, so they carry over when the applicant is hired.
-const detailFields = ['birthdate', 'sex', 'civilStatus', 'address', 'sssNumber', 'philhealthNumber', 'pagibigNumber', 'tin', 'birNumber'];
-
-// The emergency contact, asked for only on this form. All three are required.
-const emergencyFields = ['emergencyContactName', 'emergencyContactNumber', 'emergencyContactRelationship'];
+// The personal details on the form, with the employee record's field names, so they carry over when the applicant is
+// hired. The emergency contact and government numbers are not asked for here: they are pre-employment information.
+const detailFields = ['birthdate', 'sex', 'civilStatus', 'address'];
 
 function fieldFor($form, name) {
     return $form.find(`[name="${name}"]`);
@@ -46,23 +36,17 @@ function setFieldError($field, message) {
     }
 }
 
-// Each rule returns an error message, or '' when the value is valid (the same rules as the HR employee form).
+// Each rule returns an error message, or '' when the value is valid (the same rules as Create Account and the profile).
 const validationRules = {
-    birthdate: (value) => (value && value > todayIsoDate() ? 'The birthdate cannot be in the future.' : ''),
     jobTitleId: (value) => (value ? applicationBlockFor(accountId, value) : 'Select the position you are applying for.'),
+    birthdate: birthdateRule('Enter your birthdate.'),
+    sex: choiceRule(sexOptions, 'Select your sex.'),
+    civilStatus: choiceRule(civilStatusOptions, 'Select your civil status.'),
     phone: phoneRule,
-    emergencyContactName: personNameRule('Enter your emergency contact’s full name.'),
-    emergencyContactNumber: mobileNumberRule('Enter your emergency contact’s mobile number.'),
-    emergencyContactRelationship: (value) => (value ? '' : 'Select your emergency contact’s relationship to you.'),
-    sssNumber: sssRule,
-    philhealthNumber: philhealthRule,
-    pagibigNumber: pagibigRule,
-    tin: tinRule,
-    birNumber: idNumberRule,
 };
 
 /**
- * Lists the open positions under their department, keeping the current choice while it can still be chosen.
+ * Lists the open positions under their college, keeping the current choice while it can still be chosen.
  * Positions the applicant has already applied for are listed but cannot be chosen again. Returns how many can be chosen.
  */
 function renderPositions($form) {
@@ -92,22 +76,26 @@ function renderPositions($form) {
     return positions.filter((position) => !applied.has(position.id)).length;
 }
 
-// The chosen position's employment type, location, and department under the select.
-function renderPositionSummary($form) {
+// The chosen position's college, employment type, and location under the select; Back and Cancel return to its details.
+function renderPositionSummary($root, $form) {
     const position = findPosition(String(fieldFor($form, 'jobTitleId').val() ?? ''));
+    const positionsUrl = $root.attr('data-positions-url');
 
     $form.find('[data-apply-position-summary]').text(position
         ? [position.department, position.employmentType, position.location].filter(Boolean).join(' · ')
         : '');
+    $root.find('[data-apply-back]').attr('href', position ? `${positionsUrl}/${encodeURIComponent(position.id)}` : positionsUrl);
+    $root.find('[data-apply-back-label]').text(position ? 'Back to Position Details' : 'Back to Open Positions');
 }
 
-// The applicant's profile fills in the form, so nothing they gave before is asked for twice.
+// The applicant's account and profile fill in the form, so nothing they gave before is asked for twice.
 function prefill($form) {
     const account = getApplicantAccount(accountId);
 
-    $form.find('[data-apply-account="name"]').val(account.name);
-    $form.find('[data-apply-account="email"]').val(account.email);
-    [...detailFields, 'phone', ...emergencyFields].filter((field) => account[field]).forEach((field) => {
+    ['lastName', 'firstName', 'middleName', 'email'].forEach((field) => {
+        $form.find(`[data-apply-account="${field}"]`).val(account[field] || (field === 'middleName' ? '' : '—'));
+    });
+    [...detailFields, 'phone'].filter((field) => account[field]).forEach((field) => {
         const $field = fieldFor($form, field);
 
         $field.val(maskedForDisplay($field.attr('data-mask'), account[field]));
@@ -115,26 +103,35 @@ function prefill($form) {
     setDocuments($form, account.documents);
 }
 
-// Everything on the form, as Save Draft and Submit Application both send it.
+// Everything on the form, trimmed, as Save Draft and Submit Application both send it.
 function readForm($form) {
     return {
         jobTitleId: String(fieldFor($form, 'jobTitleId').val() ?? ''),
-        phone: String(fieldFor($form, 'phone').val() ?? ''),
-        ...Object.fromEntries([...detailFields, ...emergencyFields].map((field) => [field, String(fieldFor($form, field).val() ?? '')])),
+        phone: String(fieldFor($form, 'phone').val() ?? '').trim(),
+        ...Object.fromEntries(detailFields.map((field) => [field, String(fieldFor($form, field).val() ?? '').trim()])),
         documents: readDocuments($form),
     };
 }
 
-// A saved draft fills in the form (its blanks stay blank), including the position when that can still be chosen.
-function fillFromDraft($form, draft) {
-    ['phone', ...detailFields, ...emergencyFields].forEach((field) => {
+// A saved draft (or what was typed earlier in this tab) fills in the form, including the position when it can still be chosen.
+function fillFrom($root, $form, values) {
+    ['phone', ...detailFields].forEach((field) => {
         const $field = fieldFor($form, field);
 
-        $field.val(maskedForDisplay($field.attr('data-mask'), draft[field] ?? ''));
+        if (values[field] !== undefined) {
+            $field.val(maskedForDisplay($field.attr('data-mask'), values[field] ?? ''));
+        }
     });
-    setDocuments($form, draft.documents);
-    fieldFor($form, 'jobTitleId').val(draft.jobTitleId);
-    renderPositionSummary($form);
+
+    if (values.documents) {
+        setDocuments($form, values.documents);
+    }
+
+    if (values.jobTitleId && !applicationBlockFor(accountId, values.jobTitleId)) {
+        fieldFor($form, 'jobTitleId').val(values.jobTitleId);
+    }
+
+    renderPositionSummary($root, $form);
 }
 
 function initApplyPage($root) {
@@ -149,8 +146,15 @@ function initApplyPage($root) {
             .removeClass('d-none');
     }
 
+    // Keeps what is typed for this tab, so going back to a position's details and returning does not lose it.
+    function rememberProgress() {
+        if (!submitted) {
+            saveApplicationProgress({ ...readForm($form), draftId });
+        }
+    }
+
     setDocuments($form);
-    bindDocumentFields($form);
+    bindDocumentFields($form, { onChange: rememberProgress });
     bindMasks($form);
     fieldFor($form, 'birthdate').attr('max', todayIsoDate());
     prefill($form);
@@ -165,15 +169,16 @@ function initApplyPage($root) {
 
         $root.find('[data-apply-none]').toggleClass('d-none', hasPositions);
         $form.toggleClass('d-none', !hasPositions);
-        renderPositionSummary($form);
+        renderPositionSummary($root, $form);
     }
 
     // Once a field has been flagged, re-check it as it is corrected.
     $form.on('input change', '.is-invalid', function () {
-        setFieldError($(this), validationRules[$(this).attr('name')](String($(this).val() ?? '')));
+        setFieldError($(this), validationRules[$(this).attr('name')]?.(String($(this).val() ?? '')) ?? '');
     });
 
-    $form.on('change', '[name="jobTitleId"]', () => renderPositionSummary($form));
+    $form.on('input change', '[name]', rememberProgress);
+    $form.on('change', '[name="jobTitleId"]', () => renderPositionSummary($root, $form));
 
     $form.on('submit', function (event) {
         event.preventDefault();
@@ -202,8 +207,12 @@ function initApplyPage($root) {
         // The position closed, or an application for it came in, while the form was open (for example, from HR in another tab).
         if (!result.ok) {
             render();
-            setFieldError(fieldFor($form, 'jobTitleId'), result.error);
-            fieldFor($form, 'jobTitleId').trigger('focus');
+
+            const [field] = Object.keys(result.errors ?? {});
+            const $field = fieldFor($form, field ?? 'jobTitleId');
+
+            setFieldError($field, result.errors?.[field] ?? result.error);
+            $field.trigger('focus');
 
             return;
         }
@@ -211,7 +220,8 @@ function initApplyPage($root) {
         const { application } = result;
 
         submitted = true;
-        $success.find('[data-apply-field="firstName"]').text(application.name.split(/\s+/)[0]);
+        clearApplicationProgress();
+        $success.find('[data-apply-field="firstName"]').text(application.firstName || application.name.split(/\s+/)[0]);
         $success.find('[data-apply-field="jobTitle"]').text(application.jobTitle);
         $success.find('[data-apply-field="department"]').text(application.department);
         $success.find('[data-apply-field="appliedOn"]').text(formatDate(application.appliedOn));
@@ -237,6 +247,7 @@ function initApplyPage($root) {
 
         setFieldError(fieldFor($form, 'jobTitleId'), '');
         draftId = result.draft.id;
+        rememberProgress();
         window.history.replaceState(null, '', `${window.location.pathname}?draft=${encodeURIComponent(draftId)}`);
         showDraftNotice(result.draft);
         showToast('Draft saved. Your application has not been submitted yet.');
@@ -247,17 +258,26 @@ function initApplyPage($root) {
 
     // Reopening a saved draft: from the dashboard (?draft=), or by choosing the same position (?position=).
     const params = new URLSearchParams(window.location.search);
-    const draft = getApplicationDraft(accountId, { id: params.get('draft') ?? '', jobTitleId: params.get('position') ?? '' });
+    const requestedPosition = params.get('position') ?? '';
+    const draft = getApplicationDraft(accountId, { id: params.get('draft') ?? '', jobTitleId: requestedPosition });
 
     if (draft) {
         draftId = draft.id;
-        fillFromDraft($form, draft);
+        fillFrom($root, $form, draft);
         showDraftNotice(draft);
+    }
+
+    // What was typed earlier in this tab (and not submitted) comes back, unless it was for another position or draft.
+    const progress = getApplicationProgress();
+
+    if (progress && (progress.draftId || '') === draftId
+        && (!requestedPosition || !progress.jobTitleId || progress.jobTitleId === requestedPosition)) {
+        fillFrom($root, $form, progress);
     }
 
     // From a position's Apply Now (also after Create Account): choose that position, unless it is closed or
     // already applied for, which is explained instead.
-    const requested = draft ? draft.jobTitleId : params.get('position');
+    const requested = draft ? draft.jobTitleId : requestedPosition;
 
     if (requested) {
         const block = applicationBlockFor(accountId, requested);
@@ -266,7 +286,7 @@ function initApplyPage($root) {
             $root.find('[data-apply-position-notice]').text(`${block} Choose another position.`).removeClass('d-none');
         } else {
             fieldFor($form, 'jobTitleId').val(requested);
-            renderPositionSummary($form);
+            renderPositionSummary($root, $form);
         }
     }
 }
