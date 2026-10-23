@@ -37,10 +37,29 @@ class SetupTest extends TestCase
 
         $this->asUser($this->officer())->patchJson('/api/admin/programs/BSIT', ['slots' => 1])->assertOk();
 
-        // A second offer for the full program can't be accepted
+        // FR-21: the next passer is placed in their second choice, which still has slots
         $second = $this->released('passed', 'second@example.com');
+        $this->asUser($second)->getJson('/api/applicant/portal')->assertJsonPath('data.offer.program', 'BS Computer Science');
+        $this->asUser($second)->postJson('/api/applicant/offer/accept')->assertOk();
+    }
+
+    /** FR-21: an offer for a program that fills up before acceptance can't be accepted; staff place them elsewhere. */
+    public function test_full_program_and_staff_placement(): void
+    {
+        $second = $this->released('passed', 'second@example.com');   // offered BSIT (1st choice)
+        $this->accepted();                                            // takes a BSIT slot
+        $this->asUser($this->officer())->patchJson('/api/admin/programs/BSIT', ['slots' => 1])->assertOk();
+
         $this->asUser($second)->postJson('/api/applicant/offer/accept')
             ->assertStatus(422)->assertJsonPath('message', 'All BSIT slots have been taken. Contact the admission office.');
+
+        $number = $this->number($second);
+        $this->asUser($this->officer())->postJson("/api/admin/applicants/{$number}/placement", ['program' => 'BSN'])
+            ->assertStatus(422)->assertJsonPath('message', "BSN is not one of this applicant's three choices.");
+        $this->asUser($this->officer())->postJson("/api/admin/applicants/{$number}/placement", ['program' => 'ABPSY'])->assertOk();
+        $this->asUser($second)->getJson('/api/applicant/portal')->assertJsonPath('data.offer.program', 'AB Psychology');
+        $this->asUser($second)->postJson('/api/applicant/offer/accept')->assertOk();
+        $this->assertDatabaseHas('audit_logs', ['description' => 'Placed in ABPSY instead of BSIT']);
     }
 
     public function test_requirements_and_deadline(): void

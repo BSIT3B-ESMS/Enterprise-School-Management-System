@@ -198,8 +198,7 @@
   function getToken() { var t = readJSON("session", TOKEN_KEY); return t && t.token; }
   function setToken(token) { if (token) writeJSON("session", TOKEN_KEY, { token: token }); else removeKey("session", TOKEN_KEY); }
 
-  /* data: plain object (sent as JSON) or FormData (file upload). Returns a jqXHR. */
-  function api(method, url, data) {
+  function send(method, url, data) {
     var form = typeof FormData !== "undefined" && data instanceof FormData;
     var token = getToken();
     return $.ajax({
@@ -207,8 +206,53 @@
       headers: $.extend({ Accept: "application/json" }, token ? { Authorization: "Bearer " + token } : {}),
       data: form ? data : (data == null ? undefined : JSON.stringify(data)),
       contentType: form ? false : "application/json", processData: false
-    }).fail(function (xhr) {
-      if (xhr.status === 401 && token) { setToken(null); $(document).trigger("ao:signedout"); }
+    });
+  }
+
+  /* Access tokens last 15 minutes (NFR-04). On a 401 the token is swapped
+     once for a new one (calls waiting at the same time share the swap) and
+     the call is sent again; if that fails too, the user is signed out. */
+  var refreshing = null;
+  function refreshToken() {
+    if (!refreshing) {
+      refreshing = send("POST", "/api/auth/refresh")
+        .then(function (res) { setToken(res.data.token); })
+        .always(function () { refreshing = null; });
+    }
+    return refreshing;
+  }
+  function signedOut() { setToken(null); $(document).trigger("ao:signedout"); }
+
+  /* data: plain object (sent as JSON) or FormData (file upload). Returns a promise used like a jqXHR. */
+  function api(method, url, data) {
+    var token = getToken();
+    var result = $.Deferred();
+    send(method, url, data)
+      .done(result.resolve)
+      .fail(function (xhr) {
+        if (xhr.status !== 401 || !token || /\/api\/auth\/(login|refresh|logout)/.test(url)) {
+          if (xhr.status === 401 && token) signedOut();
+          return result.rejectWith(this, arguments);
+        }
+        refreshToken()
+          .done(function () {
+            send(method, url, data).done(result.resolve).fail(function (again) {
+              if (again.status === 401) signedOut();
+              result.rejectWith(this, arguments);
+            });
+          })
+          .fail(function () { signedOut(); result.reject(xhr); });
+      });
+    return result.promise();
+  }
+
+  /* A protected file (document preview, photo) as a fetch Response, refreshing the token once on a 401 */
+  function fetchFile(url) {
+    var get = function () { return fetch(url, { headers: { Authorization: "Bearer " + getToken() } }); };
+    return get().then(function (r) {
+      if (r.status !== 401 || !getToken()) return r;
+      return new Promise(function (resolve, reject) { refreshToken().done(resolve).fail(reject); })
+        .then(get, function () { signedOut(); return r; });
     });
   }
 
@@ -244,6 +288,6 @@
     showToast: showToast, withLoading: withLoading,
     setError: setError, clearError: clearError, validateFields: validateFields,
     moveNavIndicator: moveNavIndicator, closeSidebar: closeSidebar, revealView: revealView, initTooltips: initTooltips,
-    api: api, apiError: apiError, busy: busy, getToken: getToken, setToken: setToken
+    api: api, fetchFile: fetchFile, apiError: apiError, busy: busy, getToken: getToken, setToken: setToken
   };
 })(jQuery);

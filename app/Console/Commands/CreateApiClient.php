@@ -40,6 +40,7 @@ class CreateApiClient extends Command
         $ips = $this->option('ips') ? array_values(array_filter(array_map('trim', explode(',', $this->option('ips'))))) : null;
         $client = ApiClient::updateOrCreate(['name' => $name], [
             'key_hash' => ApiClient::hashKey($key), 'allowed_ips' => $ips, 'is_active' => true,
+            'expires_at' => now()->addDays(config('admission.api_key_days')), // NFR-05: rotate every 90 days
         ]);
         $audit->record($client->wasRecentlyCreated ? 'api_client.created' : 'api_client.rotated',
             ($client->wasRecentlyCreated ? 'Created' : 'Rotated the key of')." API client {$name}", $client);
@@ -47,6 +48,7 @@ class CreateApiClient extends Command
         $this->info(($client->wasRecentlyCreated ? 'Created' : 'Rotated the key of')." API client {$name}.");
         $this->line("X-API-Key: {$key}");
         $this->line('Give it to the other system over a secure channel. It is not shown again.');
+        $this->line('Expires '.$client->expires_at->toDateString().': run this command again before then to rotate it.');
 
         return self::SUCCESS;
     }

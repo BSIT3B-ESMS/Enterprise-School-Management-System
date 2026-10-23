@@ -116,6 +116,12 @@
       if (ADM.actions.resubmitDoc(a, key, remark)) afterChange(a, "Sent back to " + a.firstName + " with your remark.");
     });
   });
+  $(document).on("click", "#view-docreview [data-doc-reject]", function () {
+    var a = ADM.applicant($(this).data("id")), key = $(this).data("doc-reject");
+    ADM.ui.askRemark(a, key, function (remark) {
+      if (ADM.actions.rejectDoc(a, key, remark)) afterChange(a, "Document rejected. " + a.firstName + " was told why.");
+    });
+  });
   $(document).on("click", "#view-docreview [data-doc-view]", function () {
     var a = ADM.applicant($(this).data("id")), key = $(this).data("doc-view");
     var doc = a.docs[key];

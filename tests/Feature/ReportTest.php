@@ -19,7 +19,9 @@ class ReportTest extends TestCase
 
         $rows = fn (string $report) => $this->asUser($this->officer())->getJson("/api/reports/{$report}")->assertOk()->json('data.rows');
 
-        $this->assertContains(['BSIT', 'BS Information Technology', 2, 120, 1, 119], $rows('applicants-per-program'));
+        // FR-27: by choice: both chose BSIT first, BSCS second, ABPSY third
+        $this->assertContains(['BSIT', 'BS Information Technology', 2, 0, 0, 2, 120, 1, 119], $rows('applicants-per-program'));
+        $this->assertContains(['BSCS', 'BS Computer Science', 0, 2, 0, 2, 80, 0, 80], $rows('applicants-per-program'));
         $this->assertContains(['BSIT', 'BS Information Technology', 2, 1, 1, 50, 2], $rows('pass-rate'));
         $this->assertContains(['For medical', 1], $rows('status-breakdown'));
         $this->assertContains(['Did not pass', 1], $rows('status-breakdown'));

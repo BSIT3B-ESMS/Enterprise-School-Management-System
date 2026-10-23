@@ -4,10 +4,12 @@ namespace App\Http\Presenters;
 
 use App\Models\AdmissionPeriod;
 use App\Models\Application;
+use App\Models\Barangay;
 use App\Models\ExamSession;
 use App\Models\Program;
 use App\Models\Requirement;
 use App\Models\User;
+use App\Services\ProgramSuggestionService;
 use DateTimeImmutable;
 use DateTimeZone;
 use Illuminate\Support\Facades\DB;
@@ -53,8 +55,13 @@ class OfficeStatePresenter
                 'email' => $staff->email,
             ],
             'programs' => Program::orderBy('id')->get()->map(fn (Program $p) => [
-                'code' => $p->code, 'name' => $p->name, 'slots' => $p->slots,
+                'code' => $p->code, 'name' => $p->name, 'slots' => $p->slots, 'open' => $p->is_open,
             ])->all(),
+            // FR-06, FR-26: lists the office maintains (strand suggestions, barangays)
+            'reference' => [
+                'strandSuggest' => app(ProgramSuggestionService::class)->table(),
+                'barangays' => Barangay::byDistrict(),
+            ],
             'sessions' => ExamSession::where('admission_period_id', $period->id)->orderBy('date')->orderBy('batch')->get()
                 ->map(fn (ExamSession $s) => $this->session($s))->all(),
             'applicants' => $this->allApplicants($staff, $period->id),
@@ -99,7 +106,7 @@ class OfficeStatePresenter
     /** The given applications, in id order. */
     private function applicants(User $staff, array $ids): array
     {
-        $withScore = $staff->hasRole('admission');
+        $withScore = $staff->isAdmissionOffice();
 
         $rows = DB::table('applications as a')
             ->join('applicants as p', 'p.id', '=', 'a.applicant_id')

@@ -33,11 +33,15 @@ class ApplicantPortalPresenter
         $progress = $application->form_progress ?? ['step' => 1, 'completed' => []];
         $released = $application->result?->is_released ? $application->result : null;
         $period = $application->period;
+        // FR-20: until the result is released the applicant still sees "For exam"
+        $status = in_array($application->status, [ApplicationStatus::Passed, ApplicationStatus::Failed], true) && ! $released
+            ? ApplicationStatus::ForExam : $application->status;
 
         return [
             'applicationId' => $application->number,
-            'status' => $application->status->value,
-            'statusLabel' => $application->status->label(),
+            'status' => $status->value,
+            'statusLabel' => $status->label(),
+            'timeline' => $this->timeline($application, $released),
             'phase' => $this->phase($application),
             'emailVerified' => $application->applicant->user->hasVerifiedEmail(),
             'step' => (int) $progress['step'],
@@ -58,6 +62,7 @@ class ApplicantPortalPresenter
             'medical' => $this->medical($application),
             'programs' => ApplicantForm::programNames(),
             'suggestedPrograms' => $this->suggestions->suggestFor($application->applicant)->pluck('name')->all(),
+            'strandSuggestions' => $this->suggestions->namesByStrand(),
             'keyDates' => array_values(array_filter([
                 ['title' => 'Application deadline', 'date' => $period->application_deadline?->toDateString()],
                 ['title' => 'Entrance exam days', 'date' => $period->exam_starts_on?->toDateString(), 'end' => $period->exam_ends_on?->toDateString()],
@@ -114,6 +119,30 @@ class ApplicantPortalPresenter
             'venue' => $i->schedule->venue,
             'outcome' => $i->outcome,
         ];
+    }
+
+    /**
+     * FR-11: dated status timeline. Exam results appear only once released,
+     * dated on release; corrections made before release never show.
+     */
+    private function timeline(Application $application, $released): array
+    {
+        $decisions = [ApplicationStatus::Passed, ApplicationStatus::Failed];
+        $history = $application->statusHistory()->orderBy('id')->get();
+        // The last recorded decision is the one released; earlier ones were corrections
+        $lastDecision = $history->filter(fn ($h) => in_array($h->to_status, $decisions, true))->last();
+
+        $entries = [];
+        foreach ($history as $h) {
+            if (! in_array($h->to_status, $decisions, true)) {
+                $entries[] = ['status' => $h->to_status->value, 'label' => $h->to_status->label(), 'date' => $this->local($h->created_at)];
+            } elseif ($released && $h->is($lastDecision)) {
+                $decision = ApplicationStatus::from($released->decision);
+                $entries[] = ['status' => $decision->value, 'label' => $decision->label(), 'date' => $this->local($released->released_at)];
+            }
+        }
+
+        return $entries;
     }
 
     private function local($at): ?string

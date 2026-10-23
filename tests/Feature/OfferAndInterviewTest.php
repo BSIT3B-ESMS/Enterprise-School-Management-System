@@ -164,7 +164,7 @@ class OfferAndInterviewTest extends TestCase
         $number = $this->number($user);
         $this->asUser($this->officer())->patchJson("/api/admin/applicants/{$number}/exam", ['permitChecked' => true, 'formChecked' => true, 'attendance' => 'present'])->assertOk();
         $this->asUser($this->officer())->postJson("/api/admin/applicants/{$number}/result", ['score' => 85, 'decision' => 'passed'])->assertOk();
-        $this->asUser($this->officer())->postJson('/api/admin/results/release', ['ids' => [$number]])->assertOk();
+        $this->asUser($this->admissionHead())->postJson('/api/admin/results/release', ['ids' => [$number]])->assertOk();
 
         return $user;
     }

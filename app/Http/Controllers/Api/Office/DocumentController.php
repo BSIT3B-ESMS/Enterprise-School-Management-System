@@ -66,7 +66,7 @@ class DocumentController extends Controller
     private function decide(Request $request, Application $application, string $key, string $stage): JsonResponse
     {
         $data = $request->validate([
-            'status' => ['required', Rule::in(['verified', 'resubmit'])],
+            'status' => ['required', Rule::in(['verified', 'resubmit', 'rejected'])],
             'remark' => ['nullable', 'string', 'max:500'],
         ]);
         $requirement = $this->documents->requirement($key, $stage);

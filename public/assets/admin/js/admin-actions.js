@@ -65,6 +65,18 @@
       return true;
     },
 
+    // FR-09: not acceptable and not replaceable (remark required)
+    rejectDoc: function (a, key, remark) {
+      var doc = a.docs[key];
+      if (!doc || doc.status === "missing") return false;
+      doc.status = "rejected";
+      doc.remark = remark;
+      stamp(doc);
+      ADM.logApplicant(a, "Rejected \"" + docTitle(key) + "\": " + remark);
+      send("PATCH", applicantPath(a, "documents/" + key), { status: "rejected", remark: remark }, a);
+      return true;
+    },
+
     // Verify every document that is waiting for review
     verifyAllPending: function (a) {
       var n = 0;

@@ -50,6 +50,67 @@ That's it: no settings to edit. It uses SQLite (a single file, no database serve
 
 **Still to do:** GitHub Actions deploy secrets · least-privilege DB users (`app:db-privileges`) · email subject lines still say "PLP Online Admission" (hard-coded in `app/Notifications`).
 
+**Demo staff accounts (2026-10-24, on every server):** all non-applicant accounts will come from the Employment System ([docs/INTEGRATIONS.md](docs/INTEGRATIONS.md) §1), which isn't connected yet, so these two let the portals be used meanwhile. Made by `php artisan db:seed --class=DemoStaffAccountsSeeder --force` (running it again resets them). Disable them with `php artisan user:active <email> off` once real accounts arrive.
+
+| Who | Email | Password | Portal |
+|---|---|---|---|
+| Admission Head (all office work, including releasing results) | `abella_gabrielrey@plpasig.edu.ph` | `admin123` | `/admin` |
+| Clinic | `ignacio_keane@plpasig.edu.ph` | `clinic123` | `/nurse` |
+
+## ✅ SDD check (2026-10-24, [SDD-PLP-Online-Admission-System.md](SDD-PLP-Online-Admission-System.md))
+
+The SDD's requirements (§3–5: FR-01…FR-31, NFR-01…NFR-16, D-01…D-06) were checked one by one against the system; the gaps were built on branch `sdd-v2-gaps` (merged into `backend`). Sections 6–13 of the SDD are still the template's fictional example (Northbridge Schools), so there was nothing PLP-specific to check there. Sizing and load targets (NFR-02, NFR-03; 2,000 concurrent users, 20,000 applicants) were left out as agreed. Integrations are built API-ready ([docs/INTEGRATIONS.md](docs/INTEGRATIONS.md)). Tests: 111 passing (18 new in `SddRequirementsTest`).
+
+Legend: ✅ in the system · 🆕 added on 2026-10-24 · 🔌 built, switched off until a setting/other system · ⚠ partly / outside the code
+
+| ID | Requirement | Status |
+|---|---|---|
+| FR-01 | Register, email verification, one account (unique email, unique LRN) | ✅ |
+| FR-02 | Password reset; **lock 15 min after 5 failed sign-ins** | ✅ reset · 🆕 lockout |
+| FR-03 | Form fields incl. residency, district, barangay by district | ✅ (barangays now staff-maintained 🆕) |
+| FR-04 | Draft/resume; locked on submit; reopens on resubmission | ✅ |
+| FR-05 | Distinct 1st/2nd/3rd choice, open programs only | ✅ |
+| FR-06 | Suggested programs by strand, table maintained by staff | 🆕 strand→program table (DB), hint under the 1st choice. Staff edit it through `PUT /api/admin/strands` (no Settings screen yet) |
+| FR-07 | Document checklist by applicant type | ✅ (+ Good Moral and Grade 12 report card, decided in H1) |
+| FR-08 | PDF/JPG/PNG ≤ 5 MB, content check, malware scan, replace while pending/resubmit | ✅ (ClamAV on the server) |
+| FR-09 | Verified / **Rejected** / Requires resubmission, remark required, applicant notified | ✅ · 🆕 Rejected (Reject button in the panel, "Not accepted" in the portal) |
+| FR-10 | For Exam only when all mandatory documents verified | ✅ |
+| FR-11 | Dated status timeline | 🆕 "Status history" card on the applicant overview |
+| FR-12 | Email + in-app notification on each change | ✅ email · ⚠ in-app notices stored and served by `/api/notifications`, the portal has no notification list yet |
+| FR-13 | SMS (Could) | 🔌 `SMS_DRIVER` |
+| FR-14 | Dates, Batch A/B, rooms, capacity; **system assigns** without exceeding capacity | ✅ · 🆕 automatic seating (`POST /api/admin/exam/auto-assign`, and approve without a session) |
+| FR-15 | Permit with photo, QR, what to bring; printable form | ✅ |
+| FR-16 | Rosters per room and batch; Present/Absent | ✅ · 🆕 roster PDF/JSON per session |
+| FR-17 | QR check-in; long brown envelope received | ✅ QR (API) · 🆕 envelope (`envelopeReceived`). No scanner screen in the panel yet |
+| FR-18 | Online exam | Won't (D-01) |
+| FR-19 | Record results one by one **or by CSV**; scores never shown to applicants | ✅ · 🆕 CSV import (Results → Import CSV) |
+| FR-20 | Hidden until the **Admission Head** releases; logged; notifies | 🆕 `admission_head` role, release limited to it · 🆕 fixed: the portal's `status` showed "passed/failed" before release |
+| FR-21 | Place each pass in one of the 3 choices within slots; PDF letter | 🆕 highest choice with a free slot; staff can move them (`POST /api/admin/applicants/{no}/placement`) · ✅ letter |
+| FR-22 | Medical submission, cleared by authorised staff | ✅ (Clinic portal) |
+| FR-23 | Review queues, counts, search/filter | ✅ |
+| FR-24 | Applicant record with change history | ✅ |
+| FR-25 | Flag possible duplicates | ✅ (LRN unique; same name + birthday flagged) · 🆕 report |
+| FR-26 | Periods, programs, slots, requirements, strand map, barangays, venues without code changes | ✅ programs/slots/requirements/deadline in the panel · 🆕 period dates, open/close programs, strands, barangays, session venue/capacity via API (no screens yet) |
+| FR-27 | 6 reports; CSV, XLSX, PDF | ✅ · 🆕 by 1st/2nd/3rd choice, CSV |
+| FR-28 | Dashboard | ✅ |
+| FR-29 | Export admitted applicants to the Registrar | 🆕 report (CSV/XLSX/PDF) + `GET /api/integrations/registrar/admitted` |
+| FR-30 | Roles: Applicant, Admission Staff, Admission Head, Proctor, Medical, Read-only, System Admin | 🆕 `admission_head`, `proctor`, `read_only` · 🆕 accounts from the Employment System (`/api/integrations/employment/employees`), 🔌 until it connects |
+| FR-31 | Privacy notice; parent/guardian consent under 18 | ✅ notice · 🆕 consent fields appear for under-18s and are required |
+| NFR-04 | TLS, bcrypt, min 8; **JWT 15 min**, rotating refresh; MFA for staff | ✅ TLS/bcrypt · 🆕 15-min tokens refreshed silently by the portals · 🔌 staff MFA (`STAFF_2FA_REQUIRED`; the staff panels have no code screen yet) |
+| NFR-05 | Server-side RBAC; API keys hashed, **rotated every 90 days** | ✅ · 🆕 key expiry |
+| NFR-06 | 5/min rate limit, **CAPTCHA**, uploads outside web root, pen test | ✅ rate limit, private storage (served through signed-in requests, not 5-minute links) · 🔌 CAPTCHA (`CAPTCHA_DRIVER`) · ⚠ pen test not done |
+| NFR-07 | RA 10173: PIA, minimal fields, encryption at rest, PH hosting | ⚠ organisational (PIA, NPC); backups encrypted; the demo server is in Sydney |
+| NFR-08 | Delete non-admitted documents 12 months after the period | 🆕 `app:retention` 🔌 `RETENTION_ENABLED` (until the DPO approves) |
+| NFR-09 | Audit every change with user, time, IP, before/after; append-only | ✅ · 🆕 before/after on setup and account changes |
+| NFR-10 | RPO 15 min (binlogs), RTO 4 h, off-site copy, restore test | ⚠ nightly encrypted backup on the server only |
+| NFR-13 | Emails queued, retried | ✅ |
+| NFR-14 | Supported Laravel/PHP/MySQL; tests | ✅ Laravel 13, PHP 8.4, MySQL 8; 111 tests |
+| NFR-15 | Outage alert within 5 min | ⚠ `/up` and Pulse exist; no UptimeRobot alert set |
+| NFR-01, 02, 03, 11, 12, 16 | Availability, load, WCAG, browsers, Filipino help | Not checked (sizing left out as agreed; no accessibility/browser audit yet) |
+
+**New settings** (`.env.example`): `JWT_TTL=15`, `JWT_REFRESH_TTL=1440`, `LOCKOUT_ATTEMPTS/MINUTES`, `CAPTCHA_DRIVER/SITE_KEY/SECRET`, `SMS_DRIVER/URL/API_KEY/SENDER`, `API_KEY_DAYS`, `RETENTION_MONTHS`, `RETENTION_ENABLED`.
+**New migration:** `2026_10_24_000100_sdd_v2_requirements` (lockout and Employment link on users, guardian consent, envelope receipt, API key expiry, `strands`/`strand_program`/`barangays`, `purged_at`, three new roles).
+
 ## ❓ Open questions (everything waiting on a decision)
 
 **Blocking features**

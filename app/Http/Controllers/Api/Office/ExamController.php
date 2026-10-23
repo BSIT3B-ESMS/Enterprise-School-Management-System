@@ -2,14 +2,19 @@
 
 namespace App\Http\Controllers\Api\Office;
 
+use App\Exceptions\BusinessRuleException;
 use App\Http\Controllers\Controller;
 use App\Http\Presenters\OfficeStatePresenter;
 use App\Models\Application;
 use App\Models\ExamSession;
+use App\Models\Program;
 use App\Services\ExamService;
+use App\Services\OfferService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Symfony\Component\HttpFoundation\Response;
 
 /** Entrance exams and Results screens (FR-06, FR-07, FR-08). Admission personnel only. */
 class ExamController extends Controller
@@ -32,11 +37,57 @@ class ExamController extends Controller
         return response()->json(['data' => $this->presenter->session($session)], 201);
     }
 
+    /** Approve for the exam. Without a sessionId the earliest session with a free seat is used (FR-14). */
     public function approve(Request $request, Application $application): JsonResponse
     {
-        $this->exams->approve($application, $this->session($request), $request->user());
+        $session = $request->filled('sessionId') ? $this->session($request)
+            : ($this->exams->nextOpenSession() ?? throw new BusinessRuleException('Every upcoming exam session is full. Add a session first.'));
+        $this->exams->approve($application, $session, $request->user());
 
         return $this->applicant($application);
+    }
+
+    /**
+     * FR-14: seat every applicant whose documents are all verified in the
+     * earliest sessions with room. Body: { ids?: ["AD-2026-00001", …] }.
+     */
+    public function autoAssign(Request $request): JsonResponse
+    {
+        $data = $request->validate(['ids' => ['nullable', 'array', 'max:5000'], 'ids.*' => ['string']]);
+        $result = $this->exams->autoAssign($data['ids'] ?? null, $request->user());
+
+        return response()->json([
+            'data' => Application::whereIn('number', $result['assigned'])->get()->map(fn (Application $a) => $this->presenter->applicant($a))->all(),
+            'assigned' => count($result['assigned']),
+            'waiting' => $result['waiting'],
+            'message' => count($result['assigned']).' assigned'.($result['waiting'] ? ', '.count($result['waiting']).' waiting for a free seat (add a session)' : '').'.',
+        ]);
+    }
+
+    /** FR-16: printable roster for one room and batch. GET …/roster?format=pdf|json */
+    public function sessionRoster(Request $request, string $session): Response
+    {
+        $session = ExamSession::findOrFail(ExamSession::idFromPublic($session));
+        $roster = $this->exams->roster($session);
+        if ($request->query('format') !== 'pdf') {
+            return response()->json(['data' => $roster]);
+        }
+
+        return Pdf::loadView('pdf.report', ['report' => $roster, 'by' => $request->user()->name])
+            ->setPaper('a4', 'landscape')->download('roster-'.$session->publicId().'.pdf');
+    }
+
+    /** FR-19: results from a CSV upload (file) or pasted text (csv). */
+    public function importResults(Request $request): JsonResponse
+    {
+        $request->validate([
+            'file' => ['required_without:csv', 'file', 'mimes:csv,txt', 'max:2048'],
+            'csv' => ['required_without:file', 'string', 'max:2000000'],
+        ]);
+        $csv = $request->hasFile('file') ? (string) file_get_contents($request->file('file')->getRealPath()) : (string) $request->input('csv');
+        $result = $this->exams->importResults($csv, $request->user());
+
+        return response()->json(['data' => $result, 'message' => "{$result['recorded']} result".($result['recorded'] === 1 ? '' : 's').' recorded'.($result['errors'] ? ', '.count($result['errors']).' lines skipped.' : '.')]);
     }
 
     public function reschedule(Request $request, Application $application): JsonResponse
@@ -53,6 +104,7 @@ class ExamController extends Controller
             'permitChecked' => ['sometimes', 'boolean'],
             'formChecked' => ['sometimes', 'boolean'],
             'attendance' => ['sometimes', 'nullable', Rule::in(['present', 'absent'])],
+            'envelopeReceived' => ['sometimes', 'boolean'],
         ]);
         $this->exams->updateRoster($application, $data, $request->user());
 
@@ -86,7 +138,16 @@ class ExamController extends Controller
         return $this->applicant($application);
     }
 
-    /** Single or bulk release. Body: { ids: ["AD-2026-00001", …] }. */
+    /** FR-21: place a released pass in one of their three choices. Body: { program: "BSIT" }. */
+    public function place(Request $request, Application $application, OfferService $offers): JsonResponse
+    {
+        $data = $request->validate(['program' => ['required', 'string', 'max:20']]);
+        $offers->place($application, Program::where('code', $data['program'])->firstOrFail(), $request->user());
+
+        return $this->applicant($application);
+    }
+
+    /** Single or bulk release (FR-20: Admission Head only). Body: { ids: ["AD-2026-00001", …] }. */
     public function release(Request $request): JsonResponse
     {
         $data = $request->validate([

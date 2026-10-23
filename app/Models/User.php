@@ -33,6 +33,7 @@ class User extends Authenticatable implements JWTSubject
             'two_factor_secret' => 'encrypted',
             'two_factor_confirmed_at' => 'datetime',
             'last_login_at' => 'datetime',
+            'locked_until' => 'datetime',
         ];
     }
 
@@ -45,6 +46,12 @@ class User extends Authenticatable implements JWTSubject
     public function deanOf(): HasOne
     {
         return $this->hasOne(College::class, 'dean_user_id');
+    }
+
+    /** Admission Staff or Admission Head. */
+    public function isAdmissionOffice(): bool
+    {
+        return (bool) $this->primaryRole()?->isAdmissionOffice();
     }
 
     /** The user's single role (each account has exactly one). */

@@ -7,7 +7,7 @@
 @section('body_role', 'nurse')
 
 @push('styles')
-  <link href="{{ asset('assets/admin/css/admin.css') }}" rel="stylesheet">
+  <link href="{{ \App\Support\Asset::v('assets/admin/css/admin.css') }}" rel="stylesheet">
 @endpush
 
 @section('content')
@@ -196,7 +196,7 @@
 
 @push('scripts')
   {{-- Shared with the office panel: store (state shape, medStatus) and UI helpers. No office actions. --}}
-  <script src="{{ asset('assets/admin/js/admin-store.js') }}"></script>
-  <script src="{{ asset('assets/admin/js/admin-ui.js') }}"></script>
-  <script src="{{ asset('assets/nurse/js/nurse.js') }}"></script>
+  <script src="{{ \App\Support\Asset::v('assets/admin/js/admin-store.js') }}"></script>
+  <script src="{{ \App\Support\Asset::v('assets/admin/js/admin-ui.js') }}"></script>
+  <script src="{{ \App\Support\Asset::v('assets/nurse/js/nurse.js') }}"></script>
 @endpush

@@ -303,6 +303,12 @@
   }
   $(document).on("click", "#view-applicant [data-doc-verify]", function () { verify(currentApplicant(), $(this).data("doc-verify")); });
   $(document).on("click", "#view-applicant [data-doc-resubmit]", function () { resubmit(currentApplicant(), $(this).data("doc-resubmit")); });
+  $(document).on("click", "#view-applicant [data-doc-reject]", function () {
+    var a = currentApplicant(), key = $(this).data("doc-reject");
+    ADM.ui.askRemark(a, key, function (remark) {
+      if (ADM.actions.rejectDoc(a, key, remark)) { ADM.refresh(); AO.showToast("Document rejected. The applicant was told why."); }
+    });
+  });
   $(document).on("click", "#verify-all", function () {
     var a = currentApplicant();
     var n = ADM.actions.verifyAllPending(a);

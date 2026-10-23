@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 #[Fillable([
     'user_id', 'possible_duplicate_of', 'lrn', 'last_name', 'first_name', 'middle_name', 'sex', 'birthday', 'civil_status', 'phone',
     'address', 'city', 'province', 'zip', 'is_resident', 'district', 'barangay',
-    'guardian_name', 'guardian_phone', 'has_guardian', 'last_school', 'school_type', 'strand',
+    'guardian_name', 'guardian_phone', 'has_guardian', 'guardian_consent_name', 'guardian_consent_at', 'last_school', 'school_type', 'strand',
     'grad_year', 'applicant_type', 'gwa',
 ])]
 class Applicant extends Model
@@ -25,6 +25,7 @@ class Applicant extends Model
             'birthday' => 'date',
             'is_resident' => 'boolean',
             'has_guardian' => 'boolean',
+            'guardian_consent_at' => 'datetime',
             'district' => 'integer',
             'gwa' => 'decimal:2',
         ];

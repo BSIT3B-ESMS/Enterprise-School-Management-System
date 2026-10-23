@@ -23,10 +23,10 @@ class ReportController extends Controller
         return response()->json(['data' => $this->reports->available($request->user())]);
     }
 
-    /** GET /api/reports/{report}?format=json|xlsx|pdf */
+    /** GET /api/reports/{report}?format=json|csv|xlsx|pdf */
     public function show(Request $request, string $report, AuditLogger $audit): Response
     {
-        $format = $request->validate(['format' => ['nullable', 'in:json,xlsx,pdf']])['format'] ?? 'json';
+        $format = $request->validate(['format' => ['nullable', 'in:json,csv,xlsx,pdf']])['format'] ?? 'json';
         $data = $this->reports->build($report, $request->user());
         if ($format === 'json') {
             return response()->json(['data' => $data]);
@@ -35,8 +35,13 @@ class ReportController extends Controller
         $audit->record('report.exported', "Exported the \"{$data['title']}\" report ({$format})", meta: ['report' => $report]);
         $name = $report.'-'.now()->format('Y-m-d').'.'.$format;
 
-        return $format === 'xlsx'
-            ? response()->download($this->reports->toXlsx($data), $name)->deleteFileAfterSend()
-            : Pdf::loadView('pdf.report', ['report' => $data, 'by' => $request->user()->name])->setPaper('a4', 'landscape')->download($name);
+        return match ($format) {
+            'csv' => response($this->reports->toCsv($data), 200, [
+                'Content-Type' => 'text/csv; charset=UTF-8',
+                'Content-Disposition' => 'attachment; filename="'.$name.'"',
+            ]),
+            'xlsx' => response()->download($this->reports->toXlsx($data), $name)->deleteFileAfterSend(),
+            default => Pdf::loadView('pdf.report', ['report' => $data, 'by' => $request->user()->name])->setPaper('a4', 'landscape')->download($name),
+        };
     }
 }

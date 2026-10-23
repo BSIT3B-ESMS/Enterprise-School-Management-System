@@ -70,6 +70,8 @@ $(function () {
   // Open programs, key dates and the exam schedule come from the server
   var PROGRAMS = [];
   var KEY_DATES = [];
+  var TIMELINE = [];   // FR-11: [{ status, label, date }]
+  var STRAND_SUGGEST = {};   // FR-06: strand => suggested program names (maintained by the office)
   var EXAM = { date: AO.toISO(AO.today()), time: "", venue: "", permit: "" };
   function keyDate(title, fallback) { var k = KEY_DATES.filter(function (x) { return x.title === title; })[0]; return k ? k.date : fallback; }
 
@@ -154,6 +156,8 @@ $(function () {
     APP_ID = p.applicationId;
     PROGRAMS = p.programs;
     KEY_DATES = p.keyDates;
+    TIMELINE = p.timeline || [];
+    STRAND_SUGGEST = p.strandSuggestions || {};
     if (p.exam) EXAM = p.exam;
     serverPhase = p.phase;
     state.step = p.step || 1;
@@ -277,7 +281,9 @@ $(function () {
     var register = AO.api("POST", "/api/auth/register", {
       first_name: $("#signup-first").val().trim(), last_name: $("#signup-last").val().trim(),
       email: $("#signup-email").val().trim(), phone: $("#signup-phone").val().trim(),
-      password: $("#signup-password").val(), password_confirmation: $("#signup-confirm").val(), terms: $("#signup-terms").is(":checked")
+      password: $("#signup-password").val(), password_confirmation: $("#signup-confirm").val(), terms: $("#signup-terms").is(":checked"),
+      // NFR-06: the CAPTCHA widget's token, when the server has one switched on
+      captcha: $('[name="cf-turnstile-response"], [name="g-recaptcha-response"]').first().val() || undefined
     }).then(function (res) {
       if (res.data.two_factor_required) return res.data;
       AO.setToken(res.data.token);
@@ -293,6 +299,8 @@ $(function () {
         var errors = (xhr.responseJSON && xhr.responseJSON.errors) || {};
         var shown = false;
         Object.keys(errors).forEach(function (k) { if (SIGNUP_FIELDS[k]) { setError($(SIGNUP_FIELDS[k]), errors[k][0]); shown = true; } });
+        if (errors.captcha) { $("#signup-captcha-error").text(errors.captcha[0]); shown = true; }
+        if (window.turnstile) window.turnstile.reset(); else if (window.grecaptcha) window.grecaptcha.reset();
         if (!shown) showToast(AO.apiError(xhr));
       });
   });
@@ -690,6 +698,11 @@ $(function () {
       var note = left > 1 ? "In " + left + " days" : left === 1 ? "Tomorrow" : left === 0 ? "Today" : "Passed";
       return "<li><span>" + esc(k.title) + "<small>" + note + '</small></span><time datetime="' + k.date + '">' + when + "</time></li>";
     }).join(""));
+    // FR-11: dated status timeline from the server
+    $("#timeline-panel").prop("hidden", !TIMELINE.length);
+    $("#status-timeline").html(TIMELINE.map(function (t) {
+      return "<li><span>" + esc(t.label) + '</span><time datetime="' + esc(t.date) + '">' + esc(fmt(t.date, { month: "short", day: "numeric", year: "numeric" })) + "</time></li>";
+    }).join(""));
   }
 
   /* ==========================================================================
@@ -709,7 +722,21 @@ $(function () {
     });
     syncResidency();
     $("#barangay").val(state.data.barangay || "");
+    syncMinor();
+    syncSuggestions();
   }
+  // FR-31: a parent's or guardian's consent only for applicants under 18
+  function syncMinor() {
+    var b = $("#birth-date").val(), minor = !!b && (today() - parseDate(b)) / 31557600000 < 18;
+    $(".minor-only").prop("hidden", !minor).find("input, select").prop("disabled", !minor);
+  }
+  $("#birth-date").on("change input", syncMinor);
+  // FR-06: suggestions follow the strand chosen in section 2
+  function syncSuggestions() {
+    var list = (STRAND_SUGGEST[$("#strand").val() || state.data.strand] || []).filter(function (n) { return PROGRAMS.indexOf(n) !== -1; });
+    $("#strand-suggestions").prop("hidden", !list.length).text(list.length ? "Suggested for your strand: " + list.join(", ") + "." : "");
+  }
+  $("#strand").on("change", syncSuggestions);
   // District and barangay only for Pasig residents; barangay list follows the district
   function syncResidency() {
     var resident = $("#is-resident").val() === "1", district = $("#district").val();
@@ -841,11 +868,12 @@ $(function () {
     var f = state.docs[doc.key];
     if (f && f.status === "verified") return '<span class="tag tag-verified">' + icon("check") + "Verified</span>";
     if (f && f.status === "resubmit") return '<span class="tag tag-required">Replace this file</span>';
+    if (f && f.status === "rejected") return '<span class="tag tag-required">Not accepted</span>';
     if (state.phase === "review") return '<span class="tag tag-review">In review</span>';
     return f ? '<span class="tag tag-uploaded">' + icon("check") + "Uploaded</span>" : '<span class="tag tag-required">Required</span>';
   }
   // Admissions verified it: it can't be replaced or removed any more
-  function docFixed(key) { var f = state.docs[key]; return locked() || (f && f.status === "verified"); }
+  function docFixed(key) { var f = state.docs[key]; return locked() || (f && (f.status === "verified" || f.status === "rejected")); }
 
   function docExtra(doc) {
     if (doc.extra === "photo") {
@@ -857,7 +885,7 @@ $(function () {
 
   function docCardHTML(doc, uploading) {
     var f = hasDoc(doc.key) || uploading ? state.docs[doc.key] : null;
-    var sentBack = state.docs[doc.key] && state.docs[doc.key].status === "resubmit" ? state.docs[doc.key] : null;
+    var sentBack = state.docs[doc.key] && (state.docs[doc.key].status === "resubmit" || state.docs[doc.key].status === "rejected") ? state.docs[doc.key] : null;
     var body;
     if (f) {
       var thumb = previews[doc.key] ? '<img src="' + previews[doc.key] + '" alt="">' : icon(f.type === "application/pdf" ? "file" : doc.icon);
@@ -1019,7 +1047,7 @@ $(function () {
   // An image as a data URL for jsPDF (null if it can't be loaded)
   function imageData(url, auth) {
     var d = $.Deferred();
-    fetch(url, auth ? { headers: { Authorization: "Bearer " + AO.getToken() } } : {})
+    (auth ? AO.fetchFile(url) : fetch(url))
       .then(function (r) { if (!r.ok) throw r; return r.blob(); })
       .then(function (blob) {
         if (blob.type.indexOf("image/") !== 0) throw blob;

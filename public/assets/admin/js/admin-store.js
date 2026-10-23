@@ -34,7 +34,8 @@
     missing: { label: "Not uploaded", tag: "tag-missing" },
     pending: { label: "For review", tag: "tag-review" },
     verified: { label: "Verified", tag: "tag-verified" },
-    resubmit: { label: "Resubmit", tag: "tag-resubmit" }
+    resubmit: { label: "Resubmit", tag: "tag-resubmit" },
+    rejected: { label: "Rejected", tag: "tag-resubmit" }
   };
 
   // Freshmen documentary requirements. "when" decides who must upload it.
@@ -118,6 +119,15 @@
       var d = res.data;
       $.extend(STAFF, d.staff);
       ["version", "programs", "sessions", "applicants", "settings", "audit"].forEach(function (k) { state[k] = d[k]; });
+      // FR-26: the server's strand suggestions and barangays replace the built-in lists (in place: views hold references)
+      if (d.reference) {
+        Object.keys(STRAND_SUGGEST).forEach(function (k) { delete STRAND_SUGGEST[k]; });
+        $.extend(STRAND_SUGGEST, d.reference.strandSuggest);
+        STRANDS.length = 0;
+        Array.prototype.push.apply(STRANDS, Object.keys(STRAND_SUGGEST));
+        Object.keys(BARANGAYS).forEach(function (k) { delete BARANGAYS[k]; });
+        $.extend(BARANGAYS, d.reference.barangays);
+      }
       invalidate();
     });
   }
@@ -156,7 +166,7 @@
 
   function docSummary(a) {
     var req = requiredDocs(a);
-    var s = { total: req.length, verified: 0, pending: 0, resubmit: 0, missing: 0 };
+    var s = { total: req.length, verified: 0, pending: 0, resubmit: 0, rejected: 0, missing: 0 };
     req.forEach(function (d) { var st = (a.docs[d.key] || { status: "missing" }).status; s[st] = (s[st] || 0) + 1; });
     return s;
   }

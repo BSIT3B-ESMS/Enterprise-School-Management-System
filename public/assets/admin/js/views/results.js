@@ -50,7 +50,12 @@
       sessions.map(function (s) { return '<option value="' + s.id + '"' + (f.session === s.id ? " selected" : "") + ">" + esc(ADM.sessionLabel(s)) + "</option>"; }).join("") + "</select>" +
       '<select class="form-select" id="res-program" aria-label="Filter by program"><option value="">All programs</option>' +
       ADM.state.programs.map(function (p) { return '<option value="' + p.code + '"' + (f.program === p.code ? " selected" : "") + ">" + esc(p.code) + "</option>"; }).join("") + "</select>" +
-      (f.tab === "release" && list.length ? '<button class="btn btn-brand ms-auto" type="button" id="release-all">' + icon("send") + "Release " + list.length + " result" + (list.length === 1 ? "" : "s") + "</button>" : "") +
+      // FR-20: only the Admission Head releases results
+      (f.tab === "release" && list.length ? (ADM.STAFF.roleKey === "admission_head"
+        ? '<button class="btn btn-brand ms-auto" type="button" id="release-all">' + icon("send") + "Release " + list.length + " result" + (list.length === 1 ? "" : "s") + "</button>"
+        : '<span class="text-muted small ms-auto">Only the Admission Head can release results.</span>') : "") +
+      // FR-19: results from a CSV file (application number, score, decision)
+      (f.tab === "record" ? '<label class="btn btn-ghost ms-auto mb-0" for="results-csv" title="Columns: application number, score, decision (optional)">' + icon("upload") + 'Import CSV</label><input type="file" id="results-csv" accept=".csv,text/csv" hidden>' : "") +
       (f.tab === "released" && list.length ? '<button class="btn btn-ghost ms-auto" type="button" id="export-results">' + icon("download") + "Export CSV</button>" : "") +
       "</div>" +
       (f.tab !== "record" && list.length ? '<p class="table-note">' + passedIn + " passed · " + (list.length - passedIn) + " did not pass</p>" : "") +
@@ -101,6 +106,22 @@
       ADM.refresh();
       AO.showToast(n + " result" + (n === 1 ? "" : "s") + " released.");
     });
+  });
+
+  $(document).on("change", "#results-csv", function () {
+    var file = this.files && this.files[0];
+    this.value = "";
+    if (!file) return;
+    var body = new FormData();
+    body.append("file", file);
+    AO.api("POST", "/api/admin/results/import", body)
+      .done(function (res) {
+        var errors = res.data.errors || {};
+        var lines = Object.keys(errors).map(function (line) { return "Line " + line + ": " + errors[line]; });
+        AO.showToast(res.message + (lines.length ? " " + lines.slice(0, 3).join(" ") + (lines.length > 3 ? " …" : "") : ""));
+        ADM.reload();
+      })
+      .fail(function (xhr) { if (xhr.status !== 401) AO.showToast(AO.apiError(xhr)); });
   });
 
   $(document).on("click", "#export-results", function () {

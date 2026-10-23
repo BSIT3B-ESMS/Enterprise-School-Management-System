@@ -70,6 +70,7 @@
         (has ? '<button class="btn btn-ghost btn-sm" type="button" data-doc-view="' + d.key + '"' + id + ">" + icon("eye") + "View</button>" : "") +
         (editable && has && doc.status !== "verified" ? '<button class="btn btn-ok btn-sm" type="button" data-doc-verify="' + d.key + '"' + id + ">" + icon("check") + "Verify</button>" : "") +
         (editable && has && doc.status !== "resubmit" ? '<button class="btn btn-warn btn-sm" type="button" data-doc-resubmit="' + d.key + '"' + id + ">" + icon("flag") + "Resubmit</button>" : "") +
+        (editable && has && doc.status !== "rejected" ? '<button class="btn btn-ghost btn-sm text-danger" type="button" data-doc-reject="' + d.key + '"' + id + ">" + icon("x") + "Reject</button>" : "") +
         "</div></li>";
     }).join("");
   }
@@ -228,9 +229,7 @@
   function loadPreview(a, key) {
     if (previewUrl) { URL.revokeObjectURL(previewUrl); previewUrl = null; }
     var $slot = $("#doc-preview [data-doc-file]");
-    fetch(ADM.fileUrl(a, key), {
-      headers: { Authorization: "Bearer " + AO.getToken() }
-    }).then(function (r) {
+    AO.fetchFile(ADM.fileUrl(a, key)).then(function (r) {
       if (!r.ok) throw r;
       return r.blob();
     }).then(function (blob) {

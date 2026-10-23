@@ -113,7 +113,7 @@ class InterviewService
     /** Programs whose interviews the user may see: the dean's college, or all for admission personnel. */
     public function visiblePrograms(User $user)
     {
-        if ($user->hasRole(Role::Admission->value)) {
+        if ($user->isAdmissionOffice() || $user->hasRole(Role::ReadOnly->value)) {
             return Program::orderBy('code')->get();
         }
         $college = $user->deanOf;

@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\Rules\Password as PasswordRule;
 use Illuminate\Validation\ValidationException;
+use PHPOpenSourceSaver\JWTAuth\Exceptions\JWTException;
 
 /**
  * JWT authentication for both portals (NFR-04). Every endpoint answers in
@@ -53,8 +54,17 @@ class AuthController extends Controller
     {
         $user = User::where('email', $request->string('email'))->first();
 
+        // FR-02: locked for 15 minutes after 5 failed sign-ins in a row
+        if ($user?->locked_until?->isFuture()) {
+            throw ValidationException::withMessages(['email' => $this->lockedMessage($user)]);
+        }
         if (! $user || ! Hash::check($request->string('password'), $user->password)) {
-            throw ValidationException::withMessages(['email' => "The email or password doesn't match our records."]);
+            if ($user) {
+                $this->recordFailedLogin($user);
+            }
+            throw ValidationException::withMessages(['email' => $user?->locked_until?->isFuture()
+                ? $this->lockedMessage($user)
+                : "The email or password doesn't match our records."]);
         }
         if (! $user->is_active) {
             throw ValidationException::withMessages(['email' => 'This account is disabled. Contact the admission office.']);
@@ -62,7 +72,7 @@ class AuthController extends Controller
         if (! $this->allowedOnPortal($user, $request->string('portal'))) {
             $hint = match ($user->primaryRole()) {
                 Role::Clinic => ' Clinic accounts sign in at the clinic portal (/nurse).',
-                Role::Admission => ' Admission staff sign in at the admission office (/admin).',
+                Role::Admission, Role::AdmissionHead, Role::Proctor, Role::ReadOnly => ' Admission office accounts sign in at /admin.',
                 default => '',
             };
             throw ValidationException::withMessages(['email' => "This account can't sign in here.".$hint]);
@@ -140,11 +150,26 @@ class AuthController extends Controller
         return response()->json(['data' => $this->userPayload($request->user())]);
     }
 
+    /**
+     * NFR-04: a new 15-minute access token for the current one, even if it
+     * has just expired (within JWT_REFRESH_TTL). The old token is revoked,
+     * so each token can be refreshed once (rotation).
+     */
     public function refresh(): JsonResponse
     {
-        $user = auth('api')->user();
+        try {
+            $token = auth('api')->refresh();
+        } catch (JWTException) {
+            return response()->json(['message' => 'Your session has ended. Sign in again.'], 401);
+        }
+        $user = auth('api')->setToken($token)->user();
+        if (! $user || ! $user->is_active) {
+            auth('api')->invalidate();
 
-        return $this->tokenPayload(auth('api')->refresh(), $user);
+            return response()->json(['message' => 'Your session has ended. Sign in again.'], 401);
+        }
+
+        return $this->tokenPayload($token, $user);
     }
 
     public function logout(Request $request): JsonResponse
@@ -188,9 +213,30 @@ class AuthController extends Controller
         return response()->json(['message' => 'Your password has been changed. You can sign in now.']);
     }
 
+    private function recordFailedLogin(User $user): void
+    {
+        $max = (int) config('admission.lockout.attempts');
+        $failed = $user->failed_logins + 1;
+        if ($failed < $max) {
+            $user->forceFill(['failed_logins' => $failed])->save();
+
+            return;
+        }
+        $minutes = (int) config('admission.lockout.minutes');
+        $user->forceFill(['failed_logins' => 0, 'locked_until' => now()->addMinutes($minutes)])->save();
+        $this->audit->record('auth.locked', "Account locked for {$minutes} minutes after {$max} failed sign-ins", $user, actorName: 'System');
+    }
+
+    private function lockedMessage(User $user): string
+    {
+        $minutes = max(1, (int) ceil(now()->diffInSeconds($user->locked_until) / 60));
+
+        return "Too many failed sign-ins. Try again in {$minutes} minute".($minutes === 1 ? '' : 's').', or reset your password.';
+    }
+
     private function completeLogin(User $user, bool $twoFactor = false): JsonResponse
     {
-        $user->forceFill(['last_login_at' => now()])->save();
+        $user->forceFill(['last_login_at' => now(), 'failed_logins' => 0, 'locked_until' => null])->save();
         // FR-15: every sign-in is audited
         $user->primaryRole()?->isStaff()
             ? $this->audit->record('auth.login', 'Signed in to the admission office panel'.($twoFactor ? ' (two-factor)' : ''), actor: $user)
@@ -204,7 +250,7 @@ class AuthController extends Controller
         // Each sign-in screen lets in its own roles only (NFR-01). The dean signs in on the office side.
         return in_array($user->primaryRole(), match ($portal) {
             'applicant' => [Role::Applicant],
-            'office' => [Role::Admission, Role::CollegeDean],
+            'office' => [Role::Admission, Role::AdmissionHead, Role::CollegeDean, Role::Proctor, Role::ReadOnly],
             'clinic' => [Role::Clinic],
         }, true);
     }

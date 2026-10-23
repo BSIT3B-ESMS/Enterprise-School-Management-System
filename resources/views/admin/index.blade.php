@@ -5,7 +5,7 @@
 @section('body_class', 'admin')
 
 @push('styles')
-  <link href="{{ asset('assets/admin/css/admin.css') }}" rel="stylesheet">
+  <link href="{{ \App\Support\Asset::v('assets/admin/css/admin.css') }}" rel="stylesheet">
 @endpush
 
 @section('content')
@@ -357,17 +357,17 @@
 @endsection
 
 @push('scripts')
-  <script src="{{ asset('assets/admin/js/admin-store.js') }}"></script>
-  <script src="{{ asset('assets/admin/js/admin-actions.js') }}"></script>
-  <script src="{{ asset('assets/admin/js/admin-ui.js') }}"></script>
-  <script src="{{ asset('assets/admin/js/views/dashboard.js') }}"></script>
-  <script src="{{ asset('assets/admin/js/views/applicants.js') }}"></script>
-  <script src="{{ asset('assets/admin/js/views/documents.js') }}"></script>
-  <script src="{{ asset('assets/admin/js/views/exams.js') }}"></script>
-  <script src="{{ asset('assets/admin/js/views/results.js') }}"></script>
-  <script src="{{ asset('assets/admin/js/views/medical.js') }}"></script>
-  <script src="{{ asset('assets/admin/js/views/reports.js') }}"></script>
-  <script src="{{ asset('assets/admin/js/views/settings.js') }}"></script>
-  <script src="{{ asset('assets/admin/js/views/audit.js') }}"></script>
-  <script src="{{ asset('assets/admin/js/admin.js') }}"></script>
+  <script src="{{ \App\Support\Asset::v('assets/admin/js/admin-store.js') }}"></script>
+  <script src="{{ \App\Support\Asset::v('assets/admin/js/admin-actions.js') }}"></script>
+  <script src="{{ \App\Support\Asset::v('assets/admin/js/admin-ui.js') }}"></script>
+  <script src="{{ \App\Support\Asset::v('assets/admin/js/views/dashboard.js') }}"></script>
+  <script src="{{ \App\Support\Asset::v('assets/admin/js/views/applicants.js') }}"></script>
+  <script src="{{ \App\Support\Asset::v('assets/admin/js/views/documents.js') }}"></script>
+  <script src="{{ \App\Support\Asset::v('assets/admin/js/views/exams.js') }}"></script>
+  <script src="{{ \App\Support\Asset::v('assets/admin/js/views/results.js') }}"></script>
+  <script src="{{ \App\Support\Asset::v('assets/admin/js/views/medical.js') }}"></script>
+  <script src="{{ \App\Support\Asset::v('assets/admin/js/views/reports.js') }}"></script>
+  <script src="{{ \App\Support\Asset::v('assets/admin/js/views/settings.js') }}"></script>
+  <script src="{{ \App\Support\Asset::v('assets/admin/js/views/audit.js') }}"></script>
+  <script src="{{ \App\Support\Asset::v('assets/admin/js/admin.js') }}"></script>
 @endpush
