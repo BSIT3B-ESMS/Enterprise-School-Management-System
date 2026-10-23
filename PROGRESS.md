@@ -1,5 +1,50 @@
 # Backend Progress
 
+## 🔗 Portals (live server)
+
+| Portal | Link | Who signs in |
+|---|---|---|
+| **Applicant portal** | https://plp-admission-system.3-24-200-123.sslip.io/ | Applicants (create an account there) |
+| **Admin portal** | https://plp-admission-system.3-24-200-123.sslip.io/admin | Admin, Admission Personnel, College Deans (each sees their own screens) |
+| **Nurse portal** (clinic) | https://plp-admission-system.3-24-200-123.sslip.io/nurse | University clinic |
+
+## 👤 Accounts (live server)
+
+> ⚠ Real passwords on a public server: don't share this file outside the team. All staff accounts will come from the Employment System once it is connected ([docs/INTEGRATIONS.md](docs/INTEGRATIONS.md) §1); until then these demo accounts are used. Disable one with `php artisan user:active <email> off`. The demo accounts (Admin, Clinic, Deans) are made or reset with `php artisan db:seed --class=DemoStaffAccountsSeeder --force`.
+
+| Role | Portal | Email | Password |
+|---|---|---|---|
+| **Admin** (whole system) | /admin | `abella_gabrielrey@plpasig.edu.ph` | `admin123` |
+| **Admission Personnel** | /admin | `admissions@plpasig.edu.ph` | `ZCm8HQyHxroo3z3d` |
+| **Admission Personnel** | /admin | `r.dizon@plpasig.edu.ph` | `mkduaLO1bvRfN8YJ` |
+| **College Dean**, College of Arts and Sciences (ABPSY, BSMATH) | /admin | `dean.cas@plpasig.edu.ph` | `dean1234` |
+| **College Dean**, College of Business and Accountancy (BSA, BSBA-ENT, BSBA-MM) | /admin | `dean.cba@plpasig.edu.ph` | `dean1234` |
+| **College Dean**, College of Computer Studies (BSIT, BSCS) | /admin | `dean.ccs@plpasig.edu.ph` | `dean1234` |
+| **College Dean**, College of Hospitality Management (BSHM) | /admin | `dean.chm@plpasig.edu.ph` | `dean1234` |
+| **College Dean**, College of Engineering (BSECE) | /admin | `dean.coe@plpasig.edu.ph` | `dean1234` |
+| **College Dean**, College of Education (BEED, BSED-ENG, BSED-FIL) | /admin | `dean.coed@plpasig.edu.ph` | `dean1234` |
+| **College Dean**, College of Nursing (BSN) | /admin | `dean.con@plpasig.edu.ph` | `dean1234` |
+| **Clinic** | /nurse | `ignacio_keane@plpasig.edu.ph` | `clinic123` |
+| **Clinic** | /nurse | `clinic@plpasig.edu.ph` | `ffn8Psp7taheBy0s` |
+| **Applicant** (any of the 60 samples, e.g. `andrea.manalo0@example.com`; list in the admin portal's Applicants) | / | sample email | `B3m0KhRvwNQ68wao` |
+| **System administrator** (server commands, `/pulse`, `/log-viewer`; no portal) | — | `sysadmin@plpasig.edu.ph` | `(d}6b,30k.^S&~<*vUel` |
+
+**On this computer** (`php artisan app:start`, http://127.0.0.1:8000): the same demo Admin, Clinic and Dean accounts and passwords; `admissions@`, `r.dizon@`, `clinic@` and the sample applicants use `password123`.
+
+### What each role sees in the Admin portal (use-case diagrams, 2026-10-24)
+
+The portal reads the role from the sign-in; the server enforces the same limits on every request.
+
+| Role | Screens | Can't |
+|---|---|---|
+| **Admin**: the whole system | Dashboard · Applicants (student module) · Document review · Entrance exams · Results (also **releases** them) · Interviews · Medical (clinic module, read-only) · Evaluation results (every college's, and can record an evaluation) · Reports · Programs & requirements (also **sets the dates of admission**) · Audit log | Open medical files (clinic only) |
+| **Admission Personnel**: the admissions work | Applicants (registration) · Document review (verification) · Entrance exams · Results (record) · Interviews (schedule, assign) · Medical (read-only) · Programs & requirements (admission slot setup, which programs need an interview) | Release results, set admission dates, see the dashboard, reports or audit log |
+| **College Dean**: own college only | Applicant list (only applicants who chose one of the college's programs, e.g. the CCS dean sees BSIT/BSCS applicants) · Applicant evaluation (grade + Passed / Failed / Refer) · Evaluation results / referral | Anything outside their college; any office screen |
+
+The **Nurse portal** (clinic) has Document verification and Medical approval; the **Applicant portal** has Application, Documents, Exam, Interview, Results and Medical.
+
+Which programs need a dean's evaluation is set per program in Programs & requirements → **Interview** (on now: BSN only). A dean whose programs have it off still sees the applicant list, but has nobody to evaluate.
+
 ## ▶ Quick start: the simplest way to run the system
 
 **On this computer (already set up):** open a terminal in the project folder and run one command:
@@ -9,13 +54,7 @@ cd D:\Admission_System
 php artisan app:start
 ```
 
-Open **http://127.0.0.1:8000/admin** (admission staff), **http://127.0.0.1:8000/nurse** (clinic) or **http://127.0.0.1:8000/** (applicants). Press `Ctrl+C` in the terminal to stop.
-
-| Who | Email | Password |
-|---|---|---|
-| Admission staff | `admissions@plpasig.edu.ph` | `password123` |
-| Clinic (at /nurse) | `clinic@plpasig.edu.ph` | `password123` |
-| Applicant | click **Create account** on http://127.0.0.1:8000/ | your own |
+Open **http://127.0.0.1:8000/admin** (Admin, Admission Personnel, College Deans), **http://127.0.0.1:8000/nurse** (clinic) or **http://127.0.0.1:8000/** (applicants). Press `Ctrl+C` in the terminal to stop. Accounts: see **Accounts** at the top.
 
 **On a new computer (one time):** install [Laravel Herd](https://herd.laravel.com) (it gives you PHP and Composer), then:
 
@@ -30,19 +69,7 @@ That's it: no settings to edit. It uses SQLite (a single file, no database serve
 
 ## ☁ AWS server (demo, set up 2026-10-21)
 
-**PLP Admission System, live at https://plp-admission-system.3-24-200-123.sslip.io** · staff: **https://plp-admission-system.3-24-200-123.sslip.io/admin** · applicants: **https://plp-admission-system.3-24-200-123.sslip.io/** (HTTPS; the bare IP http://3.24.200.123 redirects here)
-
-> ⚠ These passwords are real and work on a public server. Don't share this file outside the team, and change them before real applicants use the system (`php artisan user:create`/password reset, or disable with `php artisan user:active <email> off`).
-
-| Who | Email | Password |
-|---|---|---|
-| Admission staff | `admissions@plpasig.edu.ph` | `ZCm8HQyHxroo3z3d` |
-| Admission staff | `r.dizon@plpasig.edu.ph` | `mkduaLO1bvRfN8YJ` |
-| Clinic | `clinic@plpasig.edu.ph` | `ffn8Psp7taheBy0s` |
-| College dean (Nursing) | `dean.con@plpasig.edu.ph` | `GDBwBeHP3VEK2ryK` |
-| College dean (Computer Studies) | `dean.ccs@plpasig.edu.ph` | `3nwWvE6tO70q5Kvl` |
-| Sysadmin (`/pulse`, `/log-viewer` and server commands only; can't use the office portal) | `sysadmin@plpasig.edu.ph` | `(d}6b,30k.^S&~<*vUel` |
-| Any of the 60 sample applicants (e.g. `andrea.manalo0@example.com`) | see the applicant list in the office panel | `B3m0KhRvwNQ68wao` |
+The three portal links and every account are at the top of this file. HTTPS; the bare IP http://3.24.200.123 redirects to https://plp-admission-system.3-24-200-123.sslip.io.
 
 **Server:** AWS Free plan ($100 credits, ends 2027-04-17 unless upgraded), region Sydney `ap-southeast-2`, EC2 `t3.small` Ubuntu 24.04, Elastic IP `3.24.200.123`, MySQL 8 on the same server, Nginx + PHP 8.4-FPM, queue worker (Supervisor), scheduler (cron), ClamAV. SSH: `ssh -i C:\Users\Keane\.ssh\oas-key.pem ubuntu@3.24.200.123` (only from the allowlisted IP in security group `oas-web`). App in `/var/www/admission`, code pulled from `backend` with a read-only deploy key.
 
@@ -50,16 +77,9 @@ That's it: no settings to edit. It uses SQLite (a single file, no database serve
 
 **Still to do:** GitHub Actions deploy secrets · least-privilege DB users (`app:db-privileges`) · email subject lines still say "PLP Online Admission" (hard-coded in `app/Notifications`).
 
-**Demo staff accounts (2026-10-24, on every server):** all non-applicant accounts will come from the Employment System ([docs/INTEGRATIONS.md](docs/INTEGRATIONS.md) §1), which isn't connected yet, so these two let the portals be used meanwhile. Made by `php artisan db:seed --class=DemoStaffAccountsSeeder --force` (running it again resets them). Disable them with `php artisan user:active <email> off` once real accounts arrive.
-
-| Who | Email | Password | Portal |
-|---|---|---|---|
-| Admission Head (all office work, including releasing results) | `abella_gabrielrey@plpasig.edu.ph` | `admin123` | `/admin` |
-| Clinic | `ignacio_keane@plpasig.edu.ph` | `clinic123` | `/nurse` |
-
 ## ✅ SDD check (2026-10-24, [SDD-PLP-Online-Admission-System.md](SDD-PLP-Online-Admission-System.md))
 
-The SDD's requirements (§3–5: FR-01…FR-31, NFR-01…NFR-16, D-01…D-06) were checked one by one against the system; the gaps were built on branch `sdd-v2-gaps` (merged into `backend`). Sections 6–13 of the SDD are still the template's fictional example (Northbridge Schools), so there was nothing PLP-specific to check there. Sizing and load targets (NFR-02, NFR-03; 2,000 concurrent users, 20,000 applicants) were left out as agreed. Integrations are built API-ready ([docs/INTEGRATIONS.md](docs/INTEGRATIONS.md)). Tests: 111 passing (18 new in `SddRequirementsTest`).
+The SDD's requirements (§3–5: FR-01…FR-31, NFR-01…NFR-16, D-01…D-06) were checked one by one against the system; the gaps were built on branch `sdd-v2-gaps` (merged into `backend`). Sections 6–13 of the SDD are still the template's fictional example (Northbridge Schools), so there was nothing PLP-specific to check there. Sizing and load targets (NFR-02, NFR-03; 2,000 concurrent users, 20,000 applicants) were left out as agreed. Integrations are built API-ready ([docs/INTEGRATIONS.md](docs/INTEGRATIONS.md)). Tests: 111 passing (18 new in `SddRequirementsTest`); 116 after the role-based Admin portal (2026-10-24).
 
 Legend: ✅ in the system · 🆕 added on 2026-10-24 · 🔌 built, switched off until a setting/other system · ⚠ partly / outside the code
 

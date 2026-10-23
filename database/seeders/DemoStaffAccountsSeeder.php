@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Enums\Role;
+use App\Models\College;
 use App\Models\User;
 use App\Services\AuditLogger;
 use Illuminate\Database\Seeder;
@@ -15,8 +16,7 @@ use Illuminate\Database\Seeder;
  * resets these passwords and re-enables the accounts.
  *
  * Remove them when the Employment System sends real accounts:
- *   php artisan user:active abella_gabrielrey@plpasig.edu.ph off
- *   php artisan user:active ignacio_keane@plpasig.edu.ph off
+ *   php artisan user:active <email> off
  */
 class DemoStaffAccountsSeeder extends Seeder
 {
@@ -26,9 +26,22 @@ class DemoStaffAccountsSeeder extends Seeder
         ['ignacio_keane@plpasig.edu.ph', 'Keane Ignacio', Role::Clinic, 'clinic123'],
     ];
 
+    /** One demo College Dean per college: dean.<code>@plpasig.edu.ph, who sees only that college's applicants. */
+    public const DEAN_PASSWORD = 'dean1234';
+
+    public static function deanEmail(string $collegeCode): string
+    {
+        return 'dean.'.strtolower($collegeCode).'@plpasig.edu.ph';
+    }
+
     public function run(AuditLogger $audit): void
     {
-        foreach (self::ACCOUNTS as [$email, $name, $role, $password]) {
+        $accounts = array_map(fn ($a) => [...$a, null], self::ACCOUNTS);
+        foreach (College::orderBy('code')->get() as $college) {
+            $accounts[] = [self::deanEmail($college->code), "Dean, {$college->name}", Role::CollegeDean, self::DEAN_PASSWORD, $college];
+        }
+
+        foreach ($accounts as [$email, $name, $role, $password, $college]) {
             $user = User::withTrashed()->firstOrNew(['email' => $email]);
             $created = ! $user->exists;
             $user->trashed() && $user->restore();
@@ -41,8 +54,9 @@ class DemoStaffAccountsSeeder extends Seeder
                 'source' => 'demo',
             ])->save();
             $user->syncRoles([$role->value]);
+            $college?->update(['dean_user_id' => $user->id]);
             $audit->record($created ? 'account.created' : 'account.updated',
-                ($created ? 'Created' : 'Reset').' demo '.$role->label()." account {$email} (until the Employment System is connected)", $user, actorName: 'System');
+                ($created ? 'Created' : 'Reset').' demo '.$role->label()." account {$email}".($college ? " ({$college->code})" : '').' (until the Employment System is connected)', $user, actorName: 'System');
         }
     }
 }

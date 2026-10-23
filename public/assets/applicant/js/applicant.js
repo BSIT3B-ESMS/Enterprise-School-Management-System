@@ -71,6 +71,7 @@ $(function () {
   var PROGRAMS = [];
   var KEY_DATES = [];
   var TIMELINE = [];   // FR-11: [{ status, label, date }]
+  var INTERVIEW = null, OFFER = null, STATUS = "draft";
   var STRAND_SUGGEST = {};   // FR-06: strand => suggested program names (maintained by the office)
   var EXAM = { date: AO.toISO(AO.today()), time: "", venue: "", permit: "" };
   function keyDate(title, fallback) { var k = KEY_DATES.filter(function (x) { return x.title === title; })[0]; return k ? k.date : fallback; }
@@ -159,6 +160,10 @@ $(function () {
     TIMELINE = p.timeline || [];
     STRAND_SUGGEST = p.strandSuggestions || {};
     if (p.exam) EXAM = p.exam;
+    // Applicant module "Interview": the college's evaluation (outcome only, never the grade) and the offer
+    INTERVIEW = p.interview;
+    OFFER = p.offer;
+    STATUS = p.status;
     serverPhase = p.phase;
     state.step = p.step || 1;
     state.completed = p.completed || [];
@@ -560,6 +565,7 @@ $(function () {
         '<span class="ticket-info"><strong>' + ed.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" }) + "</strong>" +
         "<span>" + icon("clock") + esc(EXAM.time) + "</span><span>" + icon("pin") + esc(EXAM.venue) + "</span><span>" + icon("ticket") + "Exam permit " + esc(EXAM.permit) + "</span></span>" +
         '<span class="ticket-cta">' + icon("download") + '<span class="btn-label">Download permit</span></span></button>';
+      if (STATUS === "for_interview" || STATUS === "interview_failed") return interviewPanelHTML();
       if (done) {
         return '<div class="sp-row"><span class="sp-icon">' + icon("pencil") + '</span><div class="sp-body"><h3>Entrance exam completed</h3><p>You took the exam on ' + fmt(EXAM.date, { month: "long", day: "numeric", year: "numeric" }) + ". Your result is ready.</p></div></div>";
       }
@@ -573,9 +579,10 @@ $(function () {
     // Result
     var first = esc(d.firstName || "applicant");
     var facts = '<div class="result-facts">' +
-      '<div class="fact"><span>Program</span><strong>' + esc(d.program1 || PROGRAMS[0]) + "</strong></div>" +
+      '<div class="fact"><span>Program</span><strong>' + esc((OFFER && OFFER.program) || d.program1 || PROGRAMS[0]) + "</strong></div>" +
       '<div class="fact"><span>Campus</span><strong>' + esc(d.campus || "Main Campus") + " · AY 2027–2028</strong></div>" +
-      '<div class="fact"><span>Entrance exam</span><strong>Passed · 89th percentile</strong></div></div>';
+      '<div class="fact"><span>Entrance exam</span><strong>Passed</strong></div>' +
+      (INTERVIEW && INTERVIEW.outcome ? '<div class="fact"><span>College evaluation</span><strong>' + (INTERVIEW.outcome === "referred" ? "Referred to " + esc((OFFER && OFFER.program) || "another program") : "Passed") + "</strong></div>" : "") + "</div>";
     var steps = '<ol class="next-steps">' +
       '<li><span>1</span><strong>Accept your offer</strong><time>in this portal</time></li>' +
       '<li><span>2</span><strong>Submit your medical requirements</strong><time>after accepting</time></li>' +
@@ -864,6 +871,22 @@ $(function () {
   /* ==========================================================================
      DOCUMENTS
      ========================================================================== */
+  /* Interview (college evaluation) for programs that require one */
+  function interviewPanelHTML() {
+    if (STATUS === "interview_failed") {
+      return '<div class="sp-row"><span class="sp-icon">' + icon("users") + '</span><div class="sp-body"><h3>College evaluation completed</h3>' +
+        "<p>Thank you for attending your evaluation. You were not admitted to this program. Contact the admission office if you have questions.</p></div></div>";
+    }
+    if (!INTERVIEW) {
+      return '<div class="sp-row"><span class="sp-icon">' + icon("users") + '</span><div class="sp-body"><h3>You passed the entrance exam</h3>' +
+        "<p>Your first-choice program also needs an evaluation by its college. Admissions will email you its date, time and venue.</p></div></div>";
+    }
+    var when = fmt(INTERVIEW.date, { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+    return '<div class="sp-row"><span class="sp-icon">' + icon("users") + '</span><div class="sp-body"><h3>Your college evaluation</h3>' +
+      "<p>You passed the entrance exam. Your first-choice program needs an evaluation by its college before the offer.</p>" +
+      '<p class="mb-0"><strong>' + esc(when) + "</strong>" + (INTERVIEW.time ? " · " + esc(INTERVIEW.time) : "") + " · " + esc(INTERVIEW.venue) + "</p></div></div>";
+  }
+
   function docTag(doc) {
     var f = state.docs[doc.key];
     if (f && f.status === "verified") return '<span class="tag tag-verified">' + icon("check") + "Verified</span>";

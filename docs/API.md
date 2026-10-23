@@ -5,7 +5,7 @@ JSON API under `/api`, used by the existing applicant portal and admission offic
 ## Conventions
 
 - **Auth:** `Authorization: Bearer <JWT>` from `POST /api/auth/login`. Access tokens last **15 minutes** (NFR-04); `POST /api/auth/refresh` swaps a token for a new one, even just after it expired (within `JWT_REFRESH_TTL`, 24 h), and revokes the old one (rotation). The portals do this silently on a `401`. A disabled account is refused on its next request. **5 failed sign-ins lock the account for 15 minutes** (FR-02).
-- **Roles (SDD FR-30):** `applicant`, `admission` (Admission Staff), `admission_head` (also releases results, FR-20), `proctor` (exam day), `read_only` (deans, registrar, DPO: view and reports), `college_dean` (interviews, own college), `clinic` (Medical), `sysadmin`. Staff accounts will come from the Employment System ([INTEGRATIONS.md](INTEGRATIONS.md)). The sysadmin works through artisan commands, Pulse and Log Viewer ([RUNBOOK.md](RUNBOOK.md)), not this API.
+- **Roles (SDD FR-30):** `applicant`, `admission` (Admission Staff), `admission_head` (the **Admin**: the whole system; also releases results and sets the admission dates), `proctor` (exam day), `read_only` (deans, registrar, DPO: view and reports), `college_dean` (interviews, own college), `clinic` (Medical), `sysadmin`. Staff accounts will come from the Employment System ([INTEGRATIONS.md](INTEGRATIONS.md)). The sysadmin works through artisan commands, Pulse and Log Viewer ([RUNBOOK.md](RUNBOOK.md)), not this API.
 - **2FA** (column below): staff routes also require a completed two-factor sign-in when `STAFF_2FA_REQUIRED=true`.
 - **Applications** are addressed by their number (`AD-2026-00001`); documents and medical items by their requirement key (`birthCert`, `xray`, …).
 - **Responses:** `{ "data": … }`. Validation errors: `422` with `{ "message", "errors": { field: [messages] } }`. Refused by a business rule (e.g. exam session full): `422` with `message`. Wrong role or not your record: `403`.
@@ -76,9 +76,10 @@ JSON API under `/api`, used by the existing applicant portal and admission offic
 | POST | `/api/admin/interview-schedules` | admission | Interview schedule per program, with capacity (FR-17) |
 | POST | `/api/admin/applicants/{no}/interview` | admission | Assign a *Passed Exam* applicant to an interview |
 | GET | `/api/admin/interviews` | admission | Interview outcomes |
-| POST / PATCH | `/api/admin/programs`, `/api/admin/programs/{code}` | office | Programs: `{ slots?, name?, open? }`; slots can't go below accepted |
+| POST / PATCH | `/api/admin/programs`, `/api/admin/programs/{code}` | office | Programs: `{ slots?, name?, open?, requiresInterview? }`; slots can't go below accepted |
 | PATCH | `/api/admin/requirements/{key}` | office | Turn a requirement on/off |
-| PATCH | `/api/admin/admission-period` | office | `{ deadline?, label?, opensOn?, examStartsOn?, examEndsOn?, resultsReleaseOn?, acceptanceWindowDays? }` (FR-26) |
+| PATCH | `/api/admin/admission-period` | **admission_head** | Dates of admission: `{ deadline?, label?, opensOn?, examStartsOn?, examEndsOn?, resultsReleaseOn?, acceptanceWindowDays? }` (FR-26) |
+| POST | `/api/admin/applicants/{no}/evaluation` | **admission_head** | Record a dean's evaluation for any college (same body as the dean's) |
 | PUT | `/api/admin/strands` | office | `{ name, programs: [CODE…], active? }`: a strand and its suggested programs (FR-06, FR-26) |
 | PUT | `/api/admin/barangays/{1\|2}` | office | `{ names: [...] }`: the whole barangay list of a district (FR-26) |
 
@@ -86,8 +87,9 @@ JSON API under `/api`, used by the existing applicant portal and admission offic
 
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/api/dean/interviews` | Interviews for the dean's college |
-| POST | `/api/dean/applicants/{no}/interview` | Record grade (Restricted) and Passed/Failed |
+| GET | `/api/dean/applicants` | Applicant list: submitted applicants who chose one of the college's programs (no scores, no contact details) |
+| GET | `/api/dean/interviews` | Evaluations (interviews) for the dean's college |
+| POST | `/api/dean/applicants/{no}/interview` | `{ grade, outcome: passed\|failed\|referred, program? (referred: another of the applicant's choices, without its own interview), remark? }`. Grade is Restricted |
 
 ## Reports (FR-27; 2FA)
 

@@ -17,7 +17,7 @@ enum Role: string
 {
     case Applicant = 'applicant';
     case Admission = 'admission';          // Admission Staff (evaluator)
-    case AdmissionHead = 'admission_head'; // also releases results (FR-20)
+    case AdmissionHead = 'admission_head'; // "Admin": every office screen, releases results (FR-20), sets dates, audit log
     case CollegeDean = 'college_dean';     // own college: interviews and read-only lists
     case Clinic = 'clinic';                // Medical: university clinic
     case Proctor = 'proctor';              // exam day: rosters, check-in, attendance (FR-16, FR-17)
@@ -29,7 +29,7 @@ enum Role: string
         return match ($this) {
             self::Applicant => 'Applicant',
             self::Admission => 'Admission Personnel',
-            self::AdmissionHead => 'Admission Head',
+            self::AdmissionHead => 'Admin',
             self::CollegeDean => 'College Dean',
             self::Clinic => 'University Clinic',
             self::Proctor => 'Exam Proctor',

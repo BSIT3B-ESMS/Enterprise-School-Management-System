@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\Applicant\ApplicationController;
 use App\Http\Controllers\Api\Applicant\DocumentController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\DeanController;
 use App\Http\Controllers\Api\Integration\EmploymentController;
 use App\Http\Controllers\Api\Integration\EnrollmentController;
 use App\Http\Controllers\Api\Integration\RegistrarController;
@@ -97,7 +98,11 @@ Route::prefix('admin')->middleware(['auth:api', 'active', 'two_factor'])->group(
         Route::get('exam-sessions/{session}/roster', [Office\ExamController::class, 'sessionRoster']);
     });
 
+    // Admin only (use-case diagram "Admin Module"): release results (FR-20), set the admission dates
     Route::post('results/release', [Office\ExamController::class, 'release'])->middleware('role:admission_head');
+    Route::patch('admission-period', [Office\SetupController::class, 'updatePeriod'])->middleware('role:admission_head');
+    // The Admin can also record a dean's evaluation (any college)
+    Route::post('applicants/{application}/evaluation', [InterviewController::class, 'record'])->middleware('role:admission_head');
 });
 
 Route::prefix('admin')->middleware(['auth:api', 'active', 'two_factor', 'role:admission|admission_head'])->group(function () {
@@ -126,7 +131,6 @@ Route::prefix('admin')->middleware(['auth:api', 'active', 'two_factor', 'role:ad
     Route::post('programs', [Office\SetupController::class, 'storeProgram']);
     Route::patch('programs/{program:code}', [Office\SetupController::class, 'updateProgram']);
     Route::patch('requirements/{key}', [Office\SetupController::class, 'updateRequirement']);
-    Route::patch('admission-period', [Office\SetupController::class, 'updatePeriod']);
     Route::put('strands', [Office\SetupController::class, 'saveStrand']);
     Route::put('barangays/{district}', [Office\SetupController::class, 'saveBarangays'])->whereNumber('district');
 });
@@ -144,8 +148,9 @@ Route::prefix('clinic')->middleware(['auth:api', 'active', 'two_factor', 'role:c
     });
 });
 
-// College Dean (FR-17): interviews for the dean's own college. API only (no screens yet).
+// College Dean module (admin portal): applicant list, evaluation and results/referral, own college only
 Route::prefix('dean')->middleware(['auth:api', 'active', 'two_factor', 'role:college_dean'])->group(function () {
+    Route::get('applicants', [DeanController::class, 'applicants']);
     Route::get('interviews', [InterviewController::class, 'index']);
     Route::post('applicants/{application}/interview', [InterviewController::class, 'record']);
 });

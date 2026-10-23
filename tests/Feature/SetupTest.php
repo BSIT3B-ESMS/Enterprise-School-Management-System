@@ -71,7 +71,7 @@ class SetupTest extends TestCase
         $user = $this->makeApplicant(true);
         $this->asUser($user)->postJson('/api/applicant/submit')->assertJsonMissing(['Parent\'s government-issued ID']);
 
-        $this->asUser($this->officer())->patchJson('/api/admin/admission-period', ['deadline' => '2026-12-04'])
+        $this->asUser($this->admissionHead())->patchJson('/api/admin/admission-period', ['deadline' => '2026-12-04'])
             ->assertOk()->assertJsonPath('data.deadline', '2026-12-04');
         $this->assertSame('2026-12-04', AdmissionPeriod::current()->application_deadline->toDateString());
         $this->assertDatabaseHas('audit_logs', ['description' => 'Stopped requiring "Parent\'s government-issued ID"']);

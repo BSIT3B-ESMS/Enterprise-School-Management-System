@@ -35,30 +35,34 @@ class OfferService
         if ($application->status !== ApplicationStatus::Passed) {
             return;
         }
+        // A first choice that requires an interview is evaluated by its college dean first (D14)
+        $first = $application->firstChoice();
+        if ($first?->requires_interview) {
+            $this->status->transition($application, ApplicationStatus::ForInterview, $by, "{$first->code} requires an interview");
+
+            return;
+        }
         $program = $this->placementFor($application);
         if (! $program) {
             $this->audit->record('offer.no_slot', 'Passed, but none of the three program choices has a free slot. Waiting for placement by admissions', $application, $application);
 
             return;
         }
-        if ($program->requires_interview) {
-            $this->status->transition($application, ApplicationStatus::ForInterview, $by, "{$program->code} requires an interview");
-
-            return;
-        }
-        $this->offer($application, $by);
+        $this->offer($application, $by, $program);
     }
 
     /**
      * FR-21: the applicant's highest-ranked choice that is open and still has
-     * a free slot (accepted offers count against slots), or null.
+     * a free slot (accepted offers count against slots), or null. A 2nd or
+     * 3rd choice that needs its own interview is skipped (only the first
+     * choice is interviewed).
      */
     public function placementFor(Application $application): ?Program
     {
         $filled = Program::filledCounts();
 
-        return $application->choices()->with('program')->get()->pluck('program')->filter()
-            ->first(fn (Program $p) => ($filled[$p->id] ?? 0) < $p->slots);
+        return $application->choices()->with('program')->get()->pluck('program')->filter()->values()
+            ->first(fn (Program $p, int $i) => ($filled[$p->id] ?? 0) < $p->slots && ($i === 0 || ! $p->requires_interview));
     }
 
     /**

@@ -64,16 +64,18 @@ class AdmissionSetupService
     /** FR-26: open or close a program for new applications, or rename it. */
     public function updateProgram(Program $program, array $changes): Program
     {
-        $before = ['name' => $program->name, 'is_open' => $program->is_open];
+        $before = ['name' => $program->name, 'is_open' => $program->is_open, 'requires_interview' => $program->requires_interview];
         $program->fill(array_intersect_key($changes, $before));
         if (! $program->isDirty()) {
             return $program;
         }
-        $after = ['name' => $program->name, 'is_open' => $program->is_open];
+        $after = ['name' => $program->name, 'is_open' => $program->is_open, 'requires_interview' => $program->requires_interview];
         $program->save();
-        $text = $program->wasChanged('is_open') && ! $program->wasChanged('name')
-            ? ($program->is_open ? 'Opened' : 'Closed')." {$program->code} for applications"
-            : "Updated program {$program->code}";
+        $text = match (true) {
+            $program->wasChanged('requires_interview') && count($program->getChanges()) <= 2 => ($program->requires_interview ? 'Required' : 'Stopped requiring')." an interview (dean evaluation) for {$program->code}",
+            $program->wasChanged('is_open') && ! $program->wasChanged('name') => ($program->is_open ? 'Opened' : 'Closed')." {$program->code} for applications",
+            default => "Updated program {$program->code}",
+        };
         $this->audit->record('program.updated', $text, $program, meta: ['before' => $before, 'after' => $after]);
 
         return $program;

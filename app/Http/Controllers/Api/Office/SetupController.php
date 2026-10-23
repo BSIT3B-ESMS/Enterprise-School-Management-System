@@ -25,16 +25,17 @@ class SetupController extends Controller
             'slots' => ['sometimes', 'integer', 'between:1,2000'],
             'name' => ['sometimes', 'string', 'max:255'],
             'open' => ['sometimes', 'boolean'],
+            'requiresInterview' => ['sometimes', 'boolean'],
         ], ['slots.between' => 'Slots must be between 1 and 2,000.']);
         if (isset($data['slots'])) {
             $program = $this->setup->setSlots($program, $data['slots']);
         }
-        $changes = array_filter(['name' => $data['name'] ?? null, 'is_open' => $data['open'] ?? null], fn ($v) => $v !== null);
+        $changes = array_filter(['name' => $data['name'] ?? null, 'is_open' => $data['open'] ?? null, 'requires_interview' => $data['requiresInterview'] ?? null], fn ($v) => $v !== null);
         if ($changes) {
             $program = $this->setup->updateProgram($program, $changes);
         }
 
-        return response()->json(['data' => ['code' => $program->code, 'name' => $program->name, 'slots' => $program->slots, 'open' => $program->is_open]]);
+        return response()->json(['data' => ['code' => $program->code, 'name' => $program->name, 'slots' => $program->slots, 'open' => $program->is_open, 'requiresInterview' => $program->requires_interview]]);
     }
 
     public function storeProgram(Request $request): JsonResponse

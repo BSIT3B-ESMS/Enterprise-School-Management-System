@@ -210,7 +210,7 @@ class SddRequirementsTest extends TestCase
         $this->asUser($user)->putJson('/api/applicant/application', ['district' => '2', 'barangay' => 'New Barangay'])->assertOk()->assertJsonMissingPath('skipped.barangay');
         $this->asUser($user)->putJson('/api/applicant/application', ['district' => '2', 'barangay' => 'Manggahan'])->assertOk()->assertJsonPath('skipped.barangay', 'Pick a barangay in your district.');
 
-        $this->asUser($this->officer())->patchJson('/api/admin/admission-period', ['examStartsOn' => '2026-12-06', 'acceptanceWindowDays' => 10])->assertOk()
+        $this->asUser($this->admissionHead())->patchJson('/api/admin/admission-period', ['examStartsOn' => '2026-12-06', 'acceptanceWindowDays' => 10])->assertOk()
             ->assertJsonPath('data.acceptanceWindowDays', 10);
         $this->assertSame(10, AdmissionPeriod::current()->acceptance_window_days);
         $this->assertDatabaseHas('audit_logs', ['action' => 'period.updated']);
