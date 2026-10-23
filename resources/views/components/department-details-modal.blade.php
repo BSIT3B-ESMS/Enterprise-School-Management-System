@@ -1,7 +1,7 @@
 {{--
-    Department summary. Opened with Modal#show(row) passing a Departments table row carrying
+    College summary. Opened with Modal#show(row) passing a Colleges table row carrying
     data-department-row="d…"; filled in by resources/js/departments.js.
-    Its only actions are Edit and Delete, which hand the department ID on to those modals.
+    Its only actions are Edit and Delete, which hand the college ID on to those modals.
 --}}
 <div class="modal fade" id="department-details-modal" tabindex="-1" aria-labelledby="department-details-modal-title"
     aria-hidden="true" data-department-details-modal>
@@ -25,12 +25,12 @@
                 </dl>
 
                 <section class="mt-4">
-                    <h3 class="employee-form-section">Job Titles <small>Positions under this department</small></h3>
+                    <h3 class="employee-form-section">Job Titles <small>Positions under this college</small></h3>
                     <ul class="list-group list-group-flush dashboard-list" data-department-job-titles></ul>
                 </section>
 
                 <section class="mt-4">
-                    <h3 class="employee-form-section">Recent Faculty <small>Latest hires in this department</small></h3>
+                    <h3 class="employee-form-section">Recent Faculty <small>Latest hires in this college</small></h3>
                     <ul class="list-group list-group-flush dashboard-list" data-department-faculty></ul>
                     <a class="d-inline-block mt-2" href="{{ route('employees.index') }}" data-department-employees-link>
                         View all faculty in Employees

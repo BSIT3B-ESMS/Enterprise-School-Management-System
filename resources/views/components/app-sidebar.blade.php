@@ -2,11 +2,13 @@
     $pageItems = [
         ['route' => 'dashboard', 'pattern' => 'dashboard', 'icon' => 'dashboard', 'label' => 'Dashboard'],
         ['route' => 'employees.index', 'pattern' => 'employees.*', 'icon' => 'employees', 'label' => 'Employees'],
-        ['route' => 'departments.index', 'pattern' => 'departments.*', 'icon' => 'departments', 'label' => 'Departments'],
+        ['route' => 'departments.index', 'pattern' => 'departments.*', 'icon' => 'departments', 'label' => 'Colleges'],
         ['route' => 'job-titles.index', 'pattern' => 'job-titles.*', 'icon' => 'job-titles', 'label' => 'Job Titles'],
         ['route' => 'recruitment.index', 'pattern' => 'recruitment.*', 'icon' => 'recruitment', 'label' => 'Recruitment'],
-        ['route' => 'job-positions.index', 'pattern' => 'job-positions.*', 'icon' => 'positions', 'label' => 'Open Job Positions'],
+        ['route' => 'job-positions.index', 'pattern' => 'job-positions.*', 'icon' => 'positions', 'label' => 'Open Positions'],
         ['route' => 'calendar.index', 'pattern' => 'calendar.*', 'icon' => 'calendar', 'label' => 'Calendar'],
+        // Leave Requests is its own page: the Calendar route with ?view=leave-requests (the Calendar item is current only without it).
+        ['route' => 'calendar.index', 'query' => ['view' => 'leave-requests'], 'pattern' => 'calendar.*', 'icon' => 'calendar', 'label' => 'Leave Requests'],
         ['route' => 'audit.index', 'pattern' => 'audit.*', 'icon' => 'audit', 'label' => 'Audit Logs'],
     ];
     $comingSoonItems = [];
@@ -27,10 +29,11 @@
             <nav aria-label="Main">
                 <ul class="nav nav-pills flex-column gap-1 app-nav">
                     @foreach ($pageItems as $item)
-                        @php($isCurrent = request()->routeIs($item['pattern']))
+                        @php($isCurrent = request()->routeIs($item['pattern'])
+                            && (request()->query('view') === 'leave-requests') === isset($item['query']))
                         <li class="nav-item">
                             <a class="nav-link{{ $isCurrent ? ' active' : '' }}"
-                                aria-current="{{ $isCurrent ? 'page' : 'false' }}" href="{{ route($item['route']) }}">
+                                aria-current="{{ $isCurrent ? 'page' : 'false' }}" href="{{ route($item['route'], $item['query'] ?? []) }}">
                                 <x-icon :name="$item['icon']" />
                                 {{ $item['label'] }}
                             </a>
@@ -49,7 +52,7 @@
             </nav>
 
             <div class="app-sidebar-footer">
-                <a class="app-sidebar-logout" href="{{ route('login') }}" data-logout>
+                <a class="app-sidebar-logout" href="{{ route('home') }}" data-logout>
                     <x-icon name="logout" />
                     Logout
                 </a>

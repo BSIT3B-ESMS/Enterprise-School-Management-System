@@ -17,7 +17,7 @@ it('renders event type and status filters, all selected, with clear filters', fu
             'id="calendar-type-interview" value="interview"', 'checked data-calendar-type-filter', 'Applicant Final Interview',
             'id="calendar-type-other" value="other"', 'checked data-calendar-type-filter', 'Other Applicant Event',
             'Event Status',
-            'value="Filed"', 'value="Pending"', 'value="Approved"', 'value="Scheduled"', 'value="Completed"',
+            'value="Pending"', 'value="Approved"', 'value="Scheduled"', 'value="Completed"',
             'data-calendar-clear>Clear Filters</button>',
             'data-calendar-legend',
         ], escape: false);
@@ -106,6 +106,69 @@ it('has an event form with the required fields marked, the venue, notes, and a s
 it('lets a date with events offer Add Event in its modal', function () {
     $this->get(route('calendar.index'))
         ->assertSeeInOrder(['id="calendar-day-modal"', 'data-calendar-day-add>Add Event', 'data-calendar-day-schedule>Schedule on This Date'], escape: false);
+});
+
+it('leaves rejected and cancelled leave, and the retired Filed status, out of the calendar filters', function () {
+    $html = $this->get(route('calendar.index'))->getContent();
+    $filters = substr($html, strpos($html, 'Event Status'), strpos($html, 'data-calendar-clear') - strpos($html, 'Event Status'));
+
+    expect($filters)->not->toContain('value="Filed"')->not->toContain('value="Rejected"')->not->toContain('value="Cancelled"');
+});
+
+it('has a separate Leave Requests page where HR reviews every request, with no calendar on it', function () {
+    $this->get(route('calendar.index', ['view' => 'leave-requests']))
+        ->assertOk()
+        ->assertDontSee('data-page="calendar"', escape: false)
+        ->assertDontSee('data-calendar-grid', escape: false)
+        ->assertSeeInOrder([
+            'id="leave-requests"', 'data-leave-requests="hr"', 'data-employees-url="'.url('/employees').'"', 'Leave Requests',
+            'data-leave-search', 'data-leave-filter="status"', 'value="Pending"', 'value="Approved"', 'value="Rejected"', 'value="Cancelled"',
+            'data-leave-filter="type"', 'data-leave-clear',
+            'data-leave-sort-key="employeeName"', 'Employee', 'data-leave-sort-key="type"', 'Leave Type',
+            'data-leave-sort-key="startDate"', 'Start Date', 'data-leave-sort-key="endDate"', 'End Date',
+            'data-leave-sort-key="filedOn"', 'Date Filed', 'data-leave-sort-key="status"', 'Status',
+            'data-leave-rows', 'data-leave-empty', 'data-leave-pagination',
+        ], escape: false)
+        ->assertDontSee('Actions', escape: false)
+        ->assertDontSee('data-leave-cancel-modal', escape: false);
+});
+
+it('asks HR for a rejection reason and a confirmation in the leave decision modal', function () {
+    $this->get(route('calendar.index', ['view' => 'leave-requests']))
+        ->assertSeeInOrder([
+            'id="leave-details-modal"', 'data-leave-details-body', 'data-leave-details-actions',
+            'id="leave-decision-modal"', 'role="alertdialog"', 'data-leave-decision-form',
+            'name="remarks"', 'maxlength="500"', 'id="leave-decision-remarks-error"',
+            'data-leave-decision-step="confirm"', 'Reject this request?',
+            'data-leave-decision-back>Go Back', 'data-leave-decision-submit',
+        ], escape: false);
+});
+
+it('keeps leave request management off the HR Calendar page', function () {
+    $this->get(route('calendar.index'))
+        ->assertSee('data-page="calendar"', escape: false)
+        ->assertDontSee('data-leave-requests="hr"', escape: false)
+        ->assertDontSee('id="leave-decision-modal"', escape: false)
+        ->assertDontSee('data-leave-rows', escape: false);
+});
+
+it('adds Leave Requests to the HR sidebar after Calendar, and highlights only the page that is open', function () {
+    $leaveUrl = route('calendar.index', ['view' => 'leave-requests']);
+
+    $this->get(route('dashboard'))
+        ->assertSeeInOrder([
+            'href="'.route('calendar.index').'">', 'Calendar',
+            'aria-current="false" href="'.$leaveUrl.'">', 'Leave Requests',
+            'href="'.route('audit.index').'">', 'Audit Logs',
+        ], escape: false);
+
+    $this->get(route('calendar.index'))
+        ->assertSee('aria-current="page" href="'.route('calendar.index').'">', escape: false)
+        ->assertSee('aria-current="false" href="'.$leaveUrl.'">', escape: false);
+
+    $this->get($leaveUrl)
+        ->assertSee('aria-current="page" href="'.$leaveUrl.'">', escape: false)
+        ->assertSee('aria-current="false" href="'.route('calendar.index').'">', escape: false);
 });
 
 it('keeps Add Event off the Employee and Applicant calendars', function (string $route) {

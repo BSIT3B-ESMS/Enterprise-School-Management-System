@@ -22,7 +22,7 @@
         <div class="row g-4">
             <div class="col-lg-7">
                 <section class="card dashboard-panel">
-                    <h2>Headcount by department</h2>
+                    <h2>Headcount by college</h2>
                     <p class="dashboard-panel-subtitle">Employees per academic unit</p>
 
                     <div class="d-grid gap-2" data-dashboard-headcounts></div>

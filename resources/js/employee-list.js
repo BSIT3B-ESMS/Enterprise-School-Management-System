@@ -5,7 +5,7 @@
 import { formatDate } from './format.js';
 import { getEmployeeFormOptions, listEmployees } from './mock-data.js';
 
-export const employeeSortLabels = { id: 'Employee ID', name: 'Name', department: 'Department', jobTitle: 'Job Title', salary: 'Base Salary', hiredOn: 'Date Hired' };
+export const employeeSortLabels = { id: 'Employee ID', name: 'Name', department: 'College', jobTitle: 'Job Title', salary: 'Base Salary', hiredOn: 'Date Hired' };
 
 const sortValue = {
     id: (employee) => employee.id,
@@ -234,7 +234,7 @@ export function describeEmployeeView(view) {
     }
 
     if (view.departmentId) {
-        filters.push(`Department: ${nameOf(options.departments, view.departmentId)}`);
+        filters.push(`College: ${nameOf(options.departments, view.departmentId)}`);
     }
 
     if (view.jobTitleId) {

@@ -91,7 +91,7 @@
                     <section class="tab-pane fade" id="profile-employment" role="tabpanel"
                         aria-labelledby="profile-employment-tab" tabindex="0">
                         <dl class="row row-cols-1 row-cols-md-2 g-3 mb-0 employee-details">
-                            <div class="col"><dt>Department</dt><dd class="mb-0" data-profile-field="department"></dd></div>
+                            <div class="col"><dt>College</dt><dd class="mb-0" data-profile-field="department"></dd></div>
                             <div class="col"><dt>Job Title</dt><dd class="mb-0" data-profile-field="jobTitle"></dd></div>
                             <div class="col"><dt>Base Salary</dt><dd class="mb-0 tabular-nums" data-profile-field="salary"></dd></div>
                             <div class="col"><dt>Date Hired</dt><dd class="mb-0" data-profile-field="hiredOn"></dd></div>

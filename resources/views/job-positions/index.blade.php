@@ -1,14 +1,15 @@
 @extends('layouts.admin')
 
-@section('title', 'Open Job Positions · '.config('app.name'))
+@section('title', 'Open Positions · '.config('app.name'))
 
 @php
     $columns = [
         'name' => 'Position',
-        'department' => 'Department',
+        'department' => 'College',
         'employmentType' => 'Employment Type',
         'salary' => 'Base Salary Range',
         'openings' => 'Openings',
+        'applied' => 'Applied',
         'status' => 'Status',
     ];
 @endphp
@@ -16,16 +17,17 @@
 {{--
     The job postings, rendered by resources/js/job-positions.js from the same job title records the Job Titles and
     Recruitment pages and the public Careers website read. A posting is open while it has openings, and only open
-    postings appear on the Careers website. Clicking a row (or pressing Enter/Space on it) opens the posting's details,
+    postings appear on the Careers website. Applied counts the applications received for each posting, from the same
+    application records Recruitment shows. Clicking a row (or pressing Enter/Space on it) opens the posting's details,
     which offer Edit, Open or Close, and Remove (a posting that employees or applications still use cannot be removed;
-    close it instead). Add Job Posting is in the page header. The filters (search, department, employment type, status)
+    close it instead). Add Job Posting is in the page header. The filters (search, college, employment type, status)
     combine, and Clear Filters resets them all; the employment type options come from the job data.
 --}}
 @section('content')
     <div class="d-grid gap-4" data-page="job-positions" data-careers-url="{{ route('careers.index') }}">
         <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
             <div>
-                <h1 class="page-title">Open Job Positions</h1>
+                <h1 class="page-title">Open Positions</h1>
                 <p class="text-body-secondary mt-1 mb-0">
                     Manage the job postings. Open postings are listed on the public Careers website.
                 </p>
@@ -52,7 +54,7 @@
                     </div>
                 </div>
                 <div class="col-md-6 col-xl-3">
-                    <label for="job-position-department-filter" class="visually-hidden">Department</label>
+                    <label for="job-position-department-filter" class="visually-hidden">College</label>
                     <select class="form-select" id="job-position-department-filter" data-job-position-filter="departmentId"></select>
                 </div>
                 <div class="col-md-6 col-xl-3">

@@ -31,7 +31,7 @@ const fieldGroups = [
     {
         group: 'Employment Information',
         fields: [
-            { key: 'department', label: 'Department', value: (employee) => employee.department },
+            { key: 'department', label: 'College', value: (employee) => employee.department },
             { key: 'jobTitle', label: 'Job Title', value: (employee) => employee.jobTitle },
             { key: 'hiredOn', label: 'Date Hired', value: (employee) => blankIfEmpty(employee.hiredOn), display: (employee) => dateOrBlank(employee.hiredOn) },
             { key: 'status', label: 'Employment Status', value: (employee) => blankIfEmpty(employee.status) },
@@ -115,7 +115,7 @@ function initReportPage($root) {
             ).val(view[key]);
         };
 
-        fill('departmentId', 'All Departments', options.departments);
+        fill('departmentId', 'All Colleges', options.departments);
         fill('jobTitleId', 'All Job Titles', options.jobTitles);
     }
 

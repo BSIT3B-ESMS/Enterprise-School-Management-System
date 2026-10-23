@@ -5,7 +5,7 @@
 @php
     $columns = [
         'name' => 'Job Title',
-        'department' => 'Department',
+        'department' => 'College',
         'salary' => 'Base Salary Range',
         'benefits' => 'Benefits',
     ];
@@ -21,7 +21,7 @@
             <div>
                 <h1 class="page-title">Job Titles</h1>
                 <p class="text-body-secondary mt-1 mb-0">
-                    Manage and organize academic ranks and faculty titles across collegiate departments.
+                    Manage and organize academic ranks and faculty titles across the university’s colleges.
                 </p>
             </div>
 
@@ -43,7 +43,7 @@
                     </div>
                 </div>
                 <div class="col-md-6">
-                    <label for="job-title-department-filter" class="visually-hidden">Department</label>
+                    <label for="job-title-department-filter" class="visually-hidden">College</label>
                     <select class="form-select" id="job-title-department-filter" data-job-title-filter="departmentId"></select>
                 </div>
             </div>

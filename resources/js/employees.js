@@ -45,7 +45,7 @@ function renderFilterOptions($root) {
     }
 
     fill($root.find('[data-employee-filter="jobTitleId"]'), 'All Job Titles', options.jobTitles, view.jobTitleId);
-    fill($root.find('[data-employee-filter="departmentId"]'), 'All Departments', options.departments, view.departmentId);
+    fill($root.find('[data-employee-filter="departmentId"]'), 'All Colleges', options.departments, view.departmentId);
 }
 
 function renderSortHeaders($root) {

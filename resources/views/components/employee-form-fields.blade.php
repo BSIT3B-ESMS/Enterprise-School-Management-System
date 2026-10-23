@@ -52,7 +52,7 @@
         </div>
 
         <div class="col-md-6">
-            <label for="employee-department" class="form-label">Department</label>
+            <label for="employee-department" class="form-label">College</label>
             <select class="form-select" id="employee-department" name="departmentId"
                 aria-describedby="employee-department-error" required data-department-options></select>
             <div class="invalid-feedback" id="employee-department-error"></div>

@@ -4,9 +4,9 @@
 
 {{--
     Generate Report. The rows are the Employees table's rows: resources/js/employee-report.js reads the
-    table's search, Date Hired, department, job title, and sort from this page's query string (carried over
+    table's search, Date Hired, college, job title, and sort from this page's query string (carried over
     by the Generate Report link) and filters them with resources/js/employee-list.js. Employees to Include adds a
-    Department and a Job Title choice for this report (starting from the Employees filters), and the fields chosen
+    College and a Job Title choice for this report (starting from the Employees filters), and the fields chosen
     pick the columns; none of it changes the Employees page's own filters.
     Layout, top to bottom: Export Format, Employees to Include, Report Preview, Fields to Include, then the actions (the
     shared sections in resources/views/components/report/, as on the Recruitment and Audit Logs reports).
@@ -19,7 +19,7 @@
             </a>
             <div>
                 <h1 class="page-title">Generate Report</h1>
-                <p class="text-body-secondary mt-1 mb-0">Export the employees shown on the Employees page, or narrow them by department and job title.</p>
+                <p class="text-body-secondary mt-1 mb-0">Export the employees shown on the Employees page, or narrow them by college and job title.</p>
             </div>
         </div>
 
@@ -30,7 +30,7 @@
 
             <div class="row g-3">
                 <div class="col-md-6">
-                    <label for="report-department" class="form-label">Department</label>
+                    <label for="report-department" class="form-label">College</label>
                     <select class="form-select" id="report-department" data-report-filter="departmentId"></select>
                 </div>
                 <div class="col-md-6">
@@ -39,7 +39,7 @@
                 </div>
             </div>
             <p class="form-text mb-0 mt-2">
-                Leave both on “All” to include every department and job title, or choose a department and/or a job title.
+                Leave both on “All” to include every college and job title, or choose a college and/or a job title.
                 These choices apply to this report only.
             </p>
         </section>

@@ -1,33 +1,31 @@
 <?php
 
-it('sends the root address to PLP Careers, the landing page', function () {
-    $this->get('/')->assertRedirect(route('careers.index'));
-    $this->get(route('home'))->assertRedirect(route('careers.index'));
-});
-
-it('shows PLP Careers first when the root address is opened', function () {
-    $this->followingRedirects()
-        ->get('/')
+it('shows the Login page at the root address', function () {
+    $this->get('/')
         ->assertOk()
-        ->assertSee('Build Your Career with PLP')
-        ->assertSee('data-page="applicant-positions" data-positions-context="public"', escape: false);
+        ->assertSee('Welcome Back')
+        ->assertSee('data-page="login"', escape: false);
 });
 
 it('does not make the dashboard or any other interface the landing page', function () {
-    $this->followingRedirects()
-        ->get('/')
+    $this->get('/')
         ->assertDontSee('data-page="dashboard"', escape: false)
         ->assertDontSee('data-app-shell', escape: false)
-        ->assertDontSee('data-page="employee-dashboard"', escape: false)
-        ->assertDontSee('data-page="applicant-dashboard"', escape: false);
+        ->assertDontSee('data-page="applicant-positions"', escape: false);
 });
 
 it('still serves the login page at /login, and every interface at its own address', function (string $route) {
     $this->get(route($route))->assertOk();
 })->with(['login', 'dashboard', 'employee.dashboard', 'applicant.apply', 'applicant.dashboard', 'careers.index']);
 
-it('has one login page, with the same address as before, linked from PLP Careers', function () {
-    expect(route('login', absolute: false))->toBe('/login');
-    $this->get('/login')->assertOk()->assertSee('Welcome Back');
-    $this->get(route('careers.index'))->assertSee('href="'.route('login').'">Login</a>', escape: false);
+it('sends HR and employees back to the root Login page when they log out', function (string $route) {
+    $this->get(route($route))->assertSee('href="'.route('home').'"', escape: false);
+})->with(['dashboard', 'employee.dashboard']);
+
+it('shows a branded page for addresses that do not exist', function () {
+    $this->get('/no-such-page')
+        ->assertNotFound()
+        ->assertSee('Page not found')
+        ->assertSee('href="'.route('home').'"', escape: false)
+        ->assertSee('href="'.route('careers.index').'"', escape: false);
 });

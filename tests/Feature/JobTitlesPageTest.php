@@ -1,17 +1,17 @@
 <?php
 
-it('renders the job titles toolbar, search, department filter, and sortable table headers', function () {
+it('renders the job titles toolbar, search, college filter, and sortable table headers', function () {
     $this->get(route('job-titles.index'))
         ->assertSeeInOrder([
             'Job Titles',
-            'Manage and organize academic ranks and faculty titles across collegiate departments.',
+            'Manage and organize academic ranks and faculty titles across the university’s colleges.',
             'Add Job Title',
         ])
         ->assertSee('data-job-title-search', escape: false)
         ->assertSee('data-job-title-filter="departmentId"', escape: false)
         ->assertSeeInOrder([
             'data-sort-key="name"', 'Job Title',
-            'data-sort-key="department"', 'Department',
+            'data-sort-key="department"', 'College',
             'data-sort-key="salary"', 'Base Salary',
             'data-sort-key="benefits"', 'Benefits',
         ], escape: false)
@@ -23,7 +23,7 @@ it('opens the add job title form from the toolbar', function () {
         ->assertSee('data-bs-target="#job-title-form-modal" data-job-title-add', escape: false);
 });
 
-it('renders the job title form with name, department, salary, and benefits', function () {
+it('renders the job title form with name, college, salary, and benefits', function () {
     $this->get(route('job-titles.index'))
         ->assertSeeInOrder([
             'id="job-title-form-modal"',
@@ -69,4 +69,12 @@ it('lists a Base Salary Range and edits it with a minimum and a maximum', functi
         ->and($form)->toContain('Minimum Base Salary', 'name="salaryMin"', 'job-title-salary-min-error')
         ->and($form)->toContain('Maximum Base Salary', 'name="salaryMax"', 'job-title-salary-max-error')
         ->and($form)->not->toContain('name="salary"');
+});
+
+it('edits Leave Credits on a job title and shows them in its details', function () {
+    $html = $this->get(route('job-titles.index'))->getContent();
+    $form = substr($html, strpos($html, 'data-job-title-form-modal'));
+
+    expect($html)->toContain('data-job-title-field="leaveCredits"', 'Leave Credits')
+        ->and($form)->toContain('Leave Credits (days per year)', 'name="leaveCredits"', 'job-title-leave-credits-error', 'max="365"');
 });

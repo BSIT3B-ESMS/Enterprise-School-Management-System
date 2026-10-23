@@ -1,23 +1,30 @@
 <?php
 
-it('organizes the job application form into the 201 file sections', function () {
+it('organizes the job application form into the 201 file sections that apply when applying', function () {
     $this->get(route('applicant.apply'))
         ->assertSeeInOrder([
             'data-apply-form',
-            'Personal Information', 'data-apply-account="name"', 'name="birthdate"', 'name="sex"', 'name="civilStatus"',
             'Position Applied For', 'name="jobTitleId"', 'data-apply-position-summary', 'data-document-field="hiringRequirements"',
+            'Personal Information', 'data-apply-account="lastName"', 'data-apply-account="firstName"', 'data-apply-account="middleName"',
+            'name="birthdate"', 'name="sex"', 'name="civilStatus"',
             'Contact Information', 'data-apply-account="email"', 'name="phone"', 'name="address"',
-            'Government and Tax', 'name="sssNumber"', 'name="philhealthNumber"', 'name="pagibigNumber"', 'name="tin"', 'name="birNumber"',
             'Education and Work History', 'data-document-field="education"', 'data-document-field="workHistory"',
             'Submit Application',
         ], escape: false);
 });
 
-it('takes the name and email from the applicant\'s account', function () {
+it('takes the name (in parts) and email from the applicant\'s account', function () {
     expect($this->get(route('applicant.apply'))->getContent())
-        ->toContain('id="apply-name" readonly', 'id="apply-email" readonly')
+        ->toContain('id="apply-last-name" readonly', 'id="apply-first-name" readonly', 'id="apply-middle-name" readonly', 'id="apply-email" readonly')
         ->not->toContain('name="name"')
         ->not->toContain('name="email"');
+});
+
+it('returns Back and Cancel to the chosen position\'s details', function () {
+    $html = $this->get(route('applicant.apply'))->getContent();
+
+    expect(substr_count($html, 'data-apply-back'))->toBe(3)
+        ->and($html)->toContain('data-positions-url="'.route('applicant.positions').'"', 'data-apply-back-label>Back to Open Positions');
 });
 
 it('uses the employee form\'s labels, dropdown options, and input types', function () {
@@ -27,13 +34,13 @@ it('uses the employee form\'s labels, dropdown options, and input types', functi
             'for="apply-civil-status"', '<option>Single</option>', '<option>Married</option>', '<option>Widowed</option>', '<option>Separated</option>',
         ], escape: false)
         ->assertSee('type="date" class="form-control" id="apply-birthdate"', escape: false)
-        ->assertSeeInOrder(['SSS Number', 'PhilHealth Number', 'Pag-IBIG (HDMF) Number', 'Tax Identification Number (TIN)', 'BIR Number'])
         ->assertSeeInOrder(['Hiring Requirements', 'Education Transcripts or Diplomas', 'Work History']);
 });
 
 it('uses the existing file field for documents, without asking for employment-stage records', function () {
     $this->get(route('applicant.apply'))
-        ->assertSee('type="file" class="form-control" id="employee-documents-education" multiple', escape: false)
+        ->assertSee('type="file" class="visually-hidden" id="employee-documents-education" multiple', escape: false)
+        ->assertSeeInOrder(['for="employee-documents-education" aria-hidden="true">Choose Files', 'data-document-status>No file chosen'], escape: false)
         ->assertDontSee('data-document-field="performance"', escape: false)
         ->assertDontSee('data-document-field="correctiveActions"', escape: false)
         ->assertDontSee('data-document-field="clearances"', escape: false)
@@ -54,13 +61,14 @@ it('shows the submitted information on the HR applicant record', function () {
     $this->get(route('recruitment.index'))
         ->assertSeeInOrder([
             'id="application-details-modal"',
-            'Personal Information', 'data-application-field="birthdate"', 'data-application-field="sex"',
+            'Applicant Information', 'data-application-field="lastName"', 'data-application-field="firstName"',
+            'data-application-field="middleName"', 'data-application-field="birthdate"', 'data-application-field="sex"',
             'data-application-field="civilStatus"', 'data-application-field="address"',
-            'Government and Tax', 'data-application-field="sssNumber"', 'data-application-field="philhealthNumber"',
-            'data-application-field="pagibigNumber"', 'data-application-field="tin"', 'data-application-field="birNumber"',
-            'Documents', 'data-application-documents="education"', 'data-application-documents="workHistory"',
-            'data-application-documents="hiringRequirements"',
+            'Documents', 'data-application-documents="hiringRequirements"', 'data-application-documents="education"',
+            'data-application-documents="workHistory"',
             'Recruitment Progress',
+            'Pre-employment Information', 'data-application-field="sssNumber"', 'data-application-field="philhealthNumber"',
+            'data-application-field="pagibigNumber"', 'data-application-field="tin"', 'data-application-field="birNumber"',
         ], escape: false);
 });
 
@@ -81,33 +89,42 @@ it('keeps documents out of the applicant profile edit form, since they are added
         ->and($form)->not->toContain('type="file"', 'data-document-field');
 });
 
-it('asks for a required emergency contact on the job application form only', function () {
-    $this->get(route('applicant.apply'))
+it('asks for the emergency contact and government numbers only as pre-employment information, after an offer is accepted', function () {
+    $this->get(route('applicant.applications.show', 'c1'))
         ->assertSeeInOrder([
-            'Contact Information', 'name="phone"',
-            'Emergency Contact',
-            'name="emergencyContactName"', 'name="emergencyContactNumber"', 'name="emergencyContactRelationship"',
-            'Government and Tax',
+            'Job Offer', 'data-applicant-offer-respond="Accepted">Accept Offer', 'data-applicant-offer-respond="Declined">Decline Offer',
+            'Pre-employment Information', 'data-applicant-pre-employment-form',
+            'Emergency Contact', 'name="emergencyContactName"', 'name="emergencyContactNumber"', 'name="emergencyContactRelationship"',
+            'Government and Tax', 'name="sssNumber"', 'name="philhealthNumber"', 'name="pagibigNumber"', 'name="tin"', 'name="birNumber"',
         ], escape: false);
 
-    foreach ([route('applicant.register'), route('applicant.profile')] as $url) {
-        $this->get($url)->assertDontSee('emergencyContact', escape: false);
+    foreach ([route('applicant.apply'), route('applicant.register'), route('applicant.profile')] as $url) {
+        $this->get($url)
+            ->assertDontSee('emergencyContact', escape: false)
+            ->assertDontSee('sssNumber', escape: false);
     }
 });
 
-it('shows the emergency contact on the applicant\'s application and on HR\'s applicant record', function () {
-    $this->get(route('applicant.applications.show', 'c1'))
-        ->assertSeeInOrder(['data-applicant-field="emergencyContactName"', 'data-applicant-field="emergencyContactNumber"', 'data-applicant-field="emergencyContactRelationship"'], escape: false);
-
+it('shows the pre-employment information on HR\'s applicant record, under Offer and Hiring', function () {
     $this->get(route('recruitment.index'))
-        ->assertSeeInOrder(['Emergency Contact', 'data-application-field="emergencyContactName"', 'data-application-field="emergencyContactNumber"', 'data-application-field="emergencyContactRelationship"', 'Government and Tax'], escape: false);
+        ->assertSeeInOrder([
+            'Offer and Hiring', 'Offer', 'data-application-field="offerSalary"', 'data-application-field="offerStartDate"',
+            'Pre-employment Information', 'data-application-field="emergencyContactName"', 'data-application-field="emergencyContactNumber"',
+            'data-application-field="emergencyContactRelationship"', 'data-application-field="sssNumber"',
+        ], escape: false);
 });
 
-it('masks the phone and government number fields and shows their formats', function (string $route, string $prefix) {
+it('masks the phone fields and shows their format', function (string $route, string $prefix) {
     $this->get(route($route))
         ->assertSee('id="'.$prefix.'-phone"', escape: false)
         ->assertSee('data-mask="phone"', escape: false)
-        ->assertSee('Mobile number: 09XXXXXXXXX or +639XXXXXXXXX', escape: false)
+        ->assertSee('Mobile number: 09XXXXXXXXX or +639XXXXXXXXX', escape: false);
+})->with([['applicant.apply', 'apply'], ['applicant.profile', 'applicant']]);
+
+it('masks the pre-employment government number fields and shows their formats', function () {
+    $this->get(route('applicant.applications.show', 'c1'))
+        ->assertSee('id="pre-employment-emergency-number"', escape: false)
+        ->assertSee('data-mask="phone"', escape: false)
         ->assertSee('data-mask="sss" placeholder="00-1234567-8"', escape: false)
         ->assertSee('data-mask="philhealth" placeholder="12-123456789-0"', escape: false)
         ->assertSee('data-mask="pagibig" placeholder="1234-5678-9012"', escape: false)
@@ -115,7 +132,7 @@ it('masks the phone and government number fields and shows their formats', funct
         ->assertSee('Format: 123-456-789 (9 digits), or 123-456-789-000 with a branch code', escape: false)
         // The BIR number has no fixed format, so it keeps the existing digits-and-dashes check without a mask.
         ->assertDontSee('data-mask="bir"', escape: false);
-})->with([['applicant.apply', 'apply'], ['applicant.profile', 'applicant']]);
+});
 
 it('offers Save Draft separately from Submit Application on the job application form', function () {
     $this->get(route('applicant.apply'))

@@ -5,6 +5,8 @@ import { formatDate, formatTime, initialsOf } from './format.js';
 import {
     addApplication,
     applicationStatuses,
+    canHrEditApplication,
+    collegeChoiceError,
     deleteApplication,
     findApplication,
     getEmployeeFormOptions,
@@ -15,6 +17,7 @@ import {
     updateApplication,
 } from './mock-data.js';
 import { renderPagination } from './pagination.js';
+import { personNameRule } from './validation-rules.js';
 import { renderPipelineBar } from './pipeline.js';
 import { statusClass, workflowFor } from './recruitment-workflow.js';
 import { showToast } from './toast.js';
@@ -98,7 +101,7 @@ function renderFilterOptions($root) {
     }
 
     $root.find('[data-application-filter="status"]').empty().append(...statusOptions('All Statuses')).val(view.status);
-    $root.find('[data-application-filter="departmentId"]').empty().append(...departmentOptions('All Departments')).val(view.departmentId);
+    $root.find('[data-application-filter="departmentId"]').empty().append(...departmentOptions('All Colleges')).val(view.departmentId);
 }
 
 /**
@@ -134,7 +137,7 @@ function renderPipeline($root) {
 
 /**
  * The status as a label (it follows the recruitment workflow, so it is not editable here), with the
- * upcoming demo interview or interview underneath.
+ * upcoming demo interview or final interview underneath.
  */
 function statusCellFor(application) {
     const { pendingActivity } = workflowFor(application);
@@ -321,7 +324,9 @@ function setFieldError($field, message) {
  */
 function validationRules($form, editingId) {
     return {
-        name: (value) => (value.trim() ? '' : 'Enter the applicant’s full name.'),
+        lastName: personNameRule('Enter the applicant’s last name.'),
+        firstName: personNameRule('Enter the applicant’s first name.'),
+        middleName: (value) => (value.trim() ? personNameRule('')(value) : ''),
         email: (value) => {
             if (!emailPattern.test(value.trim())) {
                 return 'Enter a valid email address.';
@@ -342,7 +347,7 @@ function validationRules($form, editingId) {
 
             return phonePattern.test(value.trim()) && digitCount >= 7 && digitCount <= 15 ? '' : 'Enter a valid phone number.';
         },
-        departmentId: (value) => (value ? '' : 'Select a department.'),
+        departmentId: (value) => collegeChoiceError(value),
         jobTitleId: (value) => (value ? '' : 'Select the position applied for.'),
         appliedOn: (value) => {
             if (!value) {
@@ -386,7 +391,7 @@ function renderPositionOptions($form, selected = String(fieldFor($form, 'jobTitl
         .sort((first, second) => first.name.localeCompare(second.name));
 
     $position.empty().append(
-        $('<option>', { value: '', text: positions.length || !departmentId ? 'Select position' : 'No positions in this department' }),
+        $('<option>', { value: '', text: positions.length || !departmentId ? 'Select position' : 'No positions in this college' }),
         ...positions.map((jobTitle) => $('<option>', {
             value: jobTitle.id,
             text: departmentId ? jobTitle.name : `${jobTitle.name} · ${jobTitle.department}`,
@@ -402,10 +407,12 @@ function prepareForm($form, application) {
     $form[0].reset();
     $form.find('.is-invalid').removeClass('is-invalid').removeAttr('aria-invalid');
     $form.find('.invalid-feedback').text('');
-    $form.find('[data-application-department-options]').empty().append(...departmentOptions('Select department'));
+    $form.find('[data-application-department-options]').empty().append(...departmentOptions('Select college'));
     $form.find('[data-application-date]').attr('max', todayIsoDate());
 
-    fieldFor($form, 'name').val(application?.name ?? '');
+    fieldFor($form, 'lastName').val(application?.lastName ?? '');
+    fieldFor($form, 'firstName').val(application?.firstName ?? '');
+    fieldFor($form, 'middleName').val(application?.middleName ?? '');
     fieldFor($form, 'email').val(application?.email ?? '');
     fieldFor($form, 'phone').val(application?.phone ?? '');
     fieldFor($form, 'departmentId').val(application?.departmentId ?? '');
@@ -417,7 +424,9 @@ function readApplication($form) {
     const value = (name) => String(fieldFor($form, name).val() ?? '').trim();
 
     return {
-        name: value('name'),
+        lastName: value('lastName'),
+        firstName: value('firstName'),
+        middleName: value('middleName'),
         email: value('email'),
         phone: value('phone'),
         departmentId: value('departmentId'),
@@ -441,11 +450,19 @@ function initFormModal($modal, $root) {
             return;
         }
 
+        // What an applicant submitted is theirs: HR can read it but not change it.
+        if (application && !canHrEditApplication(application)) {
+            event.preventDefault();
+            showToast('This application was submitted by the applicant, so HR cannot edit it.', { isError: true });
+
+            return;
+        }
+
         editingId = application?.id ?? null;
         prepareForm($form, application);
         $modal.find('[data-application-form-title]').text(application ? 'Edit Application' : 'Add Application');
     });
-    $modal.on('shown.bs.modal', () => fieldFor($form, 'name').trigger('focus'));
+    $modal.on('shown.bs.modal', () => fieldFor($form, 'lastName').trigger('focus'));
 
     // Department narrows the positions; choosing a position (with no department yet) fills it in.
     $form.on('change', '[name="departmentId"]', () => renderPositionOptions($form));
@@ -493,7 +510,13 @@ function initFormModal($modal, $root) {
         const details = readApplication($form);
 
         if (editingId) {
-            updateApplication(editingId, details);
+            if (!updateApplication(editingId, details)) {
+                showToast('This application can no longer be edited.', { isError: true });
+                Modal.getOrCreateInstance($modal[0]).hide();
+
+                return;
+            }
+
             showToast('Application updated.');
         } else {
             const application = addApplication(details);

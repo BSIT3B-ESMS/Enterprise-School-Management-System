@@ -56,7 +56,7 @@
                     <span class="theme-when-light">Dark mode</span>
                 </button>
 
-                <a class="dropdown-item d-flex align-items-center gap-2 py-2" href="{{ route('login') }}" data-applicant-logout>
+                <a class="dropdown-item d-flex align-items-center gap-2 py-2" href="{{ route('applicant.portal') }}" data-applicant-logout>
                     <x-icon name="logout" />
                     Log Out
                 </a>

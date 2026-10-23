@@ -2,8 +2,8 @@
 
 use Illuminate\Support\Facades\Route;
 
-// The EMS opens on PLP Careers, the public careers website; HR and employees sign in at /login as before.
-Route::get('/', fn () => redirect()->route('careers.index'))->name('home');
+// The EMS opens on the HR and employee Login page (also at /login); the public PLP Careers website is at /careers.
+Route::view('/', 'auth.login')->name('home');
 
 Route::view('/login', 'auth.login')->name('login');
 

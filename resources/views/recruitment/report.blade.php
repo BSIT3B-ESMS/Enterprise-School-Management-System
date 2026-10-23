@@ -5,7 +5,7 @@
 {{--
     Recruitment Generate Report, laid out and generated like the Employees report (the shared sections in
     resources/views/components/report/). resources/js/recruitment-report.js lists the applications matching the
-    Application Date range, Applicant Name, Job Position, Department, and Status chosen here, starting from the
+    Application Date range, Applicant Name, Job Position, College, and Status chosen here, starting from the
     Recruitment page's filters (carried by the Generate Report link); none of it changes the Recruitment page's own filters.
 --}}
 @section('content')
@@ -32,7 +32,7 @@
                         autocomplete="off" data-report-filter="name">
                 </div>
                 <div class="col-md-6 col-xl-3">
-                    <label for="report-department" class="form-label">Department</label>
+                    <label for="report-department" class="form-label">College</label>
                     <select class="form-select" id="report-department" data-report-filter="departmentId"></select>
                 </div>
                 <div class="col-md-6 col-xl-3">

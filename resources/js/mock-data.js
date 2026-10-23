@@ -4,9 +4,23 @@
 
 import { formatDate, formatTime, initialsOf } from './format.js';
 import { milestoneKeyFor, progressForStatus, statusAfterCompleting, workflowFor } from './recruitment-workflow.js';
+import {
+    birthdateRule,
+    choiceRule,
+    civilStatusOptions,
+    emergencyRelationshipOptions,
+    idNumberRule,
+    mobileNumberRule,
+    pagibigRule,
+    personNameRule,
+    philhealthRule,
+    sexOptions,
+    sssRule,
+    tinRule,
+} from './validation-rules.js';
 
 const storageKey = 'ems-mock-data';
-const storageVersion = 21;
+const storageVersion = 24;
 
 const benefitNames = [
     'SSS',
@@ -233,23 +247,29 @@ const seedHrProfile = {
     role: 'Admin',
 };
 
-const seedDepartments = [
-    { id: 'd1', name: 'Science & Mathematics' },
-    { id: 'd2', name: 'Computer Science' },
-    { id: 'd3', name: 'Humanities & Social Sciences' },
-    { id: 'd4', name: 'Education' },
-    { id: 'd5', name: 'Business Administration' },
-    { id: 'd6', name: 'Engineering' },
-    { id: 'd7', name: 'Allied Health Sciences' },
-    { id: 'd8', name: 'Languages & Literature' },
-    // The offices behind the non-teaching openings (d9 on; saved data from before they existed gets them added).
-    { id: 'd9', name: 'Human Resources' },
-    { id: 'd10', name: 'Information Technology' },
-    { id: 'd11', name: 'Finance & Accounting' },
-    { id: 'd12', name: 'Marketing & Communications' },
-    { id: 'd13', name: 'Administration & Operations' },
-    { id: 'd14', name: 'Sales & Customer Service' },
+/**
+ * The colleges of the university: the only ones a job title, employee, or application can belong to. They are kept in
+ * the `departments` records (with `departmentId` on the others), so only the names shown changed.
+ */
+export const approvedColleges = [
+    'College of Business and Accountancy (CBA)',
+    'College of Nursing (CON)',
+    'College of Engineering (COE)',
+    'College of Arts and Sciences (CAS)',
+    'College of Computer Studies (CCS)',
+    'College of International Hospitality Management (CIHM)',
+    'College of Education (COED)',
 ];
+
+const seedDepartments = approvedColleges.map((name, index) => ({ id: `d${index + 1}`, name }));
+
+// The college each department of version 21 and earlier belongs to (by its ID), for saved data. A department HR added
+// is matched by name, and otherwise goes to the College of Arts and Sciences.
+const collegeForLegacyDepartment = {
+    d1: 'd4', d2: 'd5', d3: 'd4', d4: 'd7', d5: 'd1', d6: 'd3', d7: 'd2',
+    d8: 'd4', d9: 'd1', d10: 'd5', d11: 'd1', d12: 'd1', d13: 'd1', d14: 'd6',
+};
+const fallbackCollegeId = 'd4';
 
 // How many departments and job titles the earlier versions of the sample data had (the openings added later follow).
 const firstOpeningsDepartment = 8;
@@ -261,24 +281,24 @@ const retiredOpeningIds = ['t11', 't14', 't17', 't18', 't20', 't22', 't24', 't25
 
 // `openings` is the number of open vacancies for the position.
 const seedJobTitles = [
-    { id: 't1', name: 'College Dean', departmentId: 'd5', salary: 110000, benefits: benefitNames.slice(0, 8), openings: 0 },
-    { id: 't2', name: 'Department Chair', departmentId: 'd2', salary: 92000, benefits: benefitNames.slice(0, 8), openings: 1 },
-    { id: 't3', name: 'Professor', departmentId: 'd6', salary: 88000, benefits: benefitNames.slice(0, 7), openings: 3 },
-    { id: 't4', name: 'Associate Professor', departmentId: 'd1', salary: 72000, benefits: benefitNames.slice(0, 7), openings: 2 },
-    { id: 't5', name: 'Assistant Professor', departmentId: 'd1', salary: 58000, benefits: benefitNames.slice(0, 6), openings: 4 },
-    { id: 't6', name: 'Senior Lecturer', departmentId: 'd3', salary: 48000, benefits: benefitNames.slice(0, 6), openings: 1 },
-    { id: 't7', name: 'Instructor', departmentId: 'd4', salary: 36000, benefits: benefitNames.slice(0, 5), openings: 2 },
-    { id: 't8', name: 'Visiting Professor', departmentId: 'd7', salary: 65000, benefits: benefitNames.slice(0, 5), openings: 0 },
-    { id: 't9', name: 'Lecturer', departmentId: 'd8', salary: 40000, benefits: benefitNames.slice(0, 5), openings: 1 },
-    { id: 't10', name: 'Research Associate', departmentId: 'd2', salary: 45000, benefits: benefitNames.slice(0, 6), openings: 2 },
+    { id: 't1', name: 'College Dean', departmentId: 'd1', salary: 110000, benefits: benefitNames.slice(0, 8), openings: 0 },
+    { id: 't2', name: 'Department Chair', departmentId: 'd5', salary: 92000, benefits: benefitNames.slice(0, 8), openings: 1 },
+    { id: 't3', name: 'Professor', departmentId: 'd3', salary: 88000, benefits: benefitNames.slice(0, 7), openings: 3 },
+    { id: 't4', name: 'Associate Professor', departmentId: 'd4', salary: 72000, benefits: benefitNames.slice(0, 7), openings: 2 },
+    { id: 't5', name: 'Assistant Professor', departmentId: 'd4', salary: 58000, benefits: benefitNames.slice(0, 6), openings: 4 },
+    { id: 't6', name: 'Senior Lecturer', departmentId: 'd4', salary: 48000, benefits: benefitNames.slice(0, 6), openings: 1 },
+    { id: 't7', name: 'Instructor', departmentId: 'd7', salary: 36000, benefits: benefitNames.slice(0, 5), openings: 2 },
+    { id: 't8', name: 'Visiting Professor', departmentId: 'd2', salary: 65000, benefits: benefitNames.slice(0, 5), openings: 0 },
+    { id: 't9', name: 'Lecturer', departmentId: 'd4', salary: 40000, benefits: benefitNames.slice(0, 5), openings: 1 },
+    { id: 't10', name: 'Research Associate', departmentId: 'd5', salary: 45000, benefits: benefitNames.slice(0, 6), openings: 2 },
     // Non-teaching openings (t12 on), all open for applications.
-    { id: 't12', name: 'Recruitment Specialist', departmentId: 'd9', salary: 38000, benefits: benefitNames.slice(0, 7), openings: 1 },
-    { id: 't13', name: 'Administrative Assistant', departmentId: 'd13', salary: 26000, benefits: benefitNames.slice(0, 6), openings: 2 },
-    { id: 't15', name: 'IT Support Specialist', departmentId: 'd10', salary: 30000, benefits: benefitNames.slice(0, 6), openings: 2 },
-    { id: 't16', name: 'Junior Software Developer', departmentId: 'd10', salary: 40000, benefits: benefitNames.slice(0, 7), openings: 2 },
-    { id: 't19', name: 'Accountant', departmentId: 'd11', salary: 45000, benefits: benefitNames.slice(0, 7), openings: 1 },
-    { id: 't21', name: 'Marketing Associate', departmentId: 'd12', salary: 32000, benefits: benefitNames.slice(0, 6), openings: 1 },
-    { id: 't23', name: 'Customer Service Representative', departmentId: 'd14', salary: 24000, benefits: benefitNames.slice(0, 6), openings: 3 },
+    { id: 't12', name: 'Recruitment Specialist', departmentId: 'd1', salary: 38000, benefits: benefitNames.slice(0, 7), openings: 1 },
+    { id: 't13', name: 'Administrative Assistant', departmentId: 'd1', salary: 26000, benefits: benefitNames.slice(0, 6), openings: 2 },
+    { id: 't15', name: 'IT Support Specialist', departmentId: 'd5', salary: 30000, benefits: benefitNames.slice(0, 6), openings: 2 },
+    { id: 't16', name: 'Junior Software Developer', departmentId: 'd5', salary: 40000, benefits: benefitNames.slice(0, 7), openings: 2 },
+    { id: 't19', name: 'Accountant', departmentId: 'd1', salary: 45000, benefits: benefitNames.slice(0, 7), openings: 1 },
+    { id: 't21', name: 'Marketing Associate', departmentId: 'd1', salary: 32000, benefits: benefitNames.slice(0, 6), openings: 1 },
+    { id: 't23', name: 'Customer Service Representative', departmentId: 'd6', salary: 24000, benefits: benefitNames.slice(0, 6), openings: 3 },
 ];
 
 // The top of each sample job title's base salary range. The bottom is the salary the title had before ranges existed, so
@@ -306,21 +326,30 @@ function withSalaryRange(jobTitle) {
     return { ...rest, ...salaryRangeFor(jobTitle.id, salary ?? 0) };
 }
 
+// The leave credits (days per year) every sample job title starts with. A placeholder, not a policy: HR sets each job
+// title's own value in Job Titles.
+export const defaultLeaveCredits = 15;
+
+// A job title saved before leave credits (23 and earlier) starts with the default.
+function withLeaveCredits(jobTitle) {
+    return jobTitle.leaveCredits === undefined ? { ...jobTitle, leaveCredits: defaultLeaveCredits } : jobTitle;
+}
+
 // Every action an activity (audit log) entry can record.
 export const activityActions = ['Login', 'Logout', 'Created', 'Updated', 'Deleted', 'Hired'];
 
 // Recruitment pipeline order; every application is in exactly one of these.
-export const applicationStatuses = ['Applied', 'Demo Interview', 'Interview', 'Offered', 'Hired', 'Rejected'];
+export const applicationStatuses = ['Applied', 'Demo Interview', 'Final Interview', 'Offered', 'Hired', 'Rejected'];
 
 // The reference's ten applicants: name, job title, status, and days before today they applied.
 const seedApplications = [
     ['Juan Dela Cruz', 't5', 'Applied', 2],
     ['Patricia Lumbao', 't4', 'Demo Interview', 5],
-    ['Rafael Ignacio', 't10', 'Interview', 9],
+    ['Rafael Ignacio', 't10', 'Final Interview', 9],
     ['Isabel Hernandez', 't2', 'Offered', 14],
     ['Daniel Perez', 't7', 'Applied', 1],
     ['Liza Maglaya', 't9', 'Rejected', 21],
-    ['Gabriel Ocampo', 't3', 'Interview', 11],
+    ['Gabriel Ocampo', 't3', 'Final Interview', 11],
     ['Teresa Villar', 't8', 'Demo Interview', 6],
     ['Eduardo Panganiban', 't6', 'Hired', 30],
     ['Bianca Aguilar', 't5', 'Applied', 0],
@@ -329,42 +358,42 @@ const seedApplications = [
 // The newest employees, with full records (salary and benefits default from the job title).
 const featuredEmployees = [
     {
-        name: 'Maria Clara Santos', departmentId: 'd2', jobTitleId: 't4', hiredOn: '2024-10-24', salary: 95000,
+        name: 'Maria Clara Santos', departmentId: 'd5', jobTitleId: 't4', hiredOn: '2024-10-24', salary: 95000,
         birthdate: '1992-05-14', sex: 'Female', civilStatus: 'Single', email: 'mariaclara.santos@company.com',
         phone: '+63 917 123 4567', address: '123 Ayala Avenue, Makati City, Metro Manila',
     },
     {
-        name: 'Juan Carlos Reyes', departmentId: 'd3', jobTitleId: 't5', hiredOn: '2024-10-22',
+        name: 'Juan Carlos Reyes', departmentId: 'd4', jobTitleId: 't5', hiredOn: '2024-10-22',
         birthdate: '1988-11-03', sex: 'Male', civilStatus: 'Married', email: 'juancarlos.reyes@company.com',
         phone: '+63 918 234 5678', address: '45 Katipunan Avenue, Quezon City',
     },
     {
-        name: 'Angelica De la Cruz', departmentId: 'd5', jobTitleId: 't3', hiredOn: '2024-10-18',
+        name: 'Angelica De la Cruz', departmentId: 'd1', jobTitleId: 't3', hiredOn: '2024-10-18',
         birthdate: '1979-02-21', sex: 'Female', civilStatus: 'Married', email: 'angelica.delacruz@company.com',
         phone: '+63 919 345 6789', address: '210 Ortigas Avenue, Pasig City',
     },
     {
-        name: 'Mark Anthony Bautista', departmentId: 'd1', jobTitleId: 't2', hiredOn: '2024-10-15',
+        name: 'Mark Anthony Bautista', departmentId: 'd4', jobTitleId: 't2', hiredOn: '2024-10-15',
         birthdate: '1975-07-09', sex: 'Male', civilStatus: 'Married', email: 'markanthony.bautista@company.com',
         phone: '+63 920 456 7890', address: '88 España Boulevard, Manila',
     },
     {
-        name: 'Kristine Joy Mendoza', departmentId: 'd4', jobTitleId: 't9', hiredOn: '2024-10-10',
+        name: 'Kristine Joy Mendoza', departmentId: 'd7', jobTitleId: 't9', hiredOn: '2024-10-10',
         birthdate: '1995-09-30', sex: 'Female', civilStatus: 'Single', email: 'kristinejoy.mendoza@company.com',
         phone: '+63 921 567 8901', address: '17 Shaw Boulevard, Mandaluyong City',
     },
     {
-        name: 'Paolo Luis Villanueva', departmentId: 'd6', jobTitleId: 't4', hiredOn: '2024-09-28',
+        name: 'Paolo Luis Villanueva', departmentId: 'd3', jobTitleId: 't4', hiredOn: '2024-09-28',
         birthdate: '1986-04-17', sex: 'Male', civilStatus: 'Married', email: 'paololuis.villanueva@company.com',
         phone: '+63 922 678 9012', address: '302 Marcos Highway, Antipolo, Rizal',
     },
     {
-        name: 'Catherine Rose Ramos', departmentId: 'd1', jobTitleId: 't7', hiredOn: '2024-09-15',
+        name: 'Catherine Rose Ramos', departmentId: 'd4', jobTitleId: 't7', hiredOn: '2024-09-15',
         birthdate: '1997-12-05', sex: 'Female', civilStatus: 'Single', email: 'catherinerose.ramos@company.com',
         phone: '+63 923 789 0123', address: '64 Roxas Boulevard, Pasay City',
     },
     {
-        name: 'Jose Mari Alcantara', departmentId: 'd3', jobTitleId: 't5', hiredOn: '2024-08-30',
+        name: 'Jose Mari Alcantara', departmentId: 'd4', jobTitleId: 't5', hiredOn: '2024-08-30',
         birthdate: '1990-06-26', sex: 'Male', civilStatus: 'Single', email: 'josemari.alcantara@company.com',
         phone: '+63 924 890 1234', address: '155 Commonwealth Avenue, Quezon City',
     },
@@ -411,7 +440,7 @@ function generateRoster() {
     const pick = (items) => items[Math.floor(random() * items.length)];
     const pad = (number) => String(number).padStart(2, '0');
     const isoDate = (date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-    const remainingHeadcounts = { d1: 22, d2: 17, d3: 19, d4: 13, d5: 15, d6: 25, d7: 19, d8: 10 };
+    const remainingHeadcounts = { d1: 18, d2: 19, d3: 25, d4: 26, d5: 17, d6: 12, d7: 23 };
     const departmentBag = Object.entries(remainingHeadcounts).flatMap(([id, count]) => Array(count).fill(id));
     const jobTitleBag = ['t3', 't4', 't4', 't5', 't5', 't5', 't6', 't6', 't7', 't7', 't9', 't9', 't8', 't10', 't2', 't1'];
 
@@ -465,6 +494,7 @@ function seedJobTitleState() {
         jobTitles: seedJobTitles.map(({ salary, ...jobTitle }) => ({
             ...jobTitle,
             ...salaryRangeFor(jobTitle.id, salary),
+            leaveCredits: defaultLeaveCredits,
             benefits: [...jobTitle.benefits],
             ...postingContentFor(jobTitle.id),
         })),
@@ -490,6 +520,8 @@ function seedApplicationState() {
         return progressForStatus({
             id: `c${index + 1}`,
             name,
+            ...splitPersonName(name),
+            source: 'hr',
             email: `${nameParts[0]}.${nameParts[nameParts.length - 1]}@mail.com`,
             phone: `+63 9${17 + index} 555 ${1000 + index * 37}`,
             jobTitleId,
@@ -500,24 +532,82 @@ function seedApplicationState() {
     });
 
     // Upcoming activities (scheduled, not completed, so the statuses above stay as they are).
-    [['c1', 'Demo Interview', 2, '10:00'], ['c10', 'Demo Interview', 1, '09:00'], ['c2', 'Interview', 3, '14:00'], ['c8', 'Interview', 6, '10:30']]
+    [['c1', 'Demo Interview', 2, '10:00'], ['c10', 'Demo Interview', 1, '09:00'], ['c2', 'Final Interview', 3, '14:00'], ['c8', 'Final Interview', 6, '10:30']]
         .forEach(([id, type, days, time]) => {
             const application = findById(applications, id);
 
             application.activities.push({ id: `a${application.activities.length + 1}`, type, date: addDaysIso(today, days), time, status: 'Scheduled' });
         });
 
+    // The sample offers: the bottom of the position's base salary range, starting in a month.
+    applications.filter((application) => ['Offered', 'Hired'].includes(application.status)).forEach((application) => {
+        application.offer = sampleOfferFor(application, addDaysIso(today, 30), seedJobTitles);
+    });
+
     return { applications, nextApplicationNumber: applications.length + 1, ...seedApplicantAccountState(applications) };
 }
 
-// The 201 file details an applicant gives on the job application form. They use the employee record's field names,
-// so they carry over to the employee record when the applicant is hired. Applications HR adds by hand, and the sample
-// ones, have none of them (they read as blank).
-const applicantDetailFields = ['birthdate', 'sex', 'civilStatus', 'address', 'sssNumber', 'philhealthNumber', 'pagibigNumber', 'tin', 'birNumber'];
+// An offer for an application that has none (the samples, and offers issued before offers had details).
+function sampleOfferFor(application, startDate, jobTitles) {
+    const jobTitle = findById(jobTitles, application.jobTitleId);
 
-// The emergency contact an applicant gives on the job application form. It is kept apart from the profile details above:
-// only the application form asks for it, so editing the profile never touches it.
+    return {
+        salary: Number(jobTitle?.salaryMin ?? jobTitle?.salary ?? 0),
+        startDate,
+        notes: '',
+        issuedOn: application.milestones?.find((milestone) => milestone.key === 'offered')?.at ?? application.appliedOn,
+        updatedOn: '',
+    };
+}
+
+// The 201 file details an applicant gives. They use the employee record's field names, so they carry over to the employee
+// record when the applicant is hired. The personal details come with the account and the job application; the
+// government and tax numbers and the emergency contact are pre-employment information, asked for only once the
+// applicant has accepted an offer. Applications HR adds by hand, and the sample ones, have none of them (they read as blank).
+const applicantPersonalFields = ['birthdate', 'sex', 'civilStatus', 'address'];
+const applicantGovernmentFields = ['sssNumber', 'philhealthNumber', 'pagibigNumber', 'tin', 'birNumber'];
+const applicantDetailFields = [...applicantPersonalFields, ...applicantGovernmentFields];
+
+// The emergency contact, asked for with the pre-employment information.
 const applicantEmergencyFields = ['emergencyContactName', 'emergencyContactNumber', 'emergencyContactRelationship'];
+
+// Words that start a Filipino or Spanish surname ("Dela Cruz", "De los Santos"), for splitting a full name saved before
+// names had parts.
+const surnameParticles = ['de', 'del', 'dela', 'delos', 'de la', 'de los', 'san', 'santa', 'santo', 'sta.', 'sta', 'la', 'las', 'los', 'van', 'von', 'di', 'da', 'dos'];
+
+/**
+ * "Juan Dela Cruz" → { firstName: 'Juan', middleName: '', lastName: 'Dela Cruz' }. The last word (with any surname particles
+ * before it) is the last name and the rest the first name; a middle name cannot be told apart, so it is left blank.
+ */
+export function splitPersonName(name) {
+    const words = String(name ?? '').trim().split(/\s+/).filter(Boolean);
+
+    if (words.length < 2) {
+        return { firstName: words[0] ?? '', middleName: '', lastName: '' };
+    }
+
+    let start = words.length - 1;
+
+    while (start > 1 && surnameParticles.includes(words[start - 1].toLowerCase())) {
+        start -= 1;
+    }
+
+    return { firstName: words.slice(0, start).join(' '), middleName: '', lastName: words.slice(start).join(' ') };
+}
+
+/**
+ * A person's name as it is shown everywhere: first, middle, and last name.
+ */
+export function fullNameOf({ firstName, middleName, lastName }) {
+    return [firstName, middleName, lastName].map((part) => String(part ?? '').trim()).filter(Boolean).join(' ');
+}
+
+// The name parts of a record that has them, or of its full name otherwise.
+function namePartsOf(record) {
+    return record.lastName !== undefined
+        ? { firstName: String(record.firstName ?? ''), middleName: String(record.middleName ?? ''), lastName: String(record.lastName ?? '') }
+        : splitPersonName(record.name);
+}
 
 // The 201 file documents that apply at the application stage (the others belong to employment).
 const applicantDocumentKeys = ['hiringRequirements', 'education', 'workHistory'];
@@ -541,6 +631,7 @@ function seedApplicantAccountState(applications, accounts = [], nextNumber = 1) 
             account = {
                 id: `u${next++}`,
                 name: application.name,
+                ...namePartsOf(application),
                 email: application.email,
                 password: sampleApplicantPassword,
                 phone: application.phone ?? '',
@@ -570,23 +661,69 @@ function withActivityIds({ activity, nextActivityNumber = 1 }) {
 
 const leaveTypes = ['Vacation Leave', 'Sick Leave', 'Emergency Leave', 'Vacation Leave'];
 
+// A leave request moves from Pending (filed, waiting for HR) to Approved or Rejected by HR, or to Cancelled by the
+// employee while it is still Pending. Nothing changes a status on its own, whatever the dates.
+export const leaveStatuses = ['Pending', 'Approved', 'Rejected', 'Cancelled'];
+
+// The reason given on the sample requests, by leave type.
+const sampleLeaveReasons = {
+    'Vacation Leave': 'Personal time off.',
+    'Sick Leave': 'Medical rest as advised by the doctor.',
+    'Emergency Leave': 'A family emergency that needs my attention.',
+};
+
 // Other sample leave, by order: days from today it starts, how many days, and its status. Only
-// future requests are still Filed or Pending.
+// future requests are still Pending.
 const otherLeavePlan = [
-    [-20, 2, 'Approved'], [-9, 3, 'Approved'], [4, 2, 'Filed'], [9, 3, 'Pending'], [13, 1, 'Approved'],
-    [17, 2, 'Filed'], [22, 3, 'Pending'], [27, 2, 'Approved'], [-3, 2, 'Approved'],
+    [-20, 2, 'Approved'], [-9, 3, 'Approved'], [4, 2, 'Pending'], [9, 3, 'Pending'], [13, 1, 'Approved'],
+    [17, 2, 'Pending'], [22, 3, 'Pending'], [27, 2, 'Approved'], [-3, 2, 'Approved'],
 ];
 
 // The employee the Employee interface is signed in as (Juan Carlos Reyes). The leave below is his: days
-// from today it starts, how many days, type, and status. HR sees it too, on the Calendar and his profile.
+// from today it starts, how many days, type, status, his reason, and HR's remarks. HR sees it too, on Leave Requests,
+// the Calendar, and his profile.
 const portalEmployeeId = 'EMP-1002';
 const portalLeavePlan = [
-    [-35, 2, 'Sick Leave', 'Approved'],
-    [10, 3, 'Vacation Leave', 'Approved'],
-    [32, 2, 'Vacation Leave', 'Approved'],
-    [18, 1, 'Emergency Leave', 'Pending'],
-    [50, 2, 'Vacation Leave', 'Filed'],
+    [-35, 2, 'Sick Leave', 'Approved', 'Flu; the clinic advised two days of rest.', ''],
+    [10, 3, 'Vacation Leave', 'Approved', 'Family trip to Baguio.', 'Approved. Please endorse your classes before you leave.'],
+    [32, 2, 'Vacation Leave', 'Approved', 'Personal time off.', ''],
+    [18, 1, 'Emergency Leave', 'Pending', 'I need to accompany a family member to a hospital procedure.', ''],
+    [50, 2, 'Vacation Leave', 'Pending', 'Attending a relative’s wedding in the province.', ''],
+    [24, 2, 'Vacation Leave', 'Rejected', 'Out-of-town seminar.', 'The college holds its midterm examinations on these days. Please file for other dates.'],
+    [40, 1, 'Sick Leave', 'Cancelled', 'Medical check-up.', ''],
 ];
+
+// A timestamp (milliseconds) at an hour of an ISO date, for the review and cancellation times of the sample leave.
+function timestampOn(isoDate, hour = 10) {
+    const [year, month, day] = isoDate.split('-').map(Number);
+
+    return new Date(year, month - 1, day, hour).getTime();
+}
+
+/**
+ * A leave request with every field it keeps: the employee's reason, the supporting documents (file names and sizes
+ * only), HR's remarks (the reason, when rejected), who reviewed it and when, and when the employee cancelled it.
+ */
+function leaveRecord(fields) {
+    return {
+        reason: '',
+        supportingDocuments: [],
+        hrRemarks: '',
+        reviewedBy: '',
+        reviewedAt: null,
+        cancelledAt: null,
+        ...fields,
+    };
+}
+
+// Review details for a sample request HR already decided (the day after it was filed), or the employee cancelled.
+function sampleReview(status, filedOn, hrRemarks = '') {
+    if (status === 'Approved' || status === 'Rejected') {
+        return { hrRemarks, reviewedBy: seedHrProfile.name, reviewedAt: timestampOn(addDaysIso(filedOn, 1)) };
+    }
+
+    return status === 'Cancelled' ? { cancelledAt: timestampOn(addDaysIso(filedOn, 2), 15) } : {};
+}
 
 // The 201 file document categories, in the order the HR employee form lists them: [key, label].
 const documentCategories = [
@@ -623,18 +760,21 @@ function portalDocuments() {
 }
 
 function portalLeaveRequests(firstNumber, today) {
-    return portalLeavePlan.map(([startOffset, days, type, status], index) => {
+    return portalLeavePlan.map(([startOffset, days, type, status, reason, hrRemarks], index) => {
         const startDate = addDaysIso(today, startOffset);
+        const filedOn = addDaysIso(today, Math.min(startOffset, 0) - 7);
 
-        return {
+        return leaveRecord({
             id: `lv${firstNumber + index}`,
             employeeId: portalEmployeeId,
             type,
             startDate,
             endDate: addDaysIso(startDate, days - 1),
             status,
-            filedOn: addDaysIso(today, Math.min(startOffset, 0) - 7),
-        };
+            filedOn,
+            reason,
+            ...sampleReview(status, filedOn, hrRemarks),
+        });
     });
 }
 
@@ -647,16 +787,19 @@ function seedLeaveState(employees, today) {
     const leaveRequests = [];
     const add = (employee, type, startOffset, days, status) => {
         const startDate = addDaysIso(today, startOffset);
+        const filedOn = addDaysIso(today, Math.min(startOffset, 0) - 7);
 
-        leaveRequests.push({
+        leaveRequests.push(leaveRecord({
             id: `lv${leaveRequests.length + 1}`,
             employeeId: employee.id,
             type,
             startDate,
             endDate: addDaysIso(startDate, days - 1),
             status,
-            filedOn: addDaysIso(today, Math.min(startOffset, 0) - 7),
-        });
+            filedOn,
+            reason: sampleLeaveReasons[type] ?? '',
+            ...sampleReview(status, filedOn),
+        }));
     };
     let onLeaveCount = 0;
     let otherCount = 0;
@@ -716,14 +859,14 @@ function createInitialState() {
             entry('Login', 'Session', 'Signed in', 0.2),
             entry('Created', 'Candidate · Bianca Aguilar', 'Added to Recruitment as Applied', 3),
             entry('Created', 'Candidate · Juan Dela Cruz', 'Added to Recruitment as Applied', 27),
-            entry('Updated', 'Candidate · Isabel Hernandez', 'Stage changed from Interview to Offered', 31),
+            entry('Updated', 'Candidate · Isabel Hernandez', 'Stage changed from Final Interview to Offered', 31),
             entry('Updated', 'Job Title · Department Chair', 'Base salary updated to ₱92,000.00', 52),
-            entry('Created', 'Department · Allied Health Sciences', 'Department created', 75),
+            entry('Created', 'College · College of Nursing (CON)', 'College created', 75),
             entry('Created', 'Employee · Maria Clara Santos (EMP-1001)', 'Employee record created', 96),
             entry('Updated', 'Employee · Juan Carlos Reyes (EMP-1002)', 'Job title changed to Assistant Professor', 120),
             entry('Hired', 'Candidate · Eduardo Panganiban', 'Hired and added to Employees', 170),
             entry('Deleted', 'Job Title · Teaching Assistant', 'Job title removed', 190),
-            entry('Updated', 'Department · Education', 'Department renamed', 215),
+            entry('Updated', 'College · College of Education (COED)', 'College updated', 215),
             entry('Login', 'Session', 'Signed in', 240),
         ] }),
     };
@@ -812,6 +955,91 @@ function withoutRetiredOpenings(jobTitles, applications, employees) {
         .map((jobTitle) => (retiredOpeningIds.includes(jobTitle.id) ? { ...jobTitle, openings: 0 } : jobTitle));
 }
 
+/**
+ * Moves saved data (21 and earlier) from departments to the approved colleges: every record's `departmentId` points to
+ * its college, the college list is replaced, and audit log entries name colleges.
+ */
+function withColleges(saved) {
+    const collegeIds = {};
+
+    saved.departments.forEach((department) => {
+        const byName = approvedColleges.findIndex((college) => college.toLowerCase().includes(String(department.name).toLowerCase()));
+
+        collegeIds[department.id] = collegeForLegacyDepartment[department.id] ?? (byName >= 0 ? `d${byName + 1}` : fallbackCollegeId);
+    });
+
+    const toCollege = (record) => (record && 'departmentId' in record
+        ? { ...record, departmentId: collegeIds[record.departmentId] ?? collegeForLegacyDepartment[record.departmentId] ?? fallbackCollegeId }
+        : record);
+    const collegeEntity = (entity) => String(entity).replace(/^Department · .*$/, (text) => {
+        const name = text.slice('Department · '.length);
+        const legacy = saved.departments.find((department) => department.name === name);
+
+        return `College · ${legacy ? findById(seedDepartments, collegeIds[legacy.id])?.name ?? name : name}`;
+    });
+
+    return {
+        ...saved,
+        ...seedDepartmentState(),
+        jobTitles: saved.jobTitles.map(toCollege),
+        employees: saved.employees.map(toCollege),
+        archivedEmployees: (saved.archivedEmployees ?? []).map(toCollege),
+        applications: saved.applications.map(toCollege),
+        applicationDrafts: (saved.applicationDrafts ?? []).map(toCollege),
+        activity: saved.activity.map((entry) => ({
+            ...entry,
+            entity: collegeEntity(entry.entity),
+            detail: String(entry.detail).replace(/^Department /, 'College '),
+        })),
+    };
+}
+
+/**
+ * Saved data from 21 and earlier: names get their parts, an offer that was issued gets details, and each application
+ * notes whether the applicant submitted it (it then has their own details or documents) or HR added it.
+ */
+function withApplicantRecordsV22(saved) {
+    const isApplicantSubmitted = (application) => applicantPersonalFields.some((field) => String(application[field] ?? '').trim())
+        || applicantDocumentKeys.some((key) => (application.documents?.[key] ?? []).length > 0);
+
+    return {
+        ...saved,
+        applicantAccounts: saved.applicantAccounts.map((account) => ({ ...account, ...namePartsOf(account) })),
+        applications: saved.applications.map((application) => ({
+            ...application,
+            ...namePartsOf(application),
+            source: application.source ?? (isApplicantSubmitted(application) ? 'applicant' : 'hr'),
+            ...(['Offered', 'Hired'].includes(application.status) && !application.offer
+                ? { offer: sampleOfferFor(application, '', saved.jobTitles) }
+                : {}),
+        })),
+    };
+}
+
+/**
+ * Saved data from 22 and earlier: the final interview stage and schedule are named "Final Interview" (they were
+ * "Interview"), and leave requests that were Filed are Pending, with the reason, documents, remarks, and review
+ * details every request now keeps.
+ */
+function withV23Records(saved) {
+    const finalInterview = (value) => (value === 'Interview' ? 'Final Interview' : value);
+    const leave = (request) => leaveRecord({ ...request, status: request.status === 'Filed' ? 'Pending' : request.status });
+
+    return {
+        ...saved,
+        applications: saved.applications.map((application) => ({
+            ...application,
+            status: finalInterview(application.status),
+            activities: (application.activities ?? []).map((activity) => ({ ...activity, type: finalInterview(activity.type) })),
+        })),
+        leaveRequests: saved.leaveRequests.map(leave),
+        archivedEmployees: (saved.archivedEmployees ?? []).map((employee) => (Array.isArray(employee.archivedLeave)
+            ? { ...employee, archivedLeave: employee.archivedLeave.map(leave) }
+            : employee)),
+        calendarEvents: (saved.calendarEvents ?? []).map((event) => (event.status === 'Filed' ? { ...event, status: 'Pending' } : event)),
+    };
+}
+
 function saveState() {
     try {
         localStorage.setItem(storageKey, JSON.stringify(state));
@@ -828,7 +1056,8 @@ function loadState() {
             return null;
         }
 
-        if (!(saved.version >= 1 && saved.version <= storageVersion)) {
+        // Versions 13 and earlier predate the openings and the colleges; they start from fresh sample data.
+        if (!(saved.version >= 14 && saved.version <= storageVersion)) {
             return null;
         }
 
@@ -879,7 +1108,7 @@ function loadState() {
             Array.isArray(application.milestones) ? application : progressForStatus(application, today)
         ));
 
-        return {
+        const loaded = {
             ...migrated,
             ...seeded,
             // The audit log's text uses the new stage name too.
@@ -900,6 +1129,12 @@ function loadState() {
                 ? {}
                 : seedApplicantAccountState(applications)),
         };
+
+        const upToV22 = saved.version < 22 ? withApplicantRecordsV22(withColleges(loaded)) : loaded;
+
+        const upToV23 = saved.version < 23 ? withV23Records(upToV22) : upToV22;
+
+        return saved.version < 24 ? { ...upToV23, jobTitles: upToV23.jobTitles.map(withLeaveCredits) } : upToV23;
     } catch {
         // Missing, unreadable, or blocked storage falls through to fresh sample data.
     }
@@ -934,6 +1169,12 @@ if (typeof window !== 'undefined') {
 // Activity entries show salaries with centavos, e.g. "₱92,000.00".
 function salaryRangeText(jobTitle) {
     return `${formatSalary(jobTitle.salaryMin)} to ${formatSalary(jobTitle.salaryMax)}`;
+}
+
+function leaveCreditsText(jobTitle) {
+    const credits = Number(jobTitle.leaveCredits ?? 0);
+
+    return `${credits} leave credit${credits === 1 ? '' : 's'}`;
 }
 
 function formatSalary(amount) {
@@ -1056,7 +1297,7 @@ export function getShellData() {
 
 // The kind of update an activity entry is, from the record it is about; entries about the session or the
 // account itself are not a kind the settings can turn off.
-const notificationKinds = { Leave: 'leave', Candidate: 'recruitment', 'Applicant Account': 'recruitment', Employee: 'employees', Department: 'employees', 'Job Title': 'employees' };
+const notificationKinds = { Leave: 'leave', Candidate: 'recruitment', 'Applicant Account': 'recruitment', Employee: 'employees', Department: 'employees', College: 'employees', 'Job Title': 'employees' };
 
 function isNotificationShown(entry, shown) {
     const kind = notificationKinds[entry.entity.split(' · ')[0]];
@@ -1117,13 +1358,14 @@ export function getPortalFiles() {
 }
 
 /**
- * The signed-in employee's own leave requests (filed, pending, and approved), and nothing of anyone
- * else's, for the Employee Calendar.
+ * The signed-in employee's own leave requests (every status, with their reason, documents, and HR's remarks), newest
+ * filing first, and nothing of anyone else's: the Employee Calendar and Leave Request page. Matched by employee ID.
  */
 export function getPortalLeave() {
     return state.leaveRequests
         .filter((leave) => leave.employeeId === portalEmployeeId)
-        .map(({ id, type, startDate, endDate, status, filedOn }) => ({ id, type, startDate, endDate, status, filedOn }));
+        .sort((first, second) => second.filedOn.localeCompare(first.filedOn) || Number(second.id.slice(2)) - Number(first.id.slice(2)))
+        .map((leave) => structuredClone(leave));
 }
 
 /**
@@ -1207,8 +1449,51 @@ const selfEditableFields = ['civilStatus', 'phone', 'address'];
  */
 export function getPortalProfile() {
     const record = findById(state.employees, portalEmployeeId);
+    const jobTitle = record ? findById(state.jobTitles, record.jobTitleId) : undefined;
 
-    return record ? withNames(record) : undefined;
+    // Base Salary and Leave Credits come from the employee's job title (HR manages them in Job Titles); read-only here.
+    return record
+        ? { ...withNames(record), salaryMin: jobTitle?.salaryMin, salaryMax: jobTitle?.salaryMax, leaveCredits: jobTitle ? Number(jobTitle.leaveCredits ?? 0) : undefined }
+        : undefined;
+}
+
+/**
+ * The signed-in employee's leave credits for a year: the credits their job title grants, the days of Approved leave in
+ * that year (calendar days, any leave type), and what is left. Pending, Rejected, and Cancelled requests take nothing.
+ * `credits` is null when the employee or their job title no longer exists.
+ *
+ * @returns {{ year: number, credits: number|null, used: number, remaining: number|null }}
+ */
+export function getLeaveBalance(year = Number(todayIso().slice(0, 4))) {
+    const employee = findById(state.employees, portalEmployeeId);
+    const jobTitle = employee ? findById(state.jobTitles, employee.jobTitleId) : undefined;
+    const used = state.leaveRequests
+        .filter((leave) => leave.employeeId === portalEmployeeId && leave.status === 'Approved')
+        .reduce((total, leave) => total + leaveDaysWithin(leave, `${year}-01-01`, `${year}-12-31`), 0);
+
+    if (!jobTitle) {
+        return { year, credits: null, used, remaining: null };
+    }
+
+    const credits = Number(jobTitle.leaveCredits ?? 0);
+
+    return { year, credits, used, remaining: credits - used };
+}
+
+/**
+ * What a leave request would mean for the balance of the year it starts in: the days requested (calendar days, counted
+ * within that year) and the credits that would remain if HR approved it. Nothing is deducted until it is approved.
+ * `days` is 0 until both dates are valid.
+ *
+ * @returns {{ days: number, balance: object, remainingAfter: number|null }}
+ */
+export function estimateLeaveBalance({ startDate, endDate }) {
+    const isValid = /^\d{4}-\d{2}-\d{2}$/.test(startDate ?? '') && /^\d{4}-\d{2}-\d{2}$/.test(endDate ?? '') && endDate >= startDate;
+    const year = isValid ? Number(startDate.slice(0, 4)) : undefined;
+    const balance = getLeaveBalance(year);
+    const days = isValid ? leaveDaysWithin({ startDate, endDate }, `${balance.year}-01-01`, `${balance.year}-12-31`) : 0;
+
+    return { days, balance, remainingAfter: balance.remaining === null ? null : balance.remaining - days };
 }
 
 /**
@@ -1300,7 +1585,7 @@ export function getEmployeePortalData() {
             takenDays: total(approved.map((request) => leaveDaysWithin(request, yearStart, today))),
             aheadDays: total(ahead.map((request) => leaveDaysWithin(request, today, '9999-12-31'))),
             aheadCount: ahead.length,
-            awaitingCount: leave.filter((request) => request.status === 'Filed' || request.status === 'Pending').length,
+            awaitingCount: leave.filter((request) => request.status === 'Pending').length,
             onLeaveUntil: underWay?.endDate ?? '',
             year: Number(today.slice(0, 4)),
         },
@@ -1560,12 +1845,49 @@ export function isDepartmentNameTaken(name, exceptId = null) {
     return state.departments.some((department) => department.id !== exceptId && department.name.toLowerCase() === normalized);
 }
 
+/**
+ * Why a college choice is not valid, or '' when it is: it must be one of the listed (approved) colleges.
+ */
+export function collegeChoiceError(departmentId) {
+    if (!departmentId) {
+        return 'Select a college.';
+    }
+
+    return findById(state.departments, departmentId) ? '' : 'Choose one of the listed colleges.';
+}
+
+/**
+ * The approved colleges not yet listed (plus the one being edited, if any), in the approved order.
+ */
+export function availableColleges(exceptId = null) {
+    return approvedColleges.filter((college) => !isDepartmentNameTaken(college, exceptId));
+}
+
+/**
+ * Why a college name cannot be saved, or '' when it can: it must be one of the approved colleges, listed only once.
+ */
+export function collegeNameError(name, exceptId = null) {
+    if (!String(name ?? '').trim()) {
+        return 'Select a college.';
+    }
+
+    if (!approvedColleges.includes(name.trim())) {
+        return 'Choose one of the approved colleges.';
+    }
+
+    return isDepartmentNameTaken(name, exceptId) ? 'This college is already listed.' : '';
+}
+
 export function addDepartment(name) {
+    if (collegeNameError(name)) {
+        return undefined;
+    }
+
     const department = { id: `d${state.nextDepartmentNumber}`, name: name.trim() };
 
     state.nextDepartmentNumber += 1;
     state.departments.push(department);
-    logActivity('Created', `Department · ${department.name}`, 'Department created');
+    logActivity('Created', `College · ${department.name}`, 'College created');
     commitChange();
 
     return department;
@@ -1574,7 +1896,7 @@ export function addDepartment(name) {
 export function updateDepartment(id, name) {
     const department = findById(state.departments, id);
 
-    if (!department) {
+    if (!department || collegeNameError(name, id)) {
         return undefined;
     }
 
@@ -1583,8 +1905,8 @@ export function updateDepartment(id, name) {
     department.name = name.trim();
     logActivity(
         'Updated',
-        `Department · ${department.name}`,
-        previousName === department.name ? 'Department updated' : `Renamed from ${previousName}`,
+        `College · ${department.name}`,
+        previousName === department.name ? 'College updated' : `Renamed from ${previousName}`,
     );
     commitChange();
 
@@ -1610,7 +1932,7 @@ export function deleteDepartment(id) {
     }
 
     state.departments = state.departments.filter((candidate) => candidate.id !== id);
-    logActivity('Deleted', `Department · ${department.name}`, 'Department removed');
+    logActivity('Deleted', `College · ${department.name}`, 'College removed');
     commitChange();
 
     return { department, ...usage };
@@ -1625,16 +1947,6 @@ function withDepartmentName(jobTitle) {
         applicationCount: state.applications.filter((application) => application.jobTitleId === jobTitle.id).length,
         isOpen: Number(jobTitle.openings || 0) > 0,
     };
-}
-
-/**
- * The benefits the open positions offer, in display order, with what each one is, for the public Careers website.
- * Empty when no position is open.
- */
-export function getOpenPositionBenefits() {
-    const offered = new Set(state.jobTitles.filter((jobTitle) => Number(jobTitle.openings || 0) > 0).flatMap((jobTitle) => jobTitle.benefits));
-
-    return benefitNames.filter((name) => offered.has(name)).map((name) => ({ name, description: benefitDescriptions[name] ?? '' }));
 }
 
 /**
@@ -1684,21 +1996,21 @@ export function isJobTitleNameTaken(name, departmentId, exceptId = null) {
 }
 
 /**
- * @param {{ name: string, departmentId: string, salaryMin: number, salaryMax: number, benefits: string[] }} details
+ * @param {{ name: string, departmentId: string, salaryMin: number, salaryMax: number, leaveCredits?: number, benefits: string[] }} details
  */
 export function addJobTitle(details) {
-    const jobTitle = { id: `t${state.nextJobTitleNumber}`, ...details, name: details.name.trim() };
+    const jobTitle = { id: `t${state.nextJobTitleNumber}`, leaveCredits: defaultLeaveCredits, ...details, name: details.name.trim() };
 
     state.nextJobTitleNumber += 1;
     state.jobTitles.push(jobTitle);
-    logActivity('Created', `Job Title · ${jobTitle.name}`, `Job title created, base salary ${salaryRangeText(jobTitle)}`);
+    logActivity('Created', `Job Title · ${jobTitle.name}`, `Job title created, base salary ${salaryRangeText(jobTitle)}, ${leaveCreditsText(jobTitle)}`);
     commitChange();
 
     return jobTitle;
 }
 
 /**
- * @param {{ name: string, departmentId: string, salaryMin: number, salaryMax: number, benefits: string[] }} details
+ * @param {{ name: string, departmentId: string, salaryMin: number, salaryMax: number, leaveCredits?: number, benefits: string[] }} details
  */
 export function updateJobTitle(id, details) {
     const index = state.jobTitles.findIndex((jobTitle) => jobTitle.id === id);
@@ -1710,7 +2022,7 @@ export function updateJobTitle(id, details) {
     const jobTitle = { ...state.jobTitles[index], ...details, name: details.name.trim(), id };
 
     state.jobTitles[index] = jobTitle;
-    logActivity('Updated', `Job Title · ${jobTitle.name}`, `Job title updated, base salary ${salaryRangeText(jobTitle)}`);
+    logActivity('Updated', `Job Title · ${jobTitle.name}`, `Job title updated, base salary ${salaryRangeText(jobTitle)}, ${leaveCreditsText(jobTitle)}`);
     commitChange();
 
     return jobTitle;
@@ -1729,6 +2041,10 @@ export function setJobPostingStatus(id, status) {
 
     if (!jobTitle) {
         return { ok: false, error: 'That position no longer exists.' };
+    }
+
+    if (!['Open', 'Closed'].includes(status)) {
+        return { ok: false, error: 'A job posting can only be Open or Closed.' };
     }
 
     const isOpen = Number(jobTitle.openings || 0) > 0;
@@ -1844,7 +2160,7 @@ function success(application, extra = {}) {
 }
 
 /**
- * Field errors for a demo interview or interview slot (empty when valid): a date from today on, and a time.
+ * Field errors for a demo interview or final interview slot (empty when valid): a date from today on, and a time.
  *
  * @returns {{ date?: string, time?: string }}
  */
@@ -1870,11 +2186,11 @@ function slotText({ date, time, endTime }) {
 
 // ---- HR Calendar scheduling
 
-// The interview types the HR Calendar offers: Interview is the final interview; Other is any other on-site meeting and is
+// The interview types the HR Calendar offers: Demo Interview, Final Interview, and Other is any other on-site meeting and is
 // not a recruitment step.
 export const interviewTypes = [
     { value: 'Demo Interview', label: 'Demo Interview' },
-    { value: 'Interview', label: 'Final Interview' },
+    { value: 'Final Interview', label: 'Final Interview' },
     { value: 'Other', label: 'Other' },
 ];
 
@@ -2088,9 +2404,9 @@ function rescheduleFieldErrors(current, { date, time, endTime, reason, reasonDet
 // ---- Calendar events HR adds
 
 // The kinds of event the HR Calendar can hold, with the statuses each uses (the same ones the calendar already filters by):
-// leave is Filed, Pending, or Approved; everything else is Scheduled or Completed.
+// leave is Pending or Approved; everything else is Scheduled or Completed.
 export const calendarEventTypes = [
-    { value: 'leave', label: 'Employee Leave', statuses: ['Filed', 'Pending', 'Approved'] },
+    { value: 'leave', label: 'Employee Leave', statuses: ['Pending', 'Approved'] },
     { value: 'demo-interview', label: 'Applicant Demo Interview', statuses: ['Scheduled', 'Completed'] },
     { value: 'interview', label: 'Applicant Final Interview', statuses: ['Scheduled', 'Completed'] },
     { value: 'other', label: 'Other Applicant Event', statuses: ['Scheduled', 'Completed'] },
@@ -2343,11 +2659,12 @@ function addMilestone(application, key) {
 /**
  * Moves an application to a new status and logs it.
  */
-function moveTo(application, status, action, detail) {
+// `user` names who made the change in the audit log (the HR user when omitted).
+function moveTo(application, status, action, detail, user = undefined) {
     const previous = application.status;
 
     application.status = status;
-    logActivity(action, applicationEntity(application), `${detail}; stage changed from ${previous} to ${status}`);
+    logActivity(action, applicationEntity(application), `${detail}; stage changed from ${previous} to ${status}`, user);
 }
 
 /**
@@ -2424,6 +2741,7 @@ export function getApplicantAccount(accountId) {
     return {
         id: account.id,
         name: account.name,
+        ...namePartsOf(account),
         email: account.email,
         phone: account.phone ?? '',
         createdOn: account.createdOn,
@@ -2441,25 +2759,64 @@ export function isApplicantAccountEmailTaken(email, exceptAccountId = null) {
 }
 
 /**
- * Creates a mock applicant account. The password is kept only in this frontend mock data, never sent anywhere.
+ * Field errors for the applicant's own personal details (empty when valid): last and first name, an optional middle
+ * name, and a birthdate, sex, and civil status from the listed options. Values are trimmed before they are checked.
  *
- * @param {{ name: string, email: string, password: string }} details
+ * @returns {{ lastName?: string, firstName?: string, middleName?: string, birthdate?: string, sex?: string, civilStatus?: string }}
+ */
+export function validateApplicantPersonal(details) {
+    const rules = {
+        lastName: personNameRule('Enter your last name.'),
+        firstName: personNameRule('Enter your first name.'),
+        middleName: (value) => (String(value).trim() ? personNameRule('')(value) : ''),
+        birthdate: birthdateRule('Enter your birthdate.'),
+        sex: choiceRule(sexOptions, 'Select your sex.'),
+        civilStatus: choiceRule(civilStatusOptions, 'Select your civil status.'),
+    };
+
+    return Object.fromEntries(Object.entries(rules)
+        .filter(([field]) => field in details)
+        .map(([field, rule]) => [field, rule(String(details[field] ?? ''))])
+        .filter(([, message]) => message));
+}
+
+/**
+ * Creates a mock applicant account with the applicant's name (in parts) and personal details. The password is kept
+ * only in this frontend mock data, never sent anywhere.
+ *
+ * @param {{ lastName: string, firstName: string, middleName: string, birthdate: string, sex: string, civilStatus: string, email: string, password: string }} details
  * @returns {{ ok: true, account: object } | { ok: false, error: string, errors: object }}
  */
-export function registerApplicant({ name, email, password }) {
+export function registerApplicant({ lastName, firstName, middleName = '', birthdate, sex, civilStatus, email, password }) {
+    const personal = { lastName, firstName, middleName, birthdate, sex, civilStatus };
+    const personalErrors = validateApplicantPersonal(personal);
+
+    if (Object.keys(personalErrors).length) {
+        return { ok: false, error: Object.values(personalErrors)[0], errors: personalErrors };
+    }
+
     if (isApplicantAccountEmailTaken(email)) {
         const error = 'An account with this email address already exists. Log in instead.';
 
         return { ok: false, error, errors: { email: error } };
     }
 
+    const nameParts = {
+        firstName: String(firstName).trim(),
+        middleName: String(middleName ?? '').trim(),
+        lastName: String(lastName).trim(),
+    };
     const account = {
         id: `u${state.nextApplicantAccountNumber}`,
-        name: String(name).trim(),
+        name: fullNameOf(nameParts),
+        ...nameParts,
         email: String(email).trim(),
         password: String(password),
         phone: '',
         ...Object.fromEntries(applicantDetailFields.map((field) => [field, ''])),
+        birthdate: String(birthdate).trim(),
+        sex: String(sex).trim(),
+        civilStatus: String(civilStatus).trim(),
         documents: applicantDocuments({}),
         createdOn: todayIso(),
     };
@@ -2528,10 +2885,10 @@ export function validateApplicantEmail(accountId, email) {
 }
 
 /**
- * Saves the applicant's edits to their own profile. The name stays as it was registered. The email address and
- * phone number are how HR reaches them, so they also change on all of their applications; the other 201 file
- * details apply to their next application (submitted applications keep what was sent). Nothing is logged when
- * nothing changed.
+ * Saves the applicant's edits to their own profile: email, phone, address, birthdate, sex, and civil status. The name
+ * stays as it was registered. The email address and phone number are how HR reaches them, so they also change on all of
+ * their applications; the other details apply to their next application (submitted applications keep what was sent).
+ * Nothing is logged when nothing changed.
  *
  * @returns {{ ok: true, account: object } | { ok: false, error: string, errors: object }}
  */
@@ -2542,16 +2899,19 @@ export function updateApplicantAccount(accountId, details) {
         return { ok: false, error: 'Your account no longer exists.', errors: {} };
     }
 
-    const errors = validateApplicantEmail(accountId, details.email);
+    const errors = {
+        ...validateApplicantPersonal({ birthdate: details.birthdate, sex: details.sex, civilStatus: details.civilStatus }),
+        ...validateApplicantEmail(accountId, details.email),
+    };
 
     if (Object.keys(errors).length) {
-        return { ok: false, error: errors.email, errors };
+        return { ok: false, error: Object.values(errors)[0], errors };
     }
 
     const changes = {
         email: String(details.email).trim(),
         phone: String(details.phone).trim(),
-        ...Object.fromEntries(applicantDetailFields.map((field) => [field, String(details[field] ?? '').trim()])),
+        ...Object.fromEntries(applicantPersonalFields.map((field) => [field, String(details[field] ?? '').trim()])),
     };
     const hasChanges = Object.entries(changes).some(([field, value]) => String(account[field] ?? '') !== value);
 
@@ -2582,17 +2942,19 @@ function scheduledActivitiesOf(application) {
 
 /**
  * One application as the Applicant interface shows it: what was submitted, the position, where it stands, and the
- * demo interview and interview schedule HR set. Recruitment's internal fields (such as the offer response or a linked
+ * demo interview and final interview schedule HR set. Recruitment's internal fields (such as the offer response or a linked
  * employee record) are not passed on.
  */
 function applicantView(application) {
     const named = withApplicationNames(application);
     const position = findById(state.jobTitles, application.jobTitleId) ?? {};
     const next = scheduledActivitiesOf(application)[0];
+    const workflow = workflowFor(application);
 
     return {
         id: named.id,
         name: named.name,
+        ...namePartsOf(named),
         email: named.email,
         phone: named.phone,
         jobTitleId: named.jobTitleId,
@@ -2608,6 +2970,12 @@ function applicantView(application) {
             id: activityId, type, date, time, endTime: endTime ?? '', venue: venue ?? '', status, completedOn,
         })),
         next: next ? { type: next.type, date: next.date, time: next.time } : null,
+        // The offer HR issued, and the applicant's own steps: answering it, then giving the pre-employment information.
+        offer: named.offer ? { ...named.offer } : null,
+        offerResponse: named.offerResponse ?? '',
+        preEmploymentSubmittedAt: named.preEmploymentSubmittedAt ?? null,
+        canRespondToOffer: workflow.canRespondToOffer,
+        canSubmitPreEmployment: workflow.canSubmitPreEmployment,
     };
 }
 
@@ -2657,11 +3025,12 @@ export function applicationBlockFor(accountId, jobTitleId) {
 
 /**
  * Submits the signed-in applicant's job application: a new Recruitment application (status Applied) linked to their
- * account and the position, with their name and email from the account. The 201 file details and documents they
- * give are kept on the application and become their profile's details, so the next application starts from them.
+ * account and the position, with their name and email from the account. The personal details and documents they give
+ * are kept on the application and become their profile's details, so the next application starts from them. The
+ * government and tax numbers and the emergency contact are not part of it: they come later, as pre-employment information.
  *
- * @param {{ jobTitleId: string, phone: string, documents: object }} details plus the 201 file detail fields
- * @returns {{ ok: true, application: object } | { ok: false, error: string }}
+ * @param {{ jobTitleId: string, phone: string, documents: object }} details plus the personal detail fields
+ * @returns {{ ok: true, application: object } | { ok: false, error: string, errors?: object }}
  */
 export function submitApplication(accountId, details) {
     const error = applicationBlockFor(accountId, details.jobTitleId);
@@ -2670,11 +3039,17 @@ export function submitApplication(accountId, details) {
         return { ok: false, error };
     }
 
+    const personalErrors = validateApplicantPersonal({ birthdate: details.birthdate, sex: details.sex, civilStatus: details.civilStatus });
+
+    if (Object.keys(personalErrors).length) {
+        return { ok: false, error: Object.values(personalErrors)[0], errors: personalErrors };
+    }
+
     const account = findAccount(accountId);
     const jobTitle = findById(state.jobTitles, details.jobTitleId);
     const given = {
         phone: String(details.phone).trim(),
-        ...Object.fromEntries([...applicantDetailFields, ...applicantEmergencyFields].map((field) => [field, String(details[field] ?? '').trim()])),
+        ...Object.fromEntries(applicantPersonalFields.map((field) => [field, String(details[field] ?? '').trim()])),
         documents: applicantDocuments(details.documents),
     };
 
@@ -2688,7 +3063,9 @@ export function submitApplication(accountId, details) {
     const application = addApplication({
         ...given,
         accountId,
+        source: 'applicant',
         name: account.name,
+        ...namePartsOf(account),
         email: account.email,
         jobTitleId: jobTitle.id,
         departmentId: jobTitle.departmentId,
@@ -2742,7 +3119,7 @@ export function getApplicationDraft(accountId, { id = '', jobTitleId = '' } = {}
  * is created, so there is no status, HR Recruitment does not show it, and the applicant's profile is left alone.
  * Passing `draftId` updates that draft (even if its position changed); otherwise a position keeps one draft.
  *
- * @param {{ draftId?: string, jobTitleId: string, phone: string, documents: object }} details plus the 201 file and emergency contact fields
+ * @param {{ draftId?: string, jobTitleId: string, phone: string, documents: object }} details plus the personal detail fields
  * @returns {{ ok: true, draft: object } | { ok: false, error: string, errors: object }}
  */
 export function saveApplicationDraft(accountId, details) {
@@ -2773,7 +3150,7 @@ export function saveApplicationDraft(accountId, details) {
     Object.assign(draft, {
         jobTitleId,
         phone: String(details.phone ?? '').trim(),
-        ...Object.fromEntries([...applicantDetailFields, ...applicantEmergencyFields].map((field) => [field, String(details[field] ?? '').trim()])),
+        ...Object.fromEntries(applicantPersonalFields.map((field) => [field, String(details[field] ?? '').trim()])),
         documents: applicantDocuments(details.documents),
         savedAt: Date.now(),
     });
@@ -2803,16 +3180,21 @@ function submittedDetails(source) {
 /**
  * New applications always start as Applied. `loggedBy` names who made the entry in the audit log (the
  * HR user when omitted; an applicant's own name when they apply themselves). `accountId` links an application an
- * applicant submitted to their account; applications HR adds by hand have none.
+ * applicant submitted to their account. One HR adds by hand is linked to the applicant account with its email address
+ * (one is made, with the sample password, when there is none), so only the applicant can answer an offer.
  *
- * @param {{ name: string, email: string, phone: string, jobTitleId: string, departmentId: string, appliedOn: string, accountId?: string }} details
+ * @param {{ lastName?: string, firstName?: string, middleName?: string, name?: string, email: string, phone: string, jobTitleId: string, departmentId: string, appliedOn: string, accountId?: string, source?: string }} details
  */
 export function addApplication(details, loggedBy = undefined) {
-    const { name, email, phone, jobTitleId, departmentId, appliedOn, accountId = '' } = details;
+    const { email, phone, jobTitleId, departmentId, appliedOn, accountId = '', source = 'hr' } = details;
+    const nameParts = namePartsOf(details);
+    const name = fullNameOf(nameParts) || String(details.name ?? '').trim();
     const application = progressForStatus(
         {
             id: `c${state.nextApplicationNumber}`,
             name,
+            ...nameParts,
+            source,
             email,
             phone,
             jobTitleId,
@@ -2828,6 +3210,10 @@ export function addApplication(details, loggedBy = undefined) {
 
     state.nextApplicationNumber += 1;
     state.applications.push(application);
+
+    if (!application.accountId) {
+        Object.assign(state, seedApplicantAccountState([application], state.applicantAccounts, state.nextApplicantAccountNumber));
+    }
     logActivity(
         'Created',
         applicationEntity(application),
@@ -2840,21 +3226,38 @@ export function addApplication(details, loggedBy = undefined) {
 }
 
 /**
- * Edits the applicant's details. The status, milestones, and activities are not editable here: they
- * change only through the workflow actions below.
+ * Whether HR may edit an application: only one HR added by hand. What an applicant submitted is theirs, so HR can read it
+ * but not change it.
+ */
+export function canHrEditApplication(application) {
+    return Boolean(application) && (application.source ?? 'hr') !== 'applicant';
+}
+
+/**
+ * Edits the details of an application HR added. The status, milestones, and activities are not editable here: they
+ * change only through the workflow actions below. An application the applicant submitted is left unchanged (undefined).
  *
- * @param {{ name: string, email: string, phone: string, jobTitleId: string, departmentId: string, appliedOn: string }} details
+ * @param {{ lastName: string, firstName: string, middleName: string, email: string, phone: string, jobTitleId: string, departmentId: string, appliedOn: string }} details
  */
 export function updateApplication(id, details) {
     const application = findById(state.applications, id);
 
-    if (!application) {
+    if (!application || !canHrEditApplication(application)) {
         return undefined;
     }
 
-    const { name, email, phone, jobTitleId, departmentId, appliedOn } = details;
+    const { email, phone, jobTitleId, departmentId, appliedOn } = details;
+    const nameParts = namePartsOf(details);
 
-    Object.assign(application, { name, email, phone, jobTitleId, departmentId, appliedOn });
+    Object.assign(application, { name: fullNameOf(nameParts), ...nameParts, email, phone, jobTitleId, departmentId, appliedOn });
+
+    // The applicant account made for this application (it has no other) keeps the same name and contact details, so the
+    // applicant signs in with the email HR has on file.
+    const account = findAccount(application.accountId);
+
+    if (account && applicationsOfAccount(account.id).length === 1 && !isApplicantAccountEmailTaken(email, account.id)) {
+        Object.assign(account, { name: application.name, ...nameParts, email: String(email).trim(), phone: String(phone).trim() });
+    }
 
     const received = application.milestones.find((milestone) => milestone.key === 'applied');
 
@@ -2870,7 +3273,7 @@ export function updateApplication(id, details) {
 
 /**
  * Puts a demo interview, final interview, or other schedule on the calendar. This does not change the status: that
- * happens when a demo interview or interview is completed. The HR Calendar also sends an end time, an on-site venue,
+ * happens when a demo interview or final interview is completed. The HR Calendar also sends an end time, an on-site venue,
  * and notes, and those are checked (including for conflicts); Recruitment sends only the date and start time.
  *
  * @param {{ type: string, date: string, time: string, endTime?: string, venue?: string, notes?: string }} slot
@@ -3032,9 +3435,49 @@ export function completeActivity(id, activityId) {
 }
 
 /**
- * Issues a job offer after an interview has been completed: Interview to Offered, response pending.
+ * Field errors for an offer's details (empty when valid): a monthly salary within the position's base salary range, a
+ * start date from today on, and optional notes.
+ *
+ * @returns {{ salary?: string, startDate?: string, notes?: string }}
  */
-export function issueOffer(id) {
+export function validateOffer(applicationId, { salary, startDate, notes = '' }) {
+    const application = findById(state.applications, applicationId ?? '');
+    const jobTitle = findById(state.jobTitles, application?.jobTitleId ?? '');
+    const errors = {};
+    const amount = String(salary ?? '').trim() === '' ? Number.NaN : Number(salary);
+
+    if (String(salary ?? '').trim() === '') {
+        errors.salary = 'Enter the monthly salary offered.';
+    } else if (!Number.isFinite(amount) || amount <= 0) {
+        errors.salary = 'The salary must be an amount greater than 0.';
+    } else if (jobTitle && (amount < Number(jobTitle.salaryMin) || amount > Number(jobTitle.salaryMax))) {
+        errors.salary = `The salary must be within the position's base salary range: ${salaryRangeText(jobTitle)}.`;
+    }
+
+    if (!startDate) {
+        errors.startDate = 'Choose the start date.';
+    } else if (!isRealDate(startDate)) {
+        errors.startDate = 'Enter a valid date.';
+    } else if (startDate < todayIso()) {
+        errors.startDate = 'Choose today or a later date.';
+    }
+
+    if (String(notes ?? '').trim().length > 500) {
+        errors.notes = 'Keep the notes to 500 characters or fewer.';
+    }
+
+    return errors;
+}
+
+function offerDetails({ salary, startDate, notes }) {
+    return { salary: Number(salary), startDate, notes: String(notes ?? '').trim() };
+}
+
+/**
+ * Issues a job offer after the final interview has been completed: Interview to Offered, waiting for the applicant's
+ * response. The offer's salary, start date, and notes are checked first (see validateOffer).
+ */
+export function issueOffer(id, details = {}) {
     const application = findById(state.applications, id);
 
     if (!application) {
@@ -3046,37 +3489,151 @@ export function issueOffer(id) {
     if (!workflow.canIssueOffer) {
         return failure(workflow.pendingActivity
             ? `Complete or cancel the scheduled ${workflow.pendingActivity.type.toLowerCase()} first.`
-            : 'An offer can be issued only after an interview has been completed.');
+            : 'An offer can be issued only after the final interview has been completed.');
     }
 
+    const errors = validateOffer(id, details);
+
+    if (Object.keys(errors).length) {
+        return failure(Object.values(errors)[0], errors);
+    }
+
+    application.offer = { ...offerDetails(details), issuedOn: todayIso(), updatedOn: '' };
     application.offerResponse = 'Pending';
     addMilestone(application, 'offered');
-    moveTo(application, 'Offered', 'Updated', 'Offer issued');
+    moveTo(application, 'Offered', 'Updated', `Offer issued: ${formatSalary(application.offer.salary)} a month, starting ${formatDate(application.offer.startDate)}`);
     commitChange();
 
     return success(application);
 }
 
 /**
- * Records that the applicant accepted the offer. They stay Offered until hiring is completed.
+ * Changes an offer's details while the applicant has not answered it yet. The status stays Offered.
  */
-export function recordOfferAccepted(id) {
+export function updateOffer(id, details) {
     const application = findById(state.applications, id);
 
     if (!application) {
         return failure('That application no longer exists.');
     }
 
-    if (!workflowFor(application).canRecordAcceptance) {
-        return failure('Only an offer that is waiting for a response can be accepted.');
+    if (!workflowFor(application).canUpdateOffer) {
+        return failure('Only an offer that is still waiting for the applicant\'s response can be changed.');
     }
 
-    application.offerResponse = 'Accepted';
-    addMilestone(application, 'accepted');
-    logActivity('Updated', applicationEntity(application), 'Offer accepted');
+    const errors = validateOffer(id, details);
+
+    if (Object.keys(errors).length) {
+        return failure(Object.values(errors)[0], errors);
+    }
+
+    application.offer = { ...application.offer, ...offerDetails(details), updatedOn: todayIso() };
+    logActivity('Updated', applicationEntity(application), `Offer updated: ${formatSalary(application.offer.salary)} a month, starting ${formatDate(application.offer.startDate)}`);
     commitChange();
 
     return success(application);
+}
+
+/**
+ * The applicant's own answer to their offer: Accepted keeps the application Offered until the pre-employment
+ * information is given and HR completes hiring; Declined closes it as Rejected. Only the signed-in applicant's own
+ * application can be answered, so HR cannot answer for them.
+ *
+ * @param {'Accepted'|'Declined'} response
+ * @returns {{ ok: true, application: object } | { ok: false, error: string }}
+ */
+export function respondToOffer(accountId, applicationId, response) {
+    const application = findById(state.applications, applicationId ?? '');
+    const account = findAccount(accountId);
+
+    if (!application || !account || application.accountId !== account.id) {
+        return { ok: false, error: 'This application does not exist or is not one of yours.' };
+    }
+
+    if (!['Accepted', 'Declined'].includes(response)) {
+        return { ok: false, error: 'Choose whether to accept or decline the offer.' };
+    }
+
+    if (!workflowFor(application).canRespondToOffer) {
+        return { ok: false, error: 'This offer is not waiting for your response.' };
+    }
+
+    application.offerResponse = response;
+
+    if (response === 'Accepted') {
+        addMilestone(application, 'accepted');
+        logActivity('Updated', applicationEntity(application), 'Offer accepted by the applicant', account.name);
+    } else {
+        application.activities = application.activities.filter((activity) => activity.status !== 'Scheduled');
+        addMilestone(application, 'declined');
+        moveTo(application, 'Rejected', 'Updated', 'Offer declined by the applicant', account.name);
+    }
+
+    commitChange();
+
+    return { ok: true, application: applicantView(application) };
+}
+
+/**
+ * Field errors for the pre-employment information (empty when valid): the emergency contact (all required) and the
+ * government and tax numbers (optional, in their usual formats when given).
+ */
+export function validatePreEmployment(details) {
+    const rules = {
+        emergencyContactName: personNameRule('Enter your emergency contact’s full name.'),
+        emergencyContactNumber: mobileNumberRule('Enter your emergency contact’s mobile number.'),
+        emergencyContactRelationship: choiceRule(emergencyRelationshipOptions, 'Select your emergency contact’s relationship to you.'),
+        sssNumber: sssRule,
+        philhealthNumber: philhealthRule,
+        pagibigNumber: pagibigRule,
+        tin: tinRule,
+        birNumber: idNumberRule,
+    };
+
+    return Object.fromEntries(Object.entries(rules)
+        .map(([field, rule]) => [field, rule(String(details[field] ?? ''))])
+        .filter(([, message]) => message));
+}
+
+/**
+ * The applicant's pre-employment information, given after they accept an offer: the emergency contact and government
+ * and tax numbers, kept on the application (and on their account, to fill in a later form). It can be corrected until
+ * hiring is completed. HR completes hiring only once it is in.
+ *
+ * @returns {{ ok: true, application: object } | { ok: false, error: string, errors?: object }}
+ */
+export function submitPreEmployment(accountId, applicationId, details) {
+    const application = findById(state.applications, applicationId ?? '');
+    const account = findAccount(accountId);
+
+    if (!application || !account || application.accountId !== account.id) {
+        return { ok: false, error: 'This application does not exist or is not one of yours.' };
+    }
+
+    if (!workflowFor(application).canSubmitPreEmployment) {
+        return { ok: false, error: 'Pre-employment information is asked for once you have accepted an offer.' };
+    }
+
+    const errors = validatePreEmployment(details);
+
+    if (Object.keys(errors).length) {
+        return { ok: false, error: Object.values(errors)[0], errors };
+    }
+
+    const given = Object.fromEntries([...applicantEmergencyFields, ...applicantGovernmentFields].map((field) => [field, String(details[field] ?? '').trim()]));
+    const isUpdate = Boolean(application.preEmploymentSubmittedAt);
+
+    Object.assign(application, given, { preEmploymentSubmittedAt: Date.now() });
+    Object.assign(account, given);
+
+    if (!isUpdate) {
+        addMilestone(application, 'preEmployment');
+    }
+
+    logActivity('Updated', applicationEntity(application), isUpdate ? 'Pre-employment information updated by the applicant' : 'Pre-employment information submitted by the applicant', account.name);
+    commitChange();
+
+    return { ok: true, application: applicantView(application) };
 }
 
 /**
@@ -3093,9 +3650,17 @@ export function completeHiring(id) {
     const workflow = workflowFor(application);
 
     if (!workflow.canCompleteHiring) {
-        return failure(application.status === 'Offered'
-            ? 'The offer must be accepted before hiring can be completed.'
-            : 'Only an applicant with an accepted offer can be hired.');
+        let reason = 'Only an applicant who accepted an offer can be hired.';
+
+        if (application.status === 'Offered' && application.offerResponse !== 'Accepted') {
+            reason = 'The applicant must accept the offer before hiring can be completed.';
+        } else if (workflow.canSubmitPreEmployment && !workflow.hasPreEmployment) {
+            reason = 'The applicant must submit their pre-employment information before hiring can be completed.';
+        } else if (workflow.pendingActivity) {
+            reason = `Complete or cancel the scheduled ${workflow.pendingActivity.type.toLowerCase()} first.`;
+        }
+
+        return failure(reason);
     }
 
     const jobTitle = findById(state.jobTitles, application.jobTitleId);
@@ -3136,7 +3701,7 @@ export function completeHiring(id) {
             departmentId: application.departmentId,
             jobTitleId: application.jobTitleId,
             hiredOn: todayIso(),
-            salary: jobTitle.salaryMin,
+            salary: application.offer?.salary || jobTitle.salaryMin,
             benefits: [...jobTitle.benefits],
         });
     }
@@ -3260,49 +3825,76 @@ export function getEmployeeLeave(employeeId) {
 // The leave types an employee can file (the same ones HR sees on the Calendar).
 const filableLeaveTypes = ['Vacation Leave', 'Sick Leave', 'Emergency Leave'];
 
+// The longest reason an employee, or rejection reason HR, can give.
+export const leaveReasonMaxLength = 500;
+
 export function getLeaveTypes() {
     return [...filableLeaveTypes];
 }
 
+// Leave that still holds its days: Pending (waiting for HR) or Approved. Rejected and cancelled requests free them.
+const isActiveLeave = (leave) => leave.status === 'Pending' || leave.status === 'Approved';
+
+/**
+ * One leave request with the employee's name, department, and job title, or undefined when it no longer exists.
+ */
+export function findLeaveRequest(id) {
+    const leave = findById(state.leaveRequests, id);
+
+    return leave ? withEmployeeNames(leave) : undefined;
+}
+
 /**
  * Field errors for a leave request from the signed-in employee (empty when valid): a leave type, a first day from
- * today on, a last day that is not before the first, and no overlap with leave they already have.
+ * today on, a last day that is not before the first, a reason, and no overlap with their Pending or Approved leave
+ * (which also stops the same request being filed twice).
  *
- * @returns {{ type?: string, startDate?: string, endDate?: string }}
+ * @returns {{ type?: string, startDate?: string, endDate?: string, reason?: string }}
  */
-export function validateLeaveRequest({ type, startDate, endDate }) {
+export function validateLeaveRequest({ type, startDate, endDate, reason = '' }) {
     const errors = {};
+    const trimmedReason = String(reason).trim();
 
     if (!filableLeaveTypes.includes(type)) {
         errors.type = 'Choose a leave type.';
     }
 
     if (!startDate) {
-        errors.startDate = 'Choose the first day of leave.';
+        errors.startDate = 'Choose the start date.';
     } else if (startDate < todayIso()) {
         errors.startDate = 'Choose today or a later date.';
     }
 
     if (!endDate) {
-        errors.endDate = 'Choose the last day of leave.';
+        errors.endDate = 'Choose the end date.';
     } else if (startDate && endDate < startDate) {
-        errors.endDate = 'The last day cannot be before the first day.';
+        errors.endDate = 'The end date cannot be before the start date.';
     }
 
-    if (!errors.startDate && !errors.endDate && state.leaveRequests.some((leave) => (
-        leave.employeeId === portalEmployeeId && leave.startDate <= endDate && leave.endDate >= startDate
-    ))) {
-        errors.startDate = 'You already have leave on some of these days.';
+    if (!trimmedReason) {
+        errors.reason = 'Enter the reason for your leave.';
+    } else if (trimmedReason.length > leaveReasonMaxLength) {
+        errors.reason = `Keep the reason within ${leaveReasonMaxLength} characters.`;
+    }
+
+    const overlapping = !errors.startDate && !errors.endDate && state.leaveRequests.find((leave) => (
+        leave.employeeId === portalEmployeeId && isActiveLeave(leave) && leave.startDate <= endDate && leave.endDate >= startDate
+    ));
+
+    if (overlapping) {
+        errors.startDate = `You already have ${overlapping.status.toLowerCase()} ${overlapping.type.toLowerCase()} from ${formatDate(overlapping.startDate)} to ${formatDate(overlapping.endDate)} on some of these days.`;
     }
 
     return errors;
 }
 
 /**
- * Files a leave request for the signed-in employee. It is Filed (waiting for HR) and appears at once on HR's
- * Calendar, the employee's leave list, and HR's notifications; only HR can approve it.
+ * Files a leave request for the signed-in employee. It starts Pending (waiting for HR) and appears at once on HR's
+ * Leave Requests and Calendar, the employee's Leave Request page and Calendar, and HR's notifications; only HR can
+ * approve or reject it. Supporting documents keep only each file's name, size, and the date it was added.
  *
- * @returns {{ ok: boolean, error?: string, errors?: object }}
+ * @param {{ type: string, startDate: string, endDate: string, reason: string, supportingDocuments?: Array<{ name: string, size: number, addedOn: string }> }} details
+ * @returns {{ ok: boolean, error?: string, errors?: object, leave?: object }}
  */
 export function fileLeaveRequest(details) {
     const employee = findById(state.employees, portalEmployeeId);
@@ -3318,16 +3910,19 @@ export function fileLeaveRequest(details) {
     }
 
     const { type, startDate, endDate } = details;
-
-    state.leaveRequests.push({
+    const leave = leaveRecord({
         id: `lv${state.nextLeaveNumber}`,
         employeeId: employee.id,
         type,
         startDate,
         endDate,
-        status: 'Filed',
+        status: 'Pending',
         filedOn: todayIso(),
+        reason: String(details.reason).trim(),
+        supportingDocuments: (details.supportingDocuments ?? []).map(({ name, size, addedOn }) => ({ name, size, addedOn })),
     });
+
+    state.leaveRequests.push(leave);
     state.nextLeaveNumber += 1;
     logActivity(
         'Created',
@@ -3337,28 +3932,41 @@ export function fileLeaveRequest(details) {
     );
     commitChange();
 
-    return { ok: true };
+    return { ok: true, leave: withEmployeeNames(leave) };
+}
+
+// Why a request can no longer be decided or cancelled: it is gone, or it is not Pending any more.
+function notPendingError(leave) {
+    if (!leave) {
+        return 'That leave request no longer exists.';
+    }
+
+    return leave.status === 'Pending' ? '' : `This leave request is already ${leave.status.toLowerCase()}.`;
 }
 
 /**
- * Approves a filed or pending leave request. If it covers today, the employee shows as On Leave.
+ * HR approves a Pending leave request, with optional remarks; who approved it and when are recorded. If it covers
+ * today, the employee shows as On Leave. A request HR already decided, or the employee cancelled, cannot be approved.
  *
- * @returns {{ ok: boolean, error?: string, leave?: object }}
+ * @returns {{ ok: boolean, error?: string, errors?: { remarks?: string }, leave?: object }}
  */
-export function approveLeave(id) {
+export function approveLeave(id, { remarks = '' } = {}) {
     const leave = findById(state.leaveRequests, id);
+    const error = notPendingError(leave);
 
-    if (!leave) {
-        return { ok: false, error: 'That leave request no longer exists.' };
+    if (error) {
+        return { ok: false, error };
     }
 
-    if (leave.status === 'Approved') {
-        return { ok: false, error: 'This leave request is already approved.' };
+    const trimmedRemarks = String(remarks).trim();
+
+    if (trimmedRemarks.length > leaveReasonMaxLength) {
+        return { ok: false, error: '', errors: { remarks: `Keep the remarks within ${leaveReasonMaxLength} characters.` } };
     }
 
     const employee = findById(state.employees, leave.employeeId);
 
-    leave.status = 'Approved';
+    Object.assign(leave, { status: 'Approved', hrRemarks: trimmedRemarks, reviewedBy: state.hrProfile.name, reviewedAt: Date.now() });
     logActivity(
         'Updated',
         `Leave · ${employee?.name ?? leave.employeeId}`,
@@ -3367,6 +3975,72 @@ export function approveLeave(id) {
     commitChange();
 
     return { ok: true, leave: withEmployeeNames(leave) };
+}
+
+/**
+ * HR rejects a Pending leave request. The reason is required; the employee sees it as HR's remarks. The request stays
+ * on record as Rejected.
+ *
+ * @returns {{ ok: boolean, error?: string, errors?: { reason?: string }, leave?: object }}
+ */
+export function rejectLeave(id, { reason = '' } = {}) {
+    const leave = findById(state.leaveRequests, id);
+    const error = notPendingError(leave);
+
+    if (error) {
+        return { ok: false, error };
+    }
+
+    const trimmedReason = String(reason).trim();
+
+    if (!trimmedReason) {
+        return { ok: false, error: '', errors: { reason: 'Enter the reason for rejecting this request.' } };
+    }
+
+    if (trimmedReason.length > leaveReasonMaxLength) {
+        return { ok: false, error: '', errors: { reason: `Keep the reason within ${leaveReasonMaxLength} characters.` } };
+    }
+
+    const employee = findById(state.employees, leave.employeeId);
+
+    Object.assign(leave, { status: 'Rejected', hrRemarks: trimmedReason, reviewedBy: state.hrProfile.name, reviewedAt: Date.now() });
+    logActivity(
+        'Updated',
+        `Leave · ${employee?.name ?? leave.employeeId}`,
+        `${leave.type} from ${formatDate(leave.startDate)} to ${formatDate(leave.endDate)} rejected: ${trimmedReason}`,
+    );
+    commitChange();
+
+    return { ok: true, leave: withEmployeeNames(leave) };
+}
+
+/**
+ * The signed-in employee cancels one of their own Pending requests. It stays on record as Cancelled; requests of other
+ * employees, and requests HR already decided, cannot be cancelled here.
+ *
+ * @returns {{ ok: boolean, error?: string, leave?: object }}
+ */
+export function cancelLeaveRequest(id) {
+    const leave = findById(state.leaveRequests, id);
+    const ownLeave = leave?.employeeId === portalEmployeeId ? leave : undefined;
+    const error = notPendingError(ownLeave);
+
+    if (error) {
+        return { ok: false, error };
+    }
+
+    const employee = findById(state.employees, ownLeave.employeeId);
+
+    Object.assign(ownLeave, { status: 'Cancelled', cancelledAt: Date.now() });
+    logActivity(
+        'Updated',
+        `Leave · ${employee?.name ?? ownLeave.employeeId}`,
+        `${ownLeave.type} from ${formatDate(ownLeave.startDate)} to ${formatDate(ownLeave.endDate)} cancelled`,
+        employee?.name,
+    );
+    commitChange();
+
+    return { ok: true, leave: withEmployeeNames(ownLeave) };
 }
 
 export function resetMockData() {

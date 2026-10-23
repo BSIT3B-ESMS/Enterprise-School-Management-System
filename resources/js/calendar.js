@@ -11,7 +11,6 @@ import {
 } from './calendar-events.js';
 import { formatDate, formatTime } from './format.js';
 import {
-    approveLeave,
     getPortalLeave,
     listApplicantApplications,
     listApplications,
@@ -19,7 +18,6 @@ import {
     listLeaveRequests,
     onMockDataChange,
 } from './mock-data.js';
-import { showToast } from './toast.js';
 import { accountId, isSignedIn } from './applicant-portal.js';
 import { initCalendarScheduling } from './calendar-scheduling.js';
 
@@ -70,11 +68,11 @@ function eventSummary(event, labels) {
  * The Calendar page. State: the month shown, the selected date and event, and the selected event types
  * and statuses. Everything re-renders from the mock data, so changes on other pages (or tabs) show here.
  *
- * With data-calendar-scope="own" (the Employee interface) it shows only the signed-in employee's own leave,
- * named by leave type, with no actions: nothing on it changes a request's status.
+ * With data-calendar-scope="own" (the Employee interface) it shows only the signed-in employee's own Pending and
+ * Approved leave, named by leave type: nothing on it changes a request's status (Approved is drawn solid, Pending dashed).
  *
  * With data-calendar-scope="applicant" (the Applicant interface) it shows only the signed-in applicant's own
- * demo interviews and interviews, across all of their applications, named by type and position, with no actions: only
+ * demo interviews and final interviews, across all of their applications, named by type and position, with no actions: only
  * HR's Recruitment page schedules, reschedules, or completes them, and nothing here changes an application's status.
  *
  * On the HR Calendar (data-calendar-interactive) a date opens a modal with its events and notes (or the event form, for a date
@@ -86,16 +84,16 @@ function initCalendar($root) {
     const isOwn = $root.attr('data-calendar-scope') === 'own';
     const isApplicant = $root.attr('data-calendar-scope') === 'applicant';
     const labels = (isOwn && { ...eventTypes, leave: 'My Leave' })
-        || (isApplicant && { ...eventTypes, 'demo-interview': 'Demo Interview', interview: 'Interview', other: 'Other' })
+        || (isApplicant && { ...eventTypes, 'demo-interview': 'Demo Interview', interview: 'Final Interview', other: 'Other' })
         || eventTypes;
     const words = (isOwn && {
-        dataNotice: 'You have no leave requests on record.',
+        dataNotice: 'You have no pending or approved leave on record.',
         month: 'You have no leave this month.',
         day: 'You have no leave on this date.',
     }) || (isApplicant && {
-        dataNotice: 'You have no demo interview or interview scheduled yet.',
-        month: 'You have no demo interview or interview this month.',
-        day: 'You have no demo interview or interview on this date.',
+        dataNotice: 'You have no demo interview or final interview scheduled yet.',
+        month: 'You have no demo interview or final interview this month.',
+        day: 'You have no demo interview or final interview on this date.',
     }) || {
         month: 'No events scheduled for this month.',
         day: 'No events scheduled for this date.',
@@ -180,7 +178,7 @@ function initCalendar($root) {
             }
 
             if (!isOwn && !events.some((event) => event.type !== 'leave')) {
-                missing.push('No applicant demo interviews or interviews are on record.');
+                missing.push('No applicant demo interviews or final interviews are on record.');
             }
         }
 
@@ -300,19 +298,32 @@ function initCalendar($root) {
             return;
         }
 
-        // The employee's own leave: its type, dates, status, and when it was filed. No actions.
+        // The employee's own leave: its type, dates, status, when it was filed, the reason, and HR's remarks. Nothing here
+        // changes it; View Request opens it on the Leave Request page (resources/js/leave-requests.js), where a Pending
+        // request can be cancelled.
         if (isOwn) {
-            $details.append($('<dl>', { class: 'row row-cols-1 row-cols-sm-2 row-cols-xl-1 g-2 mb-0 employee-details' }).append(
-                detailRow('Leave Type', event.detail.type),
-                detailRow('Date', dateText(event)),
-                detailRow('Status', statusPill(event.status)),
-                detailRow('Filed On', formatDate(event.detail.filedOn)),
-            ));
+            $details.append(
+                $('<dl>', { class: 'row row-cols-1 row-cols-sm-2 row-cols-xl-1 g-2 mb-0 employee-details' }).append(
+                    detailRow('Leave Type', event.detail.type),
+                    detailRow('Date', dateText(event)),
+                    detailRow('Status', statusPill(event.status)),
+                    detailRow('Date Filed', formatDate(event.detail.filedOn)),
+                    detailRow('Reason', event.detail.reason || 'No reason given'),
+                    ...(event.detail.hrRemarks ? [detailRow('HR Remarks', event.detail.hrRemarks)] : []),
+                ),
+                $('<div>', { class: 'd-flex flex-wrap gap-2 mt-3' }).append(
+                    $('<a>', {
+                        class: 'btn btn-sm btn-outline-primary',
+                        href: `${$root.attr('data-leave-requests-url')}&request=${encodeURIComponent(event.detail.id)}`,
+                        text: 'View Request',
+                    }),
+                ),
+            );
 
             return;
         }
 
-        // The applicant's own demo interview or interview: its type, position, date, time, status, and when it was
+        // The applicant's own demo interview or final interview: its type, position, date, time, status, and when it was
         // completed. No actions.
         if (isApplicant) {
             const { application, activity } = event.detail;
@@ -353,13 +364,9 @@ function initCalendar($root) {
 
             rows.push(
                 detailRow('Leave Type', leave.type),
-                detailRow('Department', leave.department),
-                detailRow('Filed On', formatDate(leave.filedOn)),
+                detailRow('College', leave.department),
+                detailRow('Date Filed', formatDate(leave.filedOn)),
             );
-
-            if (leave.status !== 'Approved') {
-                $actions.append($('<button>', { type: 'button', class: 'btn btn-sm btn-primary', text: 'Approve Leave', 'data-calendar-approve': leave.id }));
-            }
 
             $actions.append($('<a>', {
                 class: 'btn btn-sm btn-outline-secondary',
@@ -371,7 +378,7 @@ function initCalendar($root) {
 
             rows.push(
                 detailRow('Position', application.jobTitle),
-                detailRow('Department', application.department),
+                detailRow('College', application.department),
                 detailRow('Application Status', application.status),
             );
             $actions.append($('<a>', { class: 'btn btn-sm btn-outline-secondary', href: $root.attr('data-recruitment-url'), text: 'Open Recruitment' }));
@@ -482,19 +489,6 @@ function initCalendar($root) {
     $root.on('click', '[data-calendar-clear]', function () {
         $root.find('[data-calendar-type-filter], [data-calendar-status-filter]').prop('checked', true);
         render();
-    });
-
-    $root.on('click', '[data-calendar-approve]', function () {
-        const result = approveLeave($(this).attr('data-calendar-approve'));
-
-        if (!result.ok) {
-            $root.find('[data-calendar-details-error]').text(result.error).removeClass('d-none');
-
-            return;
-        }
-
-        $root.find('[data-calendar-details-error]').addClass('d-none');
-        showToast(`${result.leave.type} for ${result.leave.employeeName} approved.`);
     });
 
     onMockDataChange(render);

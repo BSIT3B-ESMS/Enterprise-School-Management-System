@@ -22,7 +22,7 @@
                     </div>
 
                     <div class="col-md-6">
-                        <label for="job-title-department" class="form-label">Department</label>
+                        <label for="job-title-department" class="form-label">College</label>
                         <select class="form-select" id="job-title-department" name="departmentId"
                             aria-describedby="job-title-department-error" required data-job-title-department-options></select>
                         <div class="invalid-feedback" id="job-title-department-error"></div>
@@ -40,6 +40,14 @@
                         <input type="number" class="form-control" id="job-title-salary-max" name="salaryMax" min="0" step="0.01"
                             inputmode="decimal" aria-describedby="job-title-salary-max-error" required>
                         <div class="invalid-feedback" id="job-title-salary-max-error"></div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label for="job-title-leave-credits" class="form-label">Leave Credits (days per year)</label>
+                        <input type="number" class="form-control" id="job-title-leave-credits" name="leaveCredits" min="0" max="365"
+                            step="1" inputmode="numeric" aria-describedby="job-title-leave-credits-error job-title-leave-credits-hint" required>
+                        <div class="invalid-feedback" id="job-title-leave-credits-error"></div>
+                        <div class="form-text" id="job-title-leave-credits-hint">Employees with this title see it in their profile and when requesting leave.</div>
                     </div>
                 </div>
 

@@ -25,10 +25,10 @@ it('renders the application form with every field except a status', function () 
     $this->get(route('recruitment.index'))
         ->assertSeeInOrder([
             'id="application-form-modal"',
-            'Applicant Name', 'name="name"',
+            'Last Name', 'name="lastName"', 'First Name', 'name="firstName"', 'Middle Name', 'name="middleName"',
             'Email Address', 'name="email"',
             'Phone Number', 'name="phone"',
-            'Department', 'name="departmentId"',
+            'College', 'name="departmentId"',
             'Position Applied For', 'name="jobTitleId"',
             'Application Date', 'name="appliedOn"',
             'Cancel', 'Save',
@@ -37,19 +37,37 @@ it('renders the application form with every field except a status', function () 
         ->assertDontSee('data-application-status-options', escape: false);
 });
 
-it('shows the recruitment workflow sections in the details modal in order', function () {
+it('shows the next step above four tabs: applicant, application, interview and schedule, and offer and hiring', function () {
     $this->get(route('recruitment.index'))
         ->assertSeeInOrder([
             'id="application-details-modal"',
-            'Application Status', 'Employee Record',
-            'Recruitment Progress', 'data-application-steps',
             'Next Step', 'Status changes only when a milestone is reached',
             'data-application-next-actions', 'data-application-activity-form',
-            'name="date"', 'name="time"', 'data-application-confirm',
-            'Demo Interview and Interviews', 'data-application-activities',
-            'Completed Milestones', 'data-application-milestones',
-            'data-application-history-section',
+            'name="date"', 'name="time"', 'name="endTime"', 'name="venue"', 'name="reason"',
+            'data-application-offer-form', 'name="salary"', 'name="startDate"', 'name="notes"',
+            'data-application-confirm',
+            'data-bs-toggle="tab"', 'Applicant Information', 'Application Details', 'Demo and Final Interviews', 'Offer and Hiring',
+            'data-application-source',
+            'Application Status', 'Recruitment Progress', 'data-application-steps',
+            'Completed Milestones', 'data-application-milestones', 'data-application-history-section',
+            'Demo Interview and Final Interview', 'data-application-activities',
+            'Offer', 'Pre-employment Information', 'Employee Record',
         ], escape: false);
+});
+
+it('keeps Edit and Delete in the details modal, with Edit locked for what an applicant submitted', function () {
+    $this->get(route('recruitment.index'))
+        ->assertSeeInOrder([
+            'data-bs-target="#application-delete-modal" data-application-delete>Delete</button>',
+            'data-application-edit-note>Submitted by the applicant: read-only for HR.',
+            'data-bs-target="#application-form-modal" data-application-edit>Edit</button>',
+        ], escape: false);
+});
+
+it('gives HR no way to answer an offer for the applicant', function () {
+    $this->get(route('recruitment.index'))
+        ->assertDontSee('Record Offer Accepted')
+        ->assertDontSee('accept-offer', escape: false);
 });
 
 it('does not let the status be picked from the table', function () {

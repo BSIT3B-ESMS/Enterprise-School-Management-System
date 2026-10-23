@@ -15,7 +15,7 @@
     The pipeline, rows, filter options, sorting, and pagination are rendered by resources/js/recruitment.js
     from resources/js/mock-data.js. Clicking a row (or pressing Enter/Space on it) opens the application
     details modal, which shows the recruitment workflow and offers Edit and Delete. The status follows the
-    workflow (scheduled and completed demo interviews and interviews, offer, hiring), so it is only displayed here.
+    workflow (scheduled and completed demo interviews and final interviews, offer, hiring), so it is only displayed here.
 --}}
 @section('content')
     <div class="d-grid gap-4" data-page="recruitment">
@@ -65,7 +65,7 @@
                     <select class="form-select" id="application-status-filter" data-application-filter="status"></select>
                 </div>
                 <div class="col-md-6 col-xl-3">
-                    <label for="application-department-filter" class="visually-hidden">Department</label>
+                    <label for="application-department-filter" class="visually-hidden">College</label>
                     <select class="form-select" id="application-department-filter" data-application-filter="departmentId"></select>
                 </div>
                 {{-- One date: shows applications received on exactly that day. Empty means no date restriction. --}}

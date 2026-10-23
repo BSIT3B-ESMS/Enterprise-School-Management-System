@@ -1,3 +1,4 @@
+import { Modal } from 'bootstrap';
 import $ from './jquery.js';
 import { formatDate, initialsOf } from './format.js';
 import { localIsoDate } from './date-filter.js';
@@ -17,7 +18,13 @@ function visibleArchived() {
 }
 
 function rowFor(employee) {
-    return $('<tr>', { 'data-archived-id': employee.id }).append(
+    return $('<tr>', {
+        class: 'employee-row',
+        tabindex: 0,
+        'aria-haspopup': 'dialog',
+        title: `View ${employee.name}`,
+        'data-archived-id': employee.id,
+    }).append(
         $('<td>', { class: 'tabular-nums', text: employee.id }),
         $('<td>').append(
             $('<div>', { class: 'd-flex align-items-center gap-2 fw-medium' }).append(
@@ -29,25 +36,27 @@ function rowFor(employee) {
         $('<td>', { text: employee.jobTitle }),
         $('<td>', { class: 'tabular-nums text-nowrap', text: formatDate(employee.hiredOn) }),
         $('<td>', { class: 'tabular-nums text-nowrap', text: formatDate(localIsoDate(new Date(employee.archivedAt))) }),
-        $('<td>', { class: 'text-end text-nowrap' }).append(
-            $('<button>', {
-                type: 'button',
-                class: 'btn btn-sm btn-outline-primary me-2',
-                text: 'Restore',
-                'aria-label': `Restore ${employee.name}`,
-                'data-archived-restore': employee.id,
-            }),
-            $('<button>', {
-                type: 'button',
-                class: 'btn btn-sm btn-outline-danger',
-                text: 'Delete',
-                'aria-label': `Delete ${employee.name}`,
-                'data-bs-toggle': 'modal',
-                'data-bs-target': '#employee-delete-modal',
-                'data-employee-delete': employee.id,
-            }),
-        ),
     );
+}
+
+const detailRows = (employee) => [
+    ['Employee ID', employee.id],
+    ['Name', employee.name],
+    ['College', employee.department],
+    ['Job Title', employee.jobTitle],
+    ['Email', employee.email || '—'],
+    ['Date Hired', formatDate(employee.hiredOn)],
+    ['Archived On', formatDate(localIsoDate(new Date(employee.archivedAt)))],
+];
+
+// Fills the details modal for an archived employee; Restore and Delete carry the employee's ID.
+function fillDetails($modal, employee) {
+    $modal.find('[data-archived-details-title]').text(employee.name);
+    $modal.find('[data-archived-details-body]').empty().append(...detailRows(employee).map(([label, value]) => (
+        $('<div>', { class: 'col' }).append($('<dt>', { text: label }), $('<dd>', { class: 'mb-0', text: value }))
+    )));
+    $modal.find('[data-archived-restore]').attr('data-archived-restore', employee.id);
+    $modal.find('[data-employee-delete]').attr('data-employee-delete', employee.id);
 }
 
 function render($root) {
@@ -88,9 +97,47 @@ $(function () {
         render($archived);
     });
 
+    const detailsModal = document.querySelector('[data-archived-details-modal]');
+    const deleteModal = document.querySelector('[data-employee-delete-modal]');
+
+    // A row, or Enter/Space on it, opens the employee's details, where Restore and Delete are.
+    function openDetails(row) {
+        const employee = listArchivedEmployees().find((candidate) => candidate.id === $(row).attr('data-archived-id'));
+
+        if (!employee || detailsModal.classList.contains('show')) {
+            return;
+        }
+
+        fillDetails($(detailsModal), employee);
+        Modal.getOrCreateInstance(detailsModal).show(row);
+    }
+
+    $archived.on('click', 'tr[data-archived-id]', function (event) {
+        if (!$(event.target).closest('a, button, input, select, textarea, label').length) {
+            openDetails(this);
+        }
+    });
+
+    $archived.on('keydown', 'tr[data-archived-id]', function (event) {
+        if (event.target === this && (event.key === 'Enter' || event.key === ' ')) {
+            event.preventDefault();
+            openDetails(this);
+        }
+    });
+
+    // Delete: the details close first, then the existing confirmation opens for the same employee.
+    $(detailsModal).on('click', '[data-employee-delete]', function () {
+        const trigger = this;
+
+        $(detailsModal).one('hidden.bs.modal', () => Modal.getOrCreateInstance(deleteModal).show(trigger));
+        Modal.getOrCreateInstance(detailsModal).hide();
+    });
+
     // Restore returns the employee to the Employees list with everything they were archived with.
-    $archived.on('click', '[data-archived-restore]', function () {
+    $archived.add(detailsModal).on('click', '[data-archived-restore]', function () {
         const employee = restoreEmployee($(this).attr('data-archived-restore'));
+
+        Modal.getInstance(detailsModal)?.hide();
 
         if (!employee) {
             showToast('That employee is no longer in the archive.', { isError: true });

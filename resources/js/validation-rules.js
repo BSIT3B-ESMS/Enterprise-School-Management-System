@@ -65,6 +65,62 @@ export const personNameRule = (blankMessage) => (value) => {
     return trimmed.length >= 2 && namePattern.test(trimmed) ? '' : 'Use letters, spaces, and . \' - only.';
 };
 
+// The options the 201 file's dropdowns offer (the same lists on the employee and applicant forms).
+export const sexOptions = ['Female', 'Male', 'Prefer not to say'];
+export const civilStatusOptions = ['Single', 'Married', 'Widowed', 'Separated'];
+export const emergencyRelationshipOptions = ['Parent', 'Spouse', 'Child', 'Sibling', 'Relative', 'Guardian', 'Friend', 'Other'];
+
+/**
+ * A required choice that must be one of the listed options.
+ *
+ * @param {string[]} options
+ * @param {string} blankMessage What to say when nothing is chosen.
+ */
+export const choiceRule = (options, blankMessage) => (value) => {
+    if (!String(value ?? '').trim()) {
+        return blankMessage;
+    }
+
+    return options.includes(String(value).trim()) ? '' : 'Choose one of the listed options.';
+};
+
+function isCalendarDate(value) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        return false;
+    }
+
+    const [year, month, day] = value.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+
+    return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
+}
+
+function localToday() {
+    const today = new Date();
+
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+}
+
+/**
+ * A birthdate: a real calendar date (no 31 February), not in the future and not before 1900. Pass a blank message to
+ * make it required; without one an empty value is accepted.
+ *
+ * @param {string} [blankMessage]
+ */
+export const birthdateRule = (blankMessage = '') => (value) => {
+    const trimmed = String(value ?? '').trim();
+
+    if (!trimmed) {
+        return blankMessage;
+    }
+
+    if (!isCalendarDate(trimmed) || trimmed < '1900-01-01') {
+        return 'Enter a valid birthdate.';
+    }
+
+    return trimmed > localToday() ? 'The birthdate cannot be in the future.' : '';
+};
+
 // A new password (not trimmed): at least eight characters with an uppercase letter, a lowercase letter, and a number.
 export const newPasswordRule = (value) => {
     if (!value) {
@@ -92,6 +148,23 @@ export const newPasswordRule = (value) => {
  *
  * @returns {{ salaryMin?: string, salaryMax?: string }}
  */
+/**
+ * A job title's leave credits: whole days per year, from 0 to 365.
+ */
+export function leaveCreditsError(value) {
+    if (String(value).trim() === '') {
+        return 'Enter the leave credits.';
+    }
+
+    const credits = Number(value);
+
+    if (!Number.isInteger(credits) || credits < 0 || credits > 365) {
+        return 'Leave credits must be a whole number of days from 0 to 365.';
+    }
+
+    return '';
+}
+
 export function salaryRangeErrors(minimum, maximum) {
     const errors = {};
     const amountOf = (value) => (String(value).trim() === '' ? Number.NaN : Number(value));

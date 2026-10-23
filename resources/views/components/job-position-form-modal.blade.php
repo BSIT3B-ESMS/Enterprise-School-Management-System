@@ -28,7 +28,7 @@
                         </div>
 
                         <div class="col-md-6">
-                            <label for="job-position-department" class="form-label is-required">Department</label>
+                            <label for="job-position-department" class="form-label is-required">College</label>
                             <select class="form-select" id="job-position-department" name="departmentId"
                                 aria-describedby="job-position-department-error" required data-job-position-department-options></select>
                             <div class="invalid-feedback" id="job-position-department-error"></div>
@@ -67,11 +67,13 @@
 
                         <div class="col-md-3">
                             <label for="job-position-status" class="form-label is-required">Status</label>
-                            <select class="form-select" id="job-position-status" name="status" aria-describedby="job-position-status-hint">
+                            <select class="form-select" id="job-position-status" name="status"
+                                aria-describedby="job-position-status-hint job-position-status-error" required>
                                 <option>Open</option>
                                 <option>Closed</option>
                             </select>
                             <div class="form-text" id="job-position-status-hint">Only open postings appear on the Careers website.</div>
+                            <div class="invalid-feedback" id="job-position-status-error"></div>
                         </div>
 
                         <div class="col-md-3">

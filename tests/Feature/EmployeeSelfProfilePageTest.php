@@ -97,3 +97,15 @@ it('leaves the HR employee profile with its full edit form', function () {
         ->assertSee('name="salary"', escape: false)
         ->assertSee('name="sssNumber"', escape: false);
 });
+
+it('shows Base Salary and Leave Credits on the employee profile as read-only information', function () {
+    $this->get(route('employee.profile'))
+        ->assertSeeInOrder([
+            'Employment Status',
+            'Base Salary (monthly)', 'data-portal-field="baseSalary"',
+            'Leave Credits', 'data-portal-field="leaveCredits"',
+            'Leave Credits Remaining', 'data-portal-field="leaveRemaining"',
+        ], escape: false)
+        ->assertDontSee('name="baseSalary"', escape: false)
+        ->assertDontSee('name="leaveCredits"', escape: false);
+});

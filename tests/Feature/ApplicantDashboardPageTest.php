@@ -40,7 +40,7 @@ it('renders the welcome, applications, upcoming schedule, and quick link section
             'data-applicant-kpis',
             'Your applications', 'data-applicant-application-list',
             'data-applicant-no-applications', 'You have not applied for a position yet.', 'href="'.route('applicant.positions').'"',
-            'Upcoming demo interviews and interviews', 'data-applicant-upcoming', 'No demo interview or interview is scheduled yet.',
+            'Upcoming demo interviews and final interviews', 'data-applicant-upcoming', 'No demo interview or final interview is scheduled yet.',
             'Quick links',
         ], escape: false)
         ->assertSee('data-application-url="'.route('applicant.applications').'"', escape: false);

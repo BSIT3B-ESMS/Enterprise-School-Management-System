@@ -1,23 +1,36 @@
 <?php
 
-it('keeps one shared Login page, with Login and an Apply for a Job link to the Careers website', function () {
+it('keeps the EMS Login for HR and employees, with a link to PLP Careers for job seekers', function () {
     $this->get(route('login'))
         ->assertSeeInOrder([
-            'data-login-form',
+            'data-login-form data-login-for="staff"',
             'Welcome Back',
             'name="email"', 'name="password"', 'Remember Me', 'data-forgot-password', 'Login</button>',
             'Looking for a job?',
-            'href="'.route('careers.index').'">Apply for a Job</a>',
+            'href="'.route('careers.index').'">Visit PLP Careers</a>',
         ], escape: false)
         ->assertDontSee('Sign In</button>', escape: false)
         ->assertDontSee('data-terms-modal', escape: false)
         ->assertDontSee('href="'.route('applicant.dashboard').'"', escape: false);
 });
 
-it('signs applicants in from the shared Login page, with an error area for wrong credentials', function () {
+it('points applicants from the EMS Login to the Applicant Portal, with an error area for wrong credentials', function () {
     $this->get(route('login'))
-        ->assertSee('data-applicant-dashboard-url="'.route('applicant.dashboard').'"', escape: false)
-        ->assertSeeInOrder(['Welcome Back', 'data-login-error', 'name="email"', 'name="password"'], escape: false);
+        ->assertSeeInOrder([
+            'Welcome Back', 'data-login-error',
+            'href="'.route('applicant.portal').'" data-login-applicant-hint',
+            'name="email"', 'name="password"',
+        ], escape: false);
+});
+
+it('signs applicants in at the Applicant Portal, apart from the EMS Login', function () {
+    $this->get(route('applicant.portal'))
+        ->assertSeeInOrder([
+            'Applicant Portal',
+            'data-login-form data-login-for="applicant"', 'data-applicant-dashboard-url="'.route('applicant.dashboard').'"',
+            'Applicant Login', 'data-login-error', 'name="email"', 'name="password"', 'Log In</button>',
+        ], escape: false)
+        ->assertDontSee('Welcome Back');
 });
 
 it('hides the registration form until the terms are accepted', function () {
@@ -66,16 +79,21 @@ it('shows the progress, schedule, position, and submitted details, with a not fo
             'data-applicant-missing', 'No application found', 'not one of yours',
             'data-applicant-status-message',
             'Progress', 'data-applicant-steps',
-            'Demo Interview and interview', 'data-applicant-activities', 'Nothing has been scheduled yet.',
+            'Demo Interview and Final Interview', 'data-applicant-activities', 'Nothing has been scheduled yet.',
             'Position', 'data-applicant-field="employmentType"', 'data-applicant-field="location"',
             'Your application', 'data-applicant-field="email"', 'data-applicant-documents="education"',
         ], escape: false);
 });
 
-it('gives the applicant no way to change the application or reach HR pages', function () {
+it('gives the applicant only their own offer steps, no way to change the application, and no HR pages', function () {
+    $html = $this->get(route('applicant.applications.show', 'c1'))->getContent();
+
+    // The one form is the pre-employment information, shown only after the applicant accepts an offer.
+    expect(substr_count($html, '<form'))->toBe(1)
+        ->and($html)->toContain('<form novalidate data-applicant-pre-employment-form>');
+
     $this->get(route('applicant.applications.show', 'c1'))
         ->assertDontSee('data-application-', escape: false)
-        ->assertDontSee('<form', escape: false)
         ->assertDontSee('href="'.route('employees.index').'"', escape: false)
         ->assertDontSee('href="'.route('recruitment.index').'"', escape: false)
         ->assertDontSee('href="'.route('employee.dashboard').'"', escape: false)

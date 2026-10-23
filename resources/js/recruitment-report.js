@@ -33,7 +33,7 @@ const fieldGroups = [
         group: 'Application',
         fields: [
             { key: 'jobTitle', label: 'Position Applied For', value: (application) => application.jobTitle },
-            { key: 'department', label: 'Department', value: (application) => application.department },
+            { key: 'department', label: 'College', value: (application) => application.department },
             { key: 'appliedOn', label: 'Application Date', value: (application) => application.appliedOn, display: (application) => formatDate(application.appliedOn) },
             { key: 'status', label: 'Status', value: (application) => application.status },
         ],
@@ -107,7 +107,7 @@ function initRecruitmentReport($root) {
         }
 
         if (filters.departmentId) {
-            lines.push(`Department: ${nameOf(listDepartments(), filters.departmentId)}`);
+            lines.push(`College: ${nameOf(listDepartments(), filters.departmentId)}`);
         }
 
         if (filters.status) {
@@ -148,7 +148,7 @@ function initRecruitmentReport($root) {
         }
 
         $root.find('[data-report-filter="departmentId"]').empty().append(
-            $('<option>', { value: '', text: 'All Departments' }),
+            $('<option>', { value: '', text: 'All Colleges' }),
             ...departments.map((department) => $('<option>', { value: department.id, text: department.name })),
         ).val(filters.departmentId);
         $root.find('[data-report-filter="jobTitleId"]').empty().append(

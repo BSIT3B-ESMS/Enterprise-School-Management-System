@@ -49,7 +49,7 @@
                         <dl class="row row-cols-1 row-cols-sm-2 g-3 mb-0 employee-details">
                             <div class="col"><dt>Employee ID</dt><dd class="mb-0 tabular-nums" data-portal-field="id"></dd></div>
                             <div class="col"><dt>Status</dt><dd class="mb-0" data-portal-field="status"></dd></div>
-                            <div class="col"><dt>Department</dt><dd class="mb-0" data-portal-field="department"></dd></div>
+                            <div class="col"><dt>College</dt><dd class="mb-0" data-portal-field="department"></dd></div>
                             <div class="col"><dt>Job Title</dt><dd class="mb-0" data-portal-field="jobTitle"></dd></div>
                             <div class="col"><dt>Date Hired</dt><dd class="mb-0" data-portal-field="hiredOn"></dd></div>
                             <div class="col"><dt>Phone</dt><dd class="mb-0" data-portal-field="phone"></dd></div>

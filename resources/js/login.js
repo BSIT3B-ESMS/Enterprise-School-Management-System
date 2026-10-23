@@ -16,33 +16,47 @@ function setFieldError(input, message) {
 }
 
 function validateEmail(input) {
+    if (!input.value.trim()) {
+        return 'Enter your email address.';
+    }
+
     return emailPattern.test(input.value.trim()) ? '' : 'Enter a valid email address.';
 }
 
 function validatePassword(input) {
+    if (!input.value) {
+        return 'Enter your password.';
+    }
+
     return input.value.length >= minimumPasswordLength
         ? ''
         : `Password must be at least ${minimumPasswordLength} characters.`;
 }
 
-function initLoginPage(root) {
-    const form = root.querySelector('[data-login-form]');
+/**
+ * A sign-in form: the EMS Login for HR and employees (data-login-for="staff", the default) or the Applicant Portal's
+ * Log In (data-login-for="applicant"). Both check the mock applicant accounts (HR and Employee accounts are not checked
+ * yet). An applicant signs in only at the Applicant Portal, which opens their dashboard; at the EMS Login, applicant
+ * credentials are pointed to the Applicant Portal instead.
+ */
+function initLoginForm(form) {
+    const isApplicantLogin = form.dataset.loginFor === 'applicant';
     const email = form.elements.email;
     const password = form.elements.password;
-    const passwordToggle = root.querySelector('[data-password-toggle]');
-    const passwordToggleLabel = passwordToggle.querySelector('[data-password-toggle-label]');
-    // The notice sits beside the page's main block, not inside it, so it is looked up on the whole document.
-    const forgotPasswordToast = Toast.getOrCreateInstance(document.querySelector('[data-login-toast]'));
+    const error = form.querySelector('[data-login-error]');
 
-    passwordToggle.addEventListener('click', () => {
-        const isHidden = password.type === 'password';
+    function showError(message) {
+        error.textContent = message;
+        error.classList.toggle('d-none', !message);
+    }
 
-        password.type = isHidden ? 'text' : 'password';
-        passwordToggleLabel.textContent = isHidden ? 'Hide' : 'Show';
-    });
+    form.querySelectorAll('[data-password-toggle]').forEach((toggle) => {
+        toggle.addEventListener('click', () => {
+            const isHidden = password.type === 'password';
 
-    root.querySelector('[data-forgot-password]').addEventListener('click', () => {
-        forgotPasswordToast.show();
+            password.type = isHidden ? 'text' : 'password';
+            toggle.querySelector('[data-password-toggle-label]').textContent = isHidden ? 'Hide' : 'Show';
+        });
     });
 
     form.addEventListener('input', (event) => {
@@ -63,6 +77,7 @@ function initLoginPage(root) {
 
         setFieldError(email, emailError);
         setFieldError(password, passwordError);
+        showError('');
 
         if (emailError || passwordError) {
             (emailError ? email : password).focus();
@@ -70,15 +85,17 @@ function initLoginPage(root) {
             return;
         }
 
-        // Mock sign-in: the email and password are checked against the applicant accounts in the shared mock data. A match
-        // opens that applicant's dashboard; anything else shows an error. (HR and Employee accounts are not checked here yet.)
-        const result = authenticateApplicant(email.value, password.value);
-        const $error = form.querySelector('[data-login-error]');
+        const result = authenticateApplicant(email.value.trim(), password.value);
 
-        $error.textContent = result.ok ? '' : result.error;
-        $error.classList.toggle('d-none', result.ok);
+        if (!isApplicantLogin && result.ok) {
+            showError('This login is for HR and employees. Applicants log in at the PLP Careers Applicant Portal.');
+            form.querySelector('[data-login-applicant-hint]')?.classList.remove('d-none');
+
+            return;
+        }
 
         if (!result.ok) {
+            showError(result.error);
             password.value = '';
             password.focus();
 
@@ -99,5 +116,10 @@ function initLoginPage(root) {
 const loginRoot = document.querySelector('[data-page="login"]');
 
 if (loginRoot) {
-    initLoginPage(loginRoot);
+    // The notice sits beside the page's main block, not inside it, so it is looked up on the whole document.
+    const forgotPasswordToast = Toast.getOrCreateInstance(document.querySelector('[data-login-toast]'));
+
+    loginRoot.querySelector('[data-forgot-password]').addEventListener('click', () => forgotPasswordToast.show());
 }
+
+document.querySelectorAll('[data-login-form]').forEach(initLoginForm);

@@ -16,7 +16,7 @@ it('lays the report out like the Employees report, with its own filters', functi
             'Export Format', 'value="pdf" autocomplete="off" checked>', 'value="xlsx"', 'value="csv"',
             'Applications to Include',
             '<label for="report-applicant-name" class="form-label">Applicant Name</label>', 'data-report-filter="name"',
-            '<label for="report-department" class="form-label">Department</label>', 'data-report-filter="departmentId"',
+            '<label for="report-department" class="form-label">College</label>', 'data-report-filter="departmentId"',
             '<label for="report-job-position" class="form-label">Job Position</label>', 'data-report-filter="jobTitleId"',
             '<label for="report-status" class="form-label">Recruitment Status</label>', 'data-report-filter="status"',
             'Application Date', 'data-period-month', 'data-period-from', 'data-period-to', 'data-period-apply>Apply Filter',

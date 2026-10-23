@@ -175,10 +175,6 @@ $calendar-type-colors: (
 }
 
 // Status pills (shape from .status-pill in _recruitment.scss).
-.calendar-status-filed {
-    --bs-progress-bar-bg: #667570;
-}
-
 .calendar-status-pending {
     --bs-progress-bar-bg: #c8871f;
 }
@@ -190,6 +186,15 @@ $calendar-type-colors: (
 
 .calendar-status-scheduled {
     --bs-progress-bar-bg: #2a62b0;
+}
+
+// Leave requests HR rejected, and those the employee cancelled (listed for reference, never drawn on a calendar).
+.calendar-status-rejected {
+    --bs-progress-bar-bg: #b9534c;
+}
+
+.calendar-status-cancelled {
+    --bs-progress-bar-bg: #667570;
 }
 
 [data-calendar-interactive] .calendar-day {

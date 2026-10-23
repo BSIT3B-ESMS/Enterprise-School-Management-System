@@ -1,6 +1,6 @@
 import $ from './jquery.js';
-import { formatDate, initialsOf } from './format.js';
-import { getPortalProfile, onMockDataChange, updatePortalProfile } from './mock-data.js';
+import { formatDate, formatSalaryRange, initialsOf } from './format.js';
+import { getLeaveBalance, getPortalProfile, onMockDataChange, updatePortalProfile } from './mock-data.js';
 import { showToast } from './toast.js';
 
 const statusClasses = { Active: 'employment-active', 'On Leave': 'employment-on-leave' };
@@ -13,7 +13,11 @@ const validationRules = {
     phone: (value) => (!value.trim() || phonePattern.test(value.trim()) ? '' : 'Enter a valid phone number.'),
 };
 
+const daysText = (days) => `${days} ${days === 1 ? 'day' : 'days'}`;
+
 function displayValues(employee) {
+    const balance = getLeaveBalance();
+
     return {
         initials: initialsOf(employee.name),
         name: employee.name,
@@ -26,6 +30,10 @@ function displayValues(employee) {
         jobTitle: employee.jobTitle,
         hiredOn: employee.hiredOn ? formatDate(employee.hiredOn) : '',
         status: employee.status,
+        // From the job title HR manages; read-only. Remaining credits count Approved leave only.
+        baseSalary: employee.salaryMin === undefined ? '' : formatSalaryRange(employee.salaryMin, employee.salaryMax),
+        leaveCredits: employee.leaveCredits === undefined ? '' : `${daysText(employee.leaveCredits)} per year`,
+        leaveRemaining: balance.credits === null ? '' : `${daysText(balance.remaining)} left in ${balance.year}`,
         email: employee.email,
         phone: employee.phone,
         address: employee.address,

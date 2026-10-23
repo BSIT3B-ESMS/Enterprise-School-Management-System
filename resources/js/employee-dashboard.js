@@ -29,7 +29,7 @@ function renderKpis($root, { employee, leave }) {
         {
             label: 'Awaiting Approval',
             value: String(leave.awaitingCount),
-            caption: leave.awaitingCount === 1 ? 'filed or pending request' : 'filed or pending requests',
+            caption: leave.awaitingCount === 1 ? 'pending request' : 'pending requests',
         },
     ];
 
