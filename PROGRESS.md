@@ -28,6 +28,28 @@ php artisan app:start
 
 That's it: no settings to edit. It uses SQLite (a single file, no database server) and writes emails to `storage/logs/laravel.log` instead of sending them. To use MySQL instead, see "Full setup guide" below.
 
+## ☁ AWS server (demo, set up 2026-10-21)
+
+**PLP Admission System, live at https://plp-admission-system.3-24-200-123.sslip.io** · staff: **https://plp-admission-system.3-24-200-123.sslip.io/admin** · applicants: **https://plp-admission-system.3-24-200-123.sslip.io/** (HTTPS; the bare IP http://3.24.200.123 redirects here)
+
+> ⚠ These passwords are real and work on a public server. Don't share this file outside the team, and change them before real applicants use the system (`php artisan user:create`/password reset, or disable with `php artisan user:active <email> off`).
+
+| Who | Email | Password |
+|---|---|---|
+| Admission staff | `admissions@plpasig.edu.ph` | `ZCm8HQyHxroo3z3d` |
+| Admission staff | `r.dizon@plpasig.edu.ph` | `mkduaLO1bvRfN8YJ` |
+| Clinic | `clinic@plpasig.edu.ph` | `ffn8Psp7taheBy0s` |
+| College dean (Nursing) | `dean.con@plpasig.edu.ph` | `GDBwBeHP3VEK2ryK` |
+| College dean (Computer Studies) | `dean.ccs@plpasig.edu.ph` | `3nwWvE6tO70q5Kvl` |
+| Sysadmin (`/pulse`, `/log-viewer` and server commands only; can't use the office portal) | `sysadmin@plpasig.edu.ph` | `(d}6b,30k.^S&~<*vUel` |
+| Any of the 60 sample applicants (e.g. `andrea.manalo0@example.com`) | see the applicant list in the office panel | `B3m0KhRvwNQ68wao` |
+
+**Server:** AWS Free plan ($100 credits, ends 2027-04-17 unless upgraded), region Sydney `ap-southeast-2`, EC2 `t3.small` Ubuntu 24.04, Elastic IP `3.24.200.123`, MySQL 8 on the same server, Nginx + PHP 8.4-FPM, queue worker (Supervisor), scheduler (cron), ClamAV. SSH: `ssh -i C:\Users\Keane\.ssh\oas-key.pem ubuntu@3.24.200.123` (only from the allowlisted IP in security group `oas-web`). App in `/var/www/admission`, code pulled from `backend` with a read-only deploy key.
+
+**Address:** free `sslip.io` name (resolves to the Elastic IP, no domain purchase), Let's Encrypt certificate auto-renewed by certbot, HTTP and the bare IP redirect to HTTPS, HSTS on. **Email:** sent through Gmail `ignacio.keane05@gmail.com` (App Password in the server `.env`, revoke it at myaccount.google.com/apppasswords after the demo) as "PLP Admission System"; email verification is on. **Backups:** `app:backup` nightly at 02:00 Manila, encrypted zips in `/var/www/admission/storage/app/backups` (last 14 kept, on the server only, no S3). Backup password: `8b1736f0f7479808020d8e7bb4300948`
+
+**Still to do:** GitHub Actions deploy secrets · least-privilege DB users (`app:db-privileges`) · email subject lines still say "PLP Online Admission" (hard-coded in `app/Notifications`).
+
 ## ❓ Open questions (everything waiting on a decision)
 
 **Blocking features**
