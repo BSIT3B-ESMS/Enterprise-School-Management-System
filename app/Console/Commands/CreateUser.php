@@ -12,7 +12,7 @@ use Illuminate\Support\Str;
 /** Sysadmin only (§7.1): staff accounts are never created through the API. */
 class CreateUser extends Command
 {
-    protected $signature = 'user:create {email} {name} {role : admission|college_dean|clinic|sysadmin}
+    protected $signature = 'user:create {email} {name} {role : admission|college_dean|clinic|sysadmin|super_admin}
         {--college= : College code, for a college_dean}';
 
     protected $description = 'Create a staff or sysadmin account and print a temporary password';
@@ -21,7 +21,7 @@ class CreateUser extends Command
     {
         $role = Role::tryFrom($this->argument('role'));
         if (! $role || $role === Role::Applicant) {
-            $this->error('Role must be admission, college_dean, clinic or sysadmin. Applicants register in the portal.');
+            $this->error('Role must be admission, college_dean, clinic, sysadmin or super_admin. Applicants register in the portal.');
 
             return self::FAILURE;
         }

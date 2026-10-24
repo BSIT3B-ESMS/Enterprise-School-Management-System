@@ -89,29 +89,30 @@
         <span class="brand-text"><span class="brand-name">Pamantasan ng Lungsod ng Pasig</span><span class="brand-sub">Online Admission</span></span>
       </a>
 
-      <p class="sidebar-label">Admission office</p>
+      <p class="sidebar-label" id="sidebar-role-label">Admission personnel</p>
       <nav class="sidebar-nav" aria-label="Office navigation">
         <span class="nav-indicator" aria-hidden="true"></span>
-        <a class="nav-link" href="#/dashboard" data-nav="dashboard"><span data-icon="grid"></span>Dashboard</a>
-        <a class="nav-link" href="#/applicants" data-nav="applicants"><span data-icon="users"></span>Applicants</a>
+        <a class="nav-link" href="#/settings" data-nav="settings"><span data-icon="settings"></span>Admission slot setup</a>
+        <a class="nav-link" href="#/applicants" data-nav="applicants"><span data-icon="users"></span>Applicant registration</a>
         <a class="nav-link" href="#/documents" data-nav="documents"><span data-icon="folder"></span>Document
-          review<span class="nav-count" id="nav-count-documents">0</span></a>
-        <a class="nav-link" href="#/exams" data-nav="exams"><span data-icon="calendar"></span>Entrance exams</a>
+          verification<span class="nav-count" id="nav-count-documents">0</span></a>
+        <a class="nav-link" href="#/exams" data-nav="exams"><span data-icon="calendar"></span>Entrance exam</a>
         <a class="nav-link" href="#/results" data-nav="results"><span data-icon="award"></span>Results<span
             class="nav-count" id="nav-count-results">0</span></a>
+        <a class="nav-link" href="#/interview" data-nav="interview"><span data-icon="clipboard"></span>Interview</a>
         <a class="nav-link" href="#/medical" data-nav="medical"><span data-icon="shield"></span>Medical</a>
       </nav>
 
-      <!-- Less frequent screens, folded away; opens by itself when one of them is the current page -->
-      <details class="sidebar-more" id="sidebar-more">
-        <summary class="sidebar-label">More</summary>
-        <nav class="sidebar-nav sidebar-nav-plain" aria-label="More navigation">
+      <!-- Super admin only: oversight on top of the admission personnel modules -->
+      <div data-superadmin hidden>
+        <p class="sidebar-label">Super admin</p>
+        <nav class="sidebar-nav sidebar-nav-plain" aria-label="Super admin navigation">
+          <a class="nav-link" href="#/dashboard" data-nav="dashboard"><span data-icon="grid"></span>Dashboard</a>
+          <a class="nav-link" href="#/accounts" data-nav="accounts"><span data-icon="users"></span>Accounts</a>
           <a class="nav-link" href="#/reports" data-nav="reports"><span data-icon="chart"></span>Reports</a>
-          <a class="nav-link" href="#/settings" data-nav="settings"><span data-icon="settings"></span>Programs &amp;
-            requirements</a>
-          <a class="nav-link" href="#/audit" data-nav="audit"><span data-icon="history"></span>Audit log</a>
+          <a class="nav-link" href="#/audit" data-nav="audit"><span data-icon="history"></span>Audit logs</a>
         </nav>
-      </details>
+      </div>
 
       <div class="sidebar-footer">
         <span class="avatar" id="sidebar-avatar">MS</span>
@@ -126,7 +127,7 @@
       <header class="topbar">
         <button class="icon-button menu-toggle" type="button" aria-label="Open navigation" aria-expanded="false"><span
             data-icon="menu"></span></button>
-        <div class="breadcrumb-text"><span>Admission office</span><span class="crumb-sep">/</span><strong
+        <div class="breadcrumb-text"><span id="crumb-root">Admission personnel</span><span class="crumb-sep">/</span><strong
             id="page-breadcrumb">Dashboard</strong></div>
         <div class="topbar-actions">
           <form class="topbar-search" id="quick-search" role="search">
@@ -134,6 +135,7 @@
             <input type="search" id="quick-search-input" placeholder="Find applicant, ID or LRN"
               aria-label="Find an applicant by name, ID or LRN">
           </form>
+          <span class="role-chip" id="super-chip" hidden><span data-icon="shield"></span>Super Admin</span>
           <span class="id-chip"><span>AY</span>2027–2028</span>
         </div>
       </header>
@@ -152,6 +154,8 @@
         <section class="view-section" id="view-reports"></section>
         <section class="view-section" id="view-settings"></section>
         <section class="view-section" id="view-audit"></section>
+        <section class="view-section" id="view-accounts"></section>
+        <section class="view-section" id="view-interview"></section>
         <footer class="page-footer">© 2026 Pamantasan ng Lungsod ng Pasig · Admission office</footer>
       </div>
     </main>
@@ -369,5 +373,7 @@
   <script src="{{ asset('assets/admin/js/views/reports.js') }}"></script>
   <script src="{{ asset('assets/admin/js/views/settings.js') }}"></script>
   <script src="{{ asset('assets/admin/js/views/audit.js') }}"></script>
+  <script src="{{ asset('assets/admin/js/views/accounts.js') }}"></script>
+  <script src="{{ asset('assets/admin/js/views/interview.js') }}"></script>
   <script src="{{ asset('assets/admin/js/admin.js') }}"></script>
 @endpush

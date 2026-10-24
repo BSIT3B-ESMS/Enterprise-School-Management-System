@@ -381,7 +381,7 @@ class DocumentService
     private function assertReviewer(User $staff, Requirement $requirement): void
     {
         $role = $requirement->stage === Requirement::STAGE_MEDICAL ? 'clinic' : 'admission';
-        if (! $staff->hasRole($role)) {
+        if (! $staff->hasAnyRole([$role, $role === 'admission' ? 'super_admin' : $role])) {
             throw new AuthorizationException($role === 'clinic'
                 ? 'Only the university clinic can review medical requirements.'
                 : 'Only admission personnel can review admission documents.');

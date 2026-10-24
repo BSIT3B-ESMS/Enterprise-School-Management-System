@@ -14,6 +14,7 @@ enum Role: string
     case CollegeDean = 'college_dean'; // interviews for the dean's own college (FR-17)
     case Clinic = 'clinic';            // university clinic (medical requirements)
     case Sysadmin = 'sysadmin';        // accounts, backups, security settings
+    case SuperAdmin = 'super_admin';   // office panel plus staff accounts; controls every module
 
     public function label(): string
     {
@@ -23,13 +24,14 @@ enum Role: string
             self::CollegeDean => 'College Dean',
             self::Clinic => 'University Clinic',
             self::Sysadmin => 'System Administrator',
+            self::SuperAdmin => 'Super Admin',
         };
     }
 
     /** Roles that sign in through the office side of the API. */
     public function isStaff(): bool
     {
-        return in_array($this, [self::Admission, self::CollegeDean, self::Clinic], true);
+        return in_array($this, [self::Admission, self::CollegeDean, self::Clinic, self::SuperAdmin], true);
     }
 
     /** Staff roles use an authenticator app for 2FA; applicants get an email code. */

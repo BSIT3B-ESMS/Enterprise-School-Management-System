@@ -71,7 +71,7 @@ Route::prefix('applicant')->middleware(['auth:api', 'active', 'role:applicant'])
 // Admission office panel: admission personnel only. Medical clearance shows
 // there read-only; the clinic has its own portal below. There are no routes
 // here for accounts, backups or security settings (§7.1).
-Route::prefix('admin')->middleware(['auth:api', 'active', 'two_factor', 'role:admission'])->group(function () {
+Route::prefix('admin')->middleware(['auth:api', 'active', 'two_factor', 'role:admission|super_admin'])->group(function () {
     Route::get('state', [Office\StateController::class, 'show']);
 
     Route::prefix('applicants/{application}')->group(function () {
@@ -97,6 +97,16 @@ Route::prefix('admin')->middleware(['auth:api', 'active', 'two_factor', 'role:ad
     Route::patch('programs/{program:code}', [Office\SetupController::class, 'updateProgram']);
     Route::patch('requirements/{key}', [Office\SetupController::class, 'updateRequirement']);
     Route::patch('admission-period', [Office\SetupController::class, 'updatePeriod']);
+
+    // Super admin only: staff accounts (admission personnel, clinic, college deans)
+    Route::middleware('role:super_admin')->prefix('accounts')->group(function () {
+        Route::get('/', [Office\AccountController::class, 'index']);
+        Route::post('/', [Office\AccountController::class, 'store']);
+        Route::patch('{user}/active', [Office\AccountController::class, 'setActive']);
+    });
+
+    // Super admin oversight: open an applicant's medical files (read-only, every opening is audited)
+    Route::get('applicants/{application}/medical/{key}/file', [Clinic\MedicalController::class, 'file'])->middleware('role:super_admin');
 });
 
 // Clinic portal (nurse/): the clinic nurse sees medical files only, sends a
@@ -119,7 +129,7 @@ Route::prefix('dean')->middleware(['auth:api', 'active', 'two_factor', 'role:col
 });
 
 // Reports (FR-13), scoped by role inside ReportService
-Route::prefix('reports')->middleware(['auth:api', 'active', 'two_factor', 'role:admission|clinic|college_dean'])->group(function () {
+Route::prefix('reports')->middleware(['auth:api', 'active', 'two_factor', 'role:admission|clinic|college_dean|super_admin'])->group(function () {
     Route::get('/', [ReportController::class, 'index']);
     Route::get('{report}', [ReportController::class, 'show']);
 });

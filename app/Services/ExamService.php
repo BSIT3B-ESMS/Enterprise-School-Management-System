@@ -83,10 +83,10 @@ class ExamService
                 'exam_session_id' => $session->id,
                 'permit_no' => $permit,
                 'qr_token' => $this->qrToken($permit, $application),
-                'approved_by' => $by->hasRole('admission') ? $by->id : null,
+                'approved_by' => $by->hasAnyRole(['admission', 'super_admin']) ? $by->id : null,
             ]);
             $this->status->transition($application, ApplicationStatus::ForExam, $by);
-            $this->audit->record('exam.approved', ($by->hasRole('admission') ? 'Approved for the entrance exam' : 'Chose an entrance exam session')." · {$session->label()}", $registration, $application);
+            $this->audit->record('exam.approved', ($by->hasAnyRole(['admission', 'super_admin']) ? 'Approved for the entrance exam' : 'Chose an entrance exam session')." · {$session->label()}", $registration, $application);
             $this->dms->record('exam.scheduled', $application, $this->sessionData($session, $permit));
 
             return $registration;

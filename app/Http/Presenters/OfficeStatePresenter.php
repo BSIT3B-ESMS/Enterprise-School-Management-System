@@ -99,7 +99,7 @@ class OfficeStatePresenter
     /** The given applications, in id order. */
     private function applicants(User $staff, array $ids): array
     {
-        $withScore = $staff->hasRole('admission');
+        $withScore = $staff->hasAnyRole(['admission', 'super_admin']);
 
         $rows = DB::table('applications as a')
             ->join('applicants as p', 'p.id', '=', 'a.applicant_id')

@@ -185,6 +185,9 @@ class DocumentTest extends TestCase
         $this->asUser($clinic)->get("{$url}/xray/file")->assertOk();
         $this->asUser($admission)->get("{$url}/xray/file")->assertForbidden();
         $this->asUser($admission)->get("/api/admin/applicants/{$application->number}/documents/xray/file")->assertForbidden();
+        // Super admin has oversight: can open the medical file, personnel still can't
+        $this->asUser($admission)->get("/api/admin/applicants/{$application->number}/medical/xray/file")->assertForbidden();
+        $this->asUser($this->makeUser(Role::SuperAdmin))->get("/api/admin/applicants/{$application->number}/medical/xray/file")->assertOk();
 
         // The clinic's state: medical files and a name, nothing else from the record
         $state = $this->asUser($clinic)->getJson('/api/clinic/state')->assertOk();

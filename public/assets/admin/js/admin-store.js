@@ -210,7 +210,7 @@
   /* Where to fetch an uploaded file. Medical files are confidential: clinic portal only. */
   function fileUrl(a, key) {
     var id = encodeURIComponent(a.id), k = encodeURIComponent(key);
-    return isMedical(key) ? "/api/clinic/applicants/" + id + "/medical/" + k + "/file" : "/api/admin/applicants/" + id + "/documents/" + k + "/file";
+    return isMedical(key) ? (ROLE === "admin" ? "/api/admin/applicants/" : "/api/clinic/applicants/") + id + "/medical/" + k + "/file" : "/api/admin/applicants/" + id + "/documents/" + k + "/file";
   }
 
   function isOverdue(a) { return statusOf(a) === "submitted" && docSummary(a).pending > 0 && workingDaysSince(a.submittedAt) > REVIEW_SLA_DAYS; }

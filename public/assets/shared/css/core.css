@@ -1020,6 +1020,12 @@ h1 {
   -webkit-backdrop-filter: blur(18px);
   border-right: 1px solid var(--line);
   overflow-y: auto;
+  scrollbar-width: none;      /* still scrolls, no bar */
+  -ms-overflow-style: none;
+}
+
+.sidebar::-webkit-scrollbar {
+  display: none;
 }
 
 .sidebar .brand {

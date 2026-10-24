@@ -213,7 +213,7 @@
     return '<section class="table-card">' +
       '<div class="table-toolbar"><div><strong>Clinic decision</strong> <span class="tag ' + ADM.MED_STATUS[st].tag + '">' + (st === "cleared" ? icon("check") : "") + esc(ADM.MED_STATUS[st].label) + "</span>" +
       '<small class="d-block text-muted">' + esc(note) + "</small></div>" +
-      '<span class="text-muted small ms-auto">' + icon("lock") + " Read-only · files are confidential to the university clinic</span></div>" +
+      '<span class="text-muted small ms-auto">' + icon("lock") + " Read-only · " + (ADM.STAFF.roleKey === "super_admin" ? "you can open these files as Super Admin (each opening is logged)" : "files are confidential to the university clinic") + "</span></div>" +
       '<ul class="review-list">' + ADM.MED_TYPES.map(function (m) {
         var f = ADM.fileOf(a, m.key) || { status: "missing" };
         var has = f.status !== "missing";
@@ -222,6 +222,7 @@
           (has ? '<p class="review-file">' + esc(f.file) + " · " + AO.fileSize(f.size) + " · uploaded " + ui.relDays(f.uploadedAt).toLowerCase() + "</p>" : '<p class="review-file">Not uploaded yet</p>') +
           (f.remark ? '<p class="review-remark">' + icon("flag") + esc(f.remark) + "</p>" : "") +
           (f.reviewedBy ? '<p class="review-by">' + (f.status === "verified" ? "Verified" : "Reviewed") + " by " + esc(f.reviewedBy) + " · " + esc(ui.dt(f.reviewedAt)) + "</p>" : "") + "</div>" +
+          (has && ADM.STAFF.roleKey === "super_admin" ? '<button class="btn btn-ghost btn-sm" type="button" data-med-view="' + m.key + '">' + icon("eye") + "View</button>" : "") +
           "</div></li>";
       }).join("") + "</ul></section>";
   }
@@ -283,6 +284,7 @@
     ADM.ui.previewDoc(a, key, '<button type="button" class="btn btn-ghost" data-bs-dismiss="modal">Close</button>' +
       (editable && !a.exam ? '<button type="button" class="btn btn-warn" data-modal-resubmit="' + key + '">' + icon("flag") + 'Resubmit</button><button type="button" class="btn btn-ok" data-modal-verify="' + key + '">' + icon("check") + "Verify</button>" : ""));
   });
+  $(document).on("click", "#view-applicant [data-med-view]", function () { ADM.ui.previewDoc(currentApplicant(), $(this).data("med-view")); });
   $(document).on("click", "[data-modal-verify]", function () { ADM.ui.modal("docModal").hide(); verify(currentApplicant(), $(this).data("modal-verify")); });
   $(document).on("click", "[data-modal-resubmit]", function () {
     var key = $(this).data("modal-resubmit");

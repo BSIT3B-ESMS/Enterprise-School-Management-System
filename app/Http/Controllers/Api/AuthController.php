@@ -204,7 +204,7 @@ class AuthController extends Controller
         // Each sign-in screen lets in its own roles only (NFR-01). The dean signs in on the office side.
         return in_array($user->primaryRole(), match ($portal) {
             'applicant' => [Role::Applicant],
-            'office' => [Role::Admission, Role::CollegeDean],
+            'office' => [Role::Admission, Role::CollegeDean, Role::SuperAdmin],
             'clinic' => [Role::Clinic],
         }, true);
     }

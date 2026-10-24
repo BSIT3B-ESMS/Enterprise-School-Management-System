@@ -201,7 +201,7 @@ class ReportService
         $query = DB::table('interview_schedules as s')->where('s.admission_period_id', $periodId)
             ->join('programs as p', 'p.id', '=', 's.program_id')
             ->leftJoin('interview_assignments as i', 'i.interview_schedule_id', '=', 's.id');
-        if (! $user->hasRole(Role::Admission->value)) {
+        if (! $user->hasAnyRole([Role::Admission->value, Role::SuperAdmin->value])) {
             $query->where('p.college_id', $user->deanOf?->id ?? 0);
         }
         $rows = $query->groupBy('s.id', 'p.code', 's.date', 's.time', 's.venue', 's.capacity')->orderBy('s.date')

@@ -11,7 +11,11 @@ $(function () {
   var ADM = window.ADM;
 
   // Hash → view name; the second segment is passed to render() as param
-  var ROUTES = { dashboard: "dashboard", applicants: "applicants", documents: "documents", exams: "exams", results: "results", medical: "medical", reports: "reports", settings: "settings", audit: "audit" };
+  var ROUTES = { dashboard: "dashboard", applicants: "applicants", documents: "documents", exams: "exams", results: "results", medical: "medical", reports: "reports", settings: "settings", audit: "audit", accounts: "accounts", interview: "interview" };
+  // Oversight screens: super admin only. Admission personnel work in the seven modules of their use case.
+  var SUPER_ONLY = ["dashboard", "accounts", "reports", "audit"];
+  function isSuper() { return ADM.STAFF.roleKey === "super_admin"; }
+  function home() { return isSuper() ? "#/dashboard" : "#/applicants"; }
   var DETAIL = { applicants: "applicant", exams: "session", documents: "docreview" };   // #/applicants/:id → view "applicant"
   var current = { view: null, param: null };
 
@@ -23,7 +27,12 @@ $(function () {
     $("#app").prop("hidden", false);
     $("#sidebar-name").text(ADM.STAFF.name);
     $("#sidebar-avatar").text(ADM.STAFF.initials);
-    if (!location.hash) location.replace("#/dashboard");
+    $(".sidebar-footer .user-mini span").text(ADM.STAFF.role);
+    $("[data-superadmin]").prop("hidden", !isSuper());
+    $("#super-chip").prop("hidden", !isSuper());
+    $("#crumb-root").text(isSuper() ? "Super admin" : "Admission personnel");
+    $("#sidebar-role-label").text(isSuper() ? "Admission modules (as Super Admin)" : "Admission personnel");
+    if (!location.hash) location.replace(home());
     route();
   }
 
@@ -65,7 +74,8 @@ $(function () {
      ========================================================================== */
   function parseHash() {
     var parts = location.hash.replace(/^#\/?/, "").split("/").map(decodeURIComponent);
-    var base = ROUTES[parts[0]] ? parts[0] : "dashboard";
+    var base = ROUTES[parts[0]] ? parts[0] : home().slice(2);
+    if (!isSuper() && SUPER_ONLY.indexOf(base) !== -1) base = home().slice(2);
     var param = parts[1] || null;
     return { view: param && DETAIL[base] ? DETAIL[base] : ROUTES[base], nav: base, param: param };
   }
