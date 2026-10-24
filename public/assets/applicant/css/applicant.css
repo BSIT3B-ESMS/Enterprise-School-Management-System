@@ -1812,3 +1812,17 @@ button.step-dot:hover {
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
+
+/* Interview stage: one card per program choice */
+.iv-list { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 12px; }
+.iv-title { font-size: 16px; margin: 24px 0 0; }
+.iv-card { padding: 16px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); }
+.iv-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.iv-head > div { flex: 1; min-width: 160px; }
+.iv-head small { display: block; color: var(--muted); }
+.iv-rank { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 13px; border: 1px solid var(--line); }
+.iv-where { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 14px 0 0; }
+.iv-where dt { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.iv-where dd { margin: 2px 0 0; font-weight: 600; }
+.iv-pending { margin: 12px 0 0; color: var(--muted); }
+@media (max-width: 640px) { .iv-where { grid-template-columns: 1fr; } }

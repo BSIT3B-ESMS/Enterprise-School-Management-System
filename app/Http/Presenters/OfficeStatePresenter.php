@@ -154,9 +154,9 @@ class OfficeStatePresenter
                 'd.scan_status', 'd.photocopy_received_at', 'd.falsification_flag', 'd.falsification_note'])
             ->groupBy('application_id');
 
-        $interviews = $scope(DB::table('interview_assignments as i')->join('interview_schedules as s', 's.id', '=', 'i.interview_schedule_id'), 'i.application_id')
-            ->get(['i.application_id', 's.id as schedule_id', 's.date', 's.time', 's.venue', 'i.outcome', 'i.grade'])
-            ->keyBy('application_id');
+        $interviews = $scope(DB::table('interview_assignments as i')->join('interview_schedules as s', 's.id', '=', 'i.interview_schedule_id')->join('programs as p', 'p.id', '=', 's.program_id'), 'i.application_id')
+            ->get(['i.application_id', 's.id as schedule_id', 'p.code as program', 's.date', 's.time', 's.venue', 'i.outcome', 'i.grade'])
+            ->groupBy('application_id');
 
         // Possible duplicates (FR-01): the other applicant's application number
         $dupIds = $rows->pluck('possible_duplicate_of')->filter()->unique()->all();
@@ -234,14 +234,15 @@ class OfficeStatePresenter
                     'deadline' => $this->at($a->acceptance_deadline),
                     'acceptedAt' => $this->at($a->offer_accepted_at),
                 ] : null,
-                'interview' => isset($interviews[$a->id]) ? array_filter([
-                    'scheduleId' => (int) $interviews[$a->id]->schedule_id,
-                    'date' => substr($interviews[$a->id]->date, 0, 10),
-                    'time' => $interviews[$a->id]->time,
-                    'venue' => $interviews[$a->id]->venue,
-                    'outcome' => $interviews[$a->id]->outcome,
-                    'grade' => $withScore && $interviews[$a->id]->grade !== null ? (int) $interviews[$a->id]->grade : null,
-                ], fn ($v) => $v !== null) : null,
+                'interviews' => ($interviews[$a->id] ?? collect())->map(fn ($i) => array_filter([
+                    'scheduleId' => (int) $i->schedule_id,
+                    'program' => $i->program,
+                    'date' => substr($i->date, 0, 10),
+                    'time' => $i->time,
+                    'venue' => $i->venue,
+                    'outcome' => $i->outcome,
+                    'grade' => $withScore && $i->grade !== null ? (int) $i->grade : null,
+                ], fn ($v) => $v !== null))->values()->all(),
                 'admittedAt' => $this->at($a->admitted_at),
                 'studentNumber' => $a->student_number,
             ];

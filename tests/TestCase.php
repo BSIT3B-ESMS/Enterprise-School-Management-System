@@ -4,6 +4,7 @@ namespace Tests;
 
 use App\Enums\Role;
 use App\Models\Application;
+use App\Models\Program;
 use App\Models\User;
 use App\Services\ApplicationService;
 use Database\Seeders\AdmissionSetupSeeder;
@@ -22,6 +23,8 @@ abstract class TestCase extends BaseTestCase
     {
         parent::setUp();
         $this->seed([RoleSeeder::class, AdmissionSetupSeeder::class]);
+        // Tests assume a direct offer except for BS Nursing; interview tests switch more programs on
+        Program::where('code', '!=', 'BSN')->update(['requires_interview' => false]);
         // Uploads and the fake DMS write to the private disk: keep them out of storage/
         Storage::fake('local');
     }

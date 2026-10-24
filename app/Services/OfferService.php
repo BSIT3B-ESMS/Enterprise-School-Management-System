@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\ApplicationStatus;
 use App\Exceptions\BusinessRuleException;
 use App\Models\Application;
+use App\Models\InterviewAssignment;
 use App\Models\Program;
 use App\Models\User;
 use App\Notifications\AdmissionNotice;
@@ -29,26 +30,72 @@ class OfferService
         private DmsSync $dms,
     ) {}
 
-    /** After a passing result is released: interview first if the program requires one (D14). */
+    /** After a passing result is released: walk the three choices (D14). */
     public function afterResultReleased(Application $application, ?User $by): void
     {
         if ($application->status !== ApplicationStatus::Passed) {
             return;
         }
-        // A first choice that requires an interview is evaluated by its college dean first (D14)
-        $first = $application->firstChoice();
-        if ($first?->requires_interview) {
-            $this->status->transition($application, ApplicationStatus::ForInterview, $by, "{$first->code} requires an interview");
+        $this->resolveChoices($application, $by);
+    }
+
+    /** The choice being interviewed now: the first interviewing choice without a decision. Later ones wait for a rejection. */
+    public function pendingInterview(Application $application): ?Program
+    {
+        $decided = $application->interviews()->with('schedule')->get()->filter(fn ($i) => $i->outcome)->map(fn ($i) => $i->schedule->program_id);
+
+        return $application->choices()->with('program')->get()->pluck('program')
+            ->first(fn (Program $p) => $p->is_open && $p->requires_interview && ! $decided->contains($p->id));
+    }
+
+    /**
+     * Walk the choices in rank order. A program without an interview accepts
+     * the applicant; one with an interview waits for its dean's decision, and
+     * a rejection moves on to the next choice. The first accepting program
+     * with a free slot gets the offer. Everyone rejected → Interview failed.
+     */
+    public function resolveChoices(Application $application, ?User $by): void
+    {
+        $decided = $application->interviews()->with('schedule')->get()->keyBy(fn ($i) => $i->schedule->program_id);
+        $filled = Program::filledCounts();
+        $rejected = $full = false;
+
+        foreach ($application->choices()->with('program')->get() as $choice) {
+            $program = $choice->program;
+            if (! $program->is_open) {
+                continue;   // closed programs can't take new offers
+            }
+            if ($program->requires_interview) {
+                $outcome = $decided->get($program->id)?->outcome;
+                if (! $outcome) {
+                    if ($application->status === ApplicationStatus::Passed) {
+                        $this->status->transition($application, ApplicationStatus::ForInterview, $by, "{$program->code} requires an interview");
+                    }
+
+                    return;
+                }
+                if ($outcome === InterviewAssignment::FAILED) {
+                    $rejected = true;
+
+                    continue;
+                }
+            }
+            if (($filled[$program->id] ?? 0) >= $program->slots) {
+                $full = true;
+
+                continue;
+            }
+            $this->offer($application, $by, $program);
 
             return;
         }
-        $program = $this->placementFor($application);
-        if (! $program) {
-            $this->audit->record('offer.no_slot', 'Passed, but none of the three program choices has a free slot. Waiting for placement by admissions', $application, $application);
+
+        if ($rejected && ! $full && $application->status === ApplicationStatus::ForInterview) {
+            $this->status->transition($application, ApplicationStatus::InterviewFailed, $by, 'Rejected by every interviewing college');
 
             return;
         }
-        $this->offer($application, $by, $program);
+        $this->audit->record('offer.no_slot', 'Passed, but none of the three program choices has a free slot. Waiting for placement by admissions', $application, $application);
     }
 
     /**

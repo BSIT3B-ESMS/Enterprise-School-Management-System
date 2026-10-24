@@ -24,13 +24,13 @@ $(function () {
     { id: 3, title: "Program choice", short: "Program", desc: "Choose your first, second, and third choice programs." }
   ];
 
-  // Overview journey: six stages. Stage 1 covers all three form sections.
+  // Overview journey: six stages. Stage 1 covers all three form sections. Interview = the dean of each program choice that requires one, then the offer.
   var JOURNEY = [
     { id: 1, short: "Application", title: "Application form", icon: "file" },
     { id: 2, short: "Documents", title: "Required documents", icon: "folder" },
-    { id: 3, short: "Review", title: "Admissions review", icon: "search" },
-    { id: 4, short: "Exam", title: "Entrance exam", icon: "pencil" },
-    { id: 5, short: "Result", title: "Admission result", icon: "award" },
+    { id: 3, short: "Exam", title: "Entrance exam", icon: "pencil" },
+    { id: 4, short: "Result", title: "Exam result", icon: "award" },
+    { id: 5, short: "Interview", title: "College interview", icon: "users" },
     { id: 6, short: "Medical", title: "Medical requirements", icon: "shield" }
   ];
   var STAGES = JOURNEY.length;
@@ -71,7 +71,7 @@ $(function () {
   var PROGRAMS = [];
   var KEY_DATES = [];
   var TIMELINE = [];   // FR-11: [{ status, label, date }]
-  var INTERVIEW = null, OFFER = null, STATUS = "draft";
+  var INTERVIEWS = [], OFFER = null, STATUS = "draft";
   var STRAND_SUGGEST = {};   // FR-06: strand => suggested program names (maintained by the office)
   var EXAM = { date: AO.toISO(AO.today()), time: "", venue: "", permit: "" };
   function keyDate(title, fallback) { var k = KEY_DATES.filter(function (x) { return x.title === title; })[0]; return k ? k.date : fallback; }
@@ -154,14 +154,14 @@ $(function () {
 
   /* ---------- Server state ---------- */
   function applyPortal(p) {
-    APP_ID = p.applicationId;
+    APP_ID = p.applicationId || "";   // empty until the documents are approved
     PROGRAMS = p.programs;
     KEY_DATES = p.keyDates;
     TIMELINE = p.timeline || [];
     STRAND_SUGGEST = p.strandSuggestions || {};
     if (p.exam) EXAM = p.exam;
     // Applicant module "Interview": the college's evaluation (outcome only, never the grade) and the offer
-    INTERVIEW = p.interview;
+    INTERVIEWS = p.interviews || [];
     OFFER = p.offer;
     STATUS = p.status;
     serverPhase = p.phase;
@@ -213,11 +213,13 @@ $(function () {
   function journeyDone(n) {
     if (n === 1) return sectionsDone();
     if (n === 2) return state.phase !== "draft";
-    if (n === 3) return state.phase === "exam" || state.phase === "result";
-    if (n === 4) return state.phase === "result";
-    if (n === 5) return state.phase === "result" && state.accepted;
+    if (n === 3) return examDone();
+    if (n === 4) return examDone() && STATUS !== "failed";
+    if (n === 5) return state.accepted;
     return state.medical.status === "cleared";
   }
+  // The exam result is released once the status has moved past "for exam"
+  function examDone() { return ["passed", "failed", "for_interview", "interview_failed", "offered", "slot_accepted", "for_medical", "admitted", "forfeited"].indexOf(STATUS) !== -1; }
   function journeyCurrent() { for (var i = 1; i <= STAGES; i++) if (!journeyDone(i)) return i; return STAGES; }
   function journeyPercent() { var n = 0; for (var i = 1; i <= STAGES; i++) if (journeyDone(i)) n++; return Math.round(n / STAGES * 100); }
 
@@ -460,7 +462,9 @@ $(function () {
   /* [pill class, label] for where the application is */
   function statusPill() {
     var med = state.medical.status;
-    return { draft: ["draft", "Draft"], review: ["review", "Under review"], exam: ["exam", "Exam scheduled"], result: state.accepted && med !== "cleared" ? ["review", med === "submitted" ? "Medical check" : "Medical pending"] : ["admitted", "Admitted"] }[state.phase];
+    var byStatus = { passed: ["exam", "Passed exam"], failed: ["draft", "Did not pass"], for_interview: ["exam", "For interview"], interview_failed: ["draft", "Not accepted"], offered: ["admitted", "Offer ready"], forfeited: ["draft", "Offer expired"] };
+    if (byStatus[STATUS]) return byStatus[STATUS];
+    return { draft: ["draft", "Draft"], review: ["review", "Submitted"], exam: ["exam", "Exam scheduled"], result: state.accepted && med !== "cleared" ? ["review", med === "submitted" ? "Medical check" : "Medical pending"] : ["admitted", "Admitted"] }[state.phase];
   }
 
   function renderJourney() {
@@ -469,7 +473,7 @@ $(function () {
     buildStepper($list, JOURNEY);
     if (selectedStage === null || selectedStage > current) selectedStage = current;
 
-    var subs = { 3: "Under review", 4: "Scheduled", 5: "Released", 6: state.medical.status === "submitted" ? "Checking" : "To submit" };
+    var subs = { 3: STATUS === "submitted" ? "Checking" : "Scheduled", 4: "Released", 5: STATUS === "for_interview" ? "Interviews" : STATUS === "offered" ? "Offer ready" : "Waiting", 6: state.medical.status === "submitted" ? "Checking" : "To submit" };
     updateStepper($list, {
       done: journeyDone, current: current, selected: selectedStage,
       canVisit: function (n) { return n <= current; },
@@ -484,9 +488,10 @@ $(function () {
     animateCount($("#journey-percent"), pct);
 
     var med = state.medical.status;
-    var resultTitle = !state.accepted ? "Your admission result is in" : med === "cleared" ? "Admission complete · See you in August" : med === "submitted" ? "Your medical requirements are being checked" : "Last step · Submit your medical requirements";
-    var titles = { draft: "Step " + current + " of " + STAGES + " · " + JOURNEY[current - 1].title, review: "Your application is under review", exam: "You're scheduled for the entrance exam", result: resultTitle };
-    $("#journey-title").text(titles[state.phase]);
+    var resultTitle = med === "cleared" ? "Admission complete · See you in August" : med === "submitted" ? "Your medical requirements are being checked" : "Last step · Submit your medical requirements";
+    var byStatus = { submitted: "Admissions is checking your application", for_exam: "You're scheduled for the entrance exam", passed: "You passed the entrance exam", failed: "Your entrance exam result is in",
+      for_interview: "Your college interviews", interview_failed: "Your interview results are in", offered: "Your offer of admission is ready", forfeited: "Your offer expired" };
+    $("#journey-title").text(state.accepted ? resultTitle : byStatus[STATUS] || "Step " + current + " of " + STAGES + " · " + JOURNEY[current - 1].title);
     var pill = statusPill();
     $("#status-pill").attr("class", "status-pill " + pill[0]).text(pill[1]);
 
@@ -544,20 +549,12 @@ $(function () {
         '<div class="sp-actions"><button class="btn ' + (done ? "btn-ghost" : "btn-brand") + '" type="button" data-view="documents">' + (done ? "View documents" : "Upload documents") + icon("arrowR") + "</button></div></div>";
     }
 
-    // Review
-    if (n === 3) {
-      if (done) {
-        return '<div class="sp-row"><span class="sp-icon">' + icon("shield") + '</span><div class="sp-body"><h3>Application approved for the entrance exam</h3><p>Your form and all your documents were verified by the admissions team.</p></div></div>';
-      }
-      return '<div class="sp-row"><span class="scan-doc" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><div class="sp-body">' +
-        "<h3>Admissions is reviewing your application</h3><p>This usually takes 3 to 5 working days. We'll email you once it's done.</p>" +
-        '<ul class="review-steps"><li><span class="rs-mark">' + icon("check") + '</span>Application form received</li>' +
-        '<li class="working"><span class="rs-mark"></span>Verifying your documents</li>' +
-        '<li class="waiting"><span class="rs-mark"></span>Exam eligibility</li></ul></div></div>';
-    }
-
     // Exam
-    if (n === 4) {
+    if (n === 3) {
+      if (STATUS === "submitted") {
+        return '<div class="sp-row"><span class="scan-doc" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><div class="sp-body">' +
+          "<h3>Admissions is checking your application</h3><p>Your exam schedule appears here once your documents are verified. We'll email you.</p></div></div>";
+      }
       var ed = parseDate(EXAM.date);
       // Clicking the ticket downloads the exam permit (PDF, see EXAM PERMIT below)
       var ticket = '<button class="exam-ticket ticket-download" type="button" id="download-permit" aria-label="Download your exam permit as a PDF">' +
@@ -565,7 +562,6 @@ $(function () {
         '<span class="ticket-info"><strong>' + ed.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" }) + "</strong>" +
         "<span>" + icon("clock") + esc(EXAM.time) + "</span><span>" + icon("pin") + esc(EXAM.venue) + "</span><span>" + icon("ticket") + "Exam permit " + esc(EXAM.permit) + "</span></span>" +
         '<span class="ticket-cta">' + icon("download") + '<span class="btn-label">Download permit</span></span></button>';
-      if (STATUS === "for_interview" || STATUS === "interview_failed") return interviewPanelHTML();
       if (done) {
         return '<div class="sp-row"><span class="sp-icon">' + icon("pencil") + '</span><div class="sp-body"><h3>Entrance exam completed</h3><p>You took the exam on ' + fmt(EXAM.date, { month: "long", day: "numeric", year: "numeric" }) + ". Your result is ready.</p></div></div>";
       }
@@ -573,16 +569,20 @@ $(function () {
         "<p>Arrive 30 minutes early. Click the ticket to download your exam permit, then print it and bring it with the valid ID you uploaded.</p>" + ticket + "</div></div>";
     }
 
-    // Medical requirements (last step)
+    if (n === 4) return examResultHTML();
     if (n === 6) return medicalPanelHTML();
+    return interviewPanelHTML();
+  }
 
-    // Result
+  /* The offer card: accept the slot, view the letter */
+  function offerCardHTML() {
+    var d = state.data;
     var first = esc(d.firstName || "applicant");
     var facts = '<div class="result-facts">' +
       '<div class="fact"><span>Program</span><strong>' + esc((OFFER && OFFER.program) || d.program1 || PROGRAMS[0]) + "</strong></div>" +
       '<div class="fact"><span>Campus</span><strong>' + esc(d.campus || "Main Campus") + " · AY 2027–2028</strong></div>" +
       '<div class="fact"><span>Entrance exam</span><strong>Passed</strong></div>' +
-      (INTERVIEW && INTERVIEW.outcome ? '<div class="fact"><span>College evaluation</span><strong>' + (INTERVIEW.outcome === "referred" ? "Referred to " + esc((OFFER && OFFER.program) || "another program") : "Passed") + "</strong></div>" : "") + "</div>";
+      "</div>";
     var steps = '<ol class="next-steps">' +
       '<li><span>1</span><strong>Accept your offer</strong><time>in this portal</time></li>' +
       '<li><span>2</span><strong>Submit your medical requirements</strong><time>after accepting</time></li>' +
@@ -593,7 +593,7 @@ $(function () {
     return '<div class="result-card"><div class="result-seal">' + STAR + "</div>" +
       '<p class="eyebrow">Admission result · AY 2027–2028</p>' +
       '<h3>Congratulations, <span class="shine">' + first + "!</span></h3>" +
-      "<p>You've been admitted to the " + esc(d.program1 || PROGRAMS[0]) + " program. We're excited to welcome you to Pamantasan ng Lungsod ng Pasig this August.</p>" +
+      "<p>You've been admitted to the " + esc((OFFER && OFFER.program) || d.program1 || PROGRAMS[0]) + " program. We're excited to welcome you to Pamantasan ng Lungsod ng Pasig this August.</p>" +
       facts + steps + actions + "</div>";
   }
 
@@ -609,17 +609,29 @@ $(function () {
         '<div class="sp-chips">' + MEDICAL.map(function (m) { return '<span class="chip-doc ok">' + icon("check") + esc(m.title) + "</span>"; }).join("") + "</div></div></div>";
     }
     var count = medCount();
-    return '<div class="sp-row sp-row-top"><span class="sp-icon">' + icon("shield") + '</span><div class="sp-body">' +
-      "<h3>Submit your medical requirements</h3><p>This is the last step of your admission. Upload a clear PDF, JPG, or PNG of each one, up to 5 MB.</p>" +
+    return '<div class="sp-row"><span class="sp-icon">' + icon("shield") + '</span><div class="sp-body">' +
+      "<h3>Submit your medical requirements</h3><p>This is the last step of your admission. " + count + " of " + MEDICAL.length + " files uploaded so far.</p></div>" +
+      '<div class="sp-actions"><button class="btn btn-brand" type="button" id="open-medical">' + icon("upload") + "Submit medical</button></div></div>";
+  }
+
+  /* The upload list lives in a pop-up (#medicalModal) */
+  function medicalModalHTML() {
+    var med = state.medical, count = medCount();
+    return "<p>Upload a clear PDF, JPG, or PNG of each one, up to 5 MB.</p>" +
       '<ul class="med-list">' + MEDICAL.map(function (m) {
         var f = med.files[m.key];
         return '<li class="' + (f ? "ok" : "") + '"><span class="mini-check">' + (f ? icon("check") : "") + "</span><div><strong>" + esc(m.title) + "</strong><small>" + esc(f ? f.name + " · " + fileSize(f.size) : m.desc) + "</small></div>" +
           '<label class="upload-btn" for="med-' + m.key + '">' + icon(f ? "refresh" : "upload") + (f ? "Replace" : "Upload") + "</label>" +
           '<input class="file-input med-input" type="file" id="med-' + m.key + '" data-key="' + m.key + '" accept=".pdf,.jpg,.jpeg,.png"></li>';
       }).join("") + "</ul>" +
-      '<p class="upload-error" id="med-error" role="alert"></p></div>' +
-      '<div class="sp-actions"><button class="btn btn-brand" type="button" id="submit-medical"' + (count < MEDICAL.length ? " disabled" : "") + ">" + icon("send") + "Submit " + count + "/" + MEDICAL.length + "</button></div></div>";
+      '<p class="upload-error" id="med-error" role="alert"></p>' +
+      '<div class="text-end mt-3"><button class="btn btn-brand" type="button" id="submit-medical"' + (count < MEDICAL.length ? " disabled" : "") + ">" + icon("send") + "Submit " + count + "/" + MEDICAL.length + "</button></div>";
   }
+  function renderMedicalModal() { $("#medical-form").html(medicalModalHTML()); }
+  $(document).on("click", "#open-medical", function () {
+    renderMedicalModal();
+    bootstrap.Modal.getOrCreateInstance(document.getElementById("medicalModal")).show();
+  });
 
   $(document).on("change", ".med-input", function () {
     var file = this.files[0], key = $(this).data("key");
@@ -633,6 +645,7 @@ $(function () {
       .done(function (res) {
         applyPortal(res.data);
         renderJourney();
+        renderMedicalModal();
         showToast(MEDICAL.filter(function (m) { return m.key === key; })[0].title + " uploaded.");
       })
       .fail(function (xhr) { $("#med-error").text(AO.apiError(xhr)); });
@@ -641,6 +654,7 @@ $(function () {
     AO.busy($(this), AO.api("POST", "/api/applicant/medical/submit"))
       .done(function (res) {
         applyPortal(res.data);
+        bootstrap.Modal.getOrCreateInstance(document.getElementById("medicalModal")).hide();
         renderJourney();
         showToast("Medical requirements sent to the university clinic.");
       })
@@ -871,20 +885,40 @@ $(function () {
   /* ==========================================================================
      DOCUMENTS
      ========================================================================== */
-  /* Interview (college evaluation) for programs that require one */
+  /* Exam result stage */
+  function examResultHTML() {
+    if (STATUS === "failed") {
+      return '<div class="sp-row"><span class="sp-icon">' + icon("award") + '</span><div class="sp-body"><h3>Your entrance exam result</h3>' +
+        "<p>You did not pass the entrance exam this time. Thank you for applying. Contact the admission office if you have questions.</p></div></div>";
+    }
+    var next = STATUS === "for_interview" ? "Next, the dean of your first choice that needs an interview will meet you. If not accepted, you interview for your next choice. See the Interview step for the date, time and venue."
+      : INTERVIEWS.length ? "Your interview results are in. See the Interview step." : "None of your program choices needs an interview. Your offer is in the Interview step.";
+    return '<div class="sp-row"><span class="sp-icon">' + icon("award") + '</span><div class="sp-body"><h3>You passed the entrance exam</h3><p>' + esc(next) + "</p></div>" +
+      '<div class="sp-actions"><button class="btn btn-brand" type="button" data-stage-go="5">Interview' + icon("arrowR") + "</button></div></div>";
+  }
+
+  /* Interview stage: one card per choice that requires an interview (where, when, dean's decision), then the offer */
+  function interviewCardHTML(i) {
+    var tag = i.outcome === "passed" ? ["tag-verified", icon("check") + "Accepted"] : i.outcome === "failed" ? ["tag-resubmit", "Not accepted"] : ["tag-review", i.date ? "Awaiting decision" : "To be scheduled"];
+    var where = i.date
+      ? '<dl class="iv-where"><div><dt>Date</dt><dd>' + esc(fmt(i.date, { weekday: "long", month: "long", day: "numeric", year: "numeric" })) + "</dd></div>" +
+        "<div><dt>Time</dt><dd>" + esc(i.time || "To be announced") + "</dd></div><div><dt>Venue</dt><dd>" + esc(i.venue) + "</dd></div></dl>"
+      : '<p class="iv-pending">' + "Admissions will email you the date, time and venue." + "</p>";
+    return '<li class="iv-card"><div class="iv-head"><span class="iv-rank">' + i.rank + "</span><div><strong>" + esc(i.program) + "</strong>" +
+      (i.college ? "<small>" + esc(i.college) + " · Office of the Dean</small>" : "") + '</div><span class="tag ' + tag[0] + '">' + tag[1] + "</span></div>" + where + "</li>";
+  }
   function interviewPanelHTML() {
-    if (STATUS === "interview_failed") {
-      return '<div class="sp-row"><span class="sp-icon">' + icon("users") + '</span><div class="sp-body"><h3>College evaluation completed</h3>' +
-        "<p>Thank you for attending your evaluation. You were not admitted to this program. Contact the admission office if you have questions.</p></div></div>";
+    var cards = INTERVIEWS.length ? '<ul class="iv-list">' + INTERVIEWS.map(interviewCardHTML).join("") + "</ul>" : "";
+    var head = {
+      for_interview: ["Your college interviews", "You are interviewed by the dean of your first choice. If that dean does not accept you, your next choice's interview appears here. Arrive 15 minutes early at the venue below and bring your exam permit and a valid ID."],
+      interview_failed: ["Your interview results", "No college accepted you into the programs you chose. Contact the admission office if you have questions."],
+      passed: ["Placement in progress", "You passed, but none of your program choices can take you right now (closed or full). Admissions will place you in another program and email you."],
+      forfeited: ["Your offer expired", "The acceptance deadline passed. Contact the admission office."]
+    }[STATUS];
+    if (head) {
+      return '<div class="sp-row"><span class="sp-icon">' + icon("users") + '</span><div class="sp-body"><h3>' + head[0] + "</h3><p>" + head[1] + "</p></div></div>" + cards;
     }
-    if (!INTERVIEW) {
-      return '<div class="sp-row"><span class="sp-icon">' + icon("users") + '</span><div class="sp-body"><h3>You passed the entrance exam</h3>' +
-        "<p>Your first-choice program also needs an evaluation by its college. Admissions will email you its date, time and venue.</p></div></div>";
-    }
-    var when = fmt(INTERVIEW.date, { weekday: "long", month: "long", day: "numeric", year: "numeric" });
-    return '<div class="sp-row"><span class="sp-icon">' + icon("users") + '</span><div class="sp-body"><h3>Your college evaluation</h3>' +
-      "<p>You passed the entrance exam. Your first-choice program needs an evaluation by its college before the offer.</p>" +
-      '<p class="mb-0"><strong>' + esc(when) + "</strong>" + (INTERVIEW.time ? " · " + esc(INTERVIEW.time) : "") + " · " + esc(INTERVIEW.venue) + "</p></div></div>";
+    return offerCardHTML() + (cards ? '<h3 class="iv-title">Your interviews</h3>' + cards : "");
   }
 
   function docTag(doc) {
@@ -1265,7 +1299,8 @@ $(function () {
     var ini = ((d.firstName || "").charAt(0) + (d.lastName || "").charAt(0)).toUpperCase() || "A";
     $("#sidebar-name, #topbar-name").text(name);
     $("#sidebar-avatar, #topbar-avatar").text(ini);
-    // The application number from the server (the markup holds a sample one)
+    // The application number from the server (the markup holds a sample one), hidden until the documents are approved
+    $(".id-chip, .application-id").toggle(!!APP_ID);
     if (APP_ID) {
       $(".id-chip").contents().last()[0].textContent = APP_ID;
       $(".application-id strong").text(APP_ID);
@@ -1314,11 +1349,14 @@ $(function () {
         if (!state.docs[doc.key]) state.docs[doc.key] = { name: doc.key + (doc.imageOnly ? ".jpg" : ".pdf"), size: 400000 + Math.round(Math.random() * 900000), type: doc.imageOnly ? "image/jpeg" : "application/pdf" };
       });
       state.phase = "review";
+      STATUS = "submitted";
       state.submittedAt = toISO(today());
     } else if (n === 3) {
       state.phase = "exam";
+      STATUS = "passed";
     } else if (n === 4) {
       state.phase = "result";
+      STATUS = "offered";
     } else if (n === 5) {
       state.accepted = true;
     } else if (state.medical.status === "none") {

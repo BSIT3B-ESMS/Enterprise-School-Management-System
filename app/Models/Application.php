@@ -78,9 +78,10 @@ class Application extends Model
         return $this->hasOne(ExamResult::class);
     }
 
-    public function interview(): HasOne
+    /** One per choice that requires an interview, decided by that program's dean. */
+    public function interviews(): HasMany
     {
-        return $this->hasOne(InterviewAssignment::class);
+        return $this->hasMany(InterviewAssignment::class);
     }
 
     /** The program offered (the first choice at the time of the offer). */

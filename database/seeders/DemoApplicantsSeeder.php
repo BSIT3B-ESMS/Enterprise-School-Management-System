@@ -215,23 +215,30 @@ class DemoApplicantsSeeder extends Seeder
         return $guard;
     }
 
-    /** Interview for programs that require one (BSN in the demo): scheduled, then the dean records it. */
+    /** Interview for the choices that require one (BSN in the demo): scheduled, then its dean decides; a rejection moves on to the next choice. */
     private function interview(Application $application, Carbon $released, User $officer): void
     {
-        $program = $application->firstChoice();
         $interviews = app(InterviewService::class);
+        $offers = app(OfferService::class);
         $this->at($released->copy()->addHour(), $officer);
-        $schedule = InterviewSchedule::where('program_id', $program->id)->first()
-            ?? $interviews->createSchedule($program, $released->copy()->addDays(2)->toDateString(), '9:00 AM – 12:00 NN', 'Nursing Building · Room 105', 20, $officer);
-        $interviews->assign($application, $schedule, $officer);
+        // One choice at a time: the next is scheduled only after the earlier dean rejects
+        while ($application->fresh()->status->value === 'for_interview') {
+            $program = $offers->pendingInterview($application->fresh());
+            if (! $program) {
+                return;
+            }
+            $schedule = InterviewSchedule::where('program_id', $program->id)->first()
+                ?? $interviews->createSchedule($program, $released->copy()->addDays(2)->toDateString(), '9:00 AM – 12:00 NN', "3rd Floor, {$program->college?->code} Faculty", 500, $officer);
+            $interviews->assign($application->fresh(), $schedule, $officer);
 
-        $dean = $program->college?->dean;
-        if (! $dean || mt_rand(1, 100) <= 25) {
-            return; // outcome not recorded yet
+            $dean = $program->college?->dean;
+            if (! $dean || mt_rand(1, 100) <= 25) {
+                return; // decision not recorded yet
+            }
+            $this->at($schedule->date->copy()->setTime(14, 0), $dean);
+            $grade = mt_rand(70, 98);
+            $interviews->record($application->fresh(), $program, $grade >= 75 ? 'passed' : 'failed', $dean, $grade);
         }
-        $this->at($schedule->date->copy()->setTime(14, 0), $dean);
-        $grade = mt_rand(70, 98);
-        $interviews->record($application->fresh(), $grade, $grade >= 75 ? 'passed' : 'failed', $dean);
     }
 
     /** Pretend "now" is $time and $user is signed in, so timestamps and audit lines read right. */

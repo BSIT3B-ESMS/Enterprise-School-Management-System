@@ -26,7 +26,7 @@ class DeanController extends Controller
         $applications = Application::where('admission_period_id', AdmissionPeriod::current()->id)
             ->where('status', '!=', ApplicationStatus::Draft->value)
             ->whereHas('choices', fn ($q) => $q->whereIn('program_id', $programIds))
-            ->with(['applicant', 'choices.program', 'result', 'interview.schedule.program', 'interview.referredProgram', 'offeredProgram'])
+            ->with(['applicant', 'choices.program', 'result', 'interviews.schedule.program', 'offeredProgram'])
             ->orderBy('submitted_at')->get();
 
         return response()->json(['data' => [
@@ -50,12 +50,12 @@ class DeanController extends Controller
                     'status' => $status->value,
                     'statusLabel' => $status->label(),
                     'result' => $released,
-                    'interview' => $a->interview ? [
-                        'program' => $a->interview->schedule->program->code,
-                        'date' => $a->interview->schedule->date->toDateString(),
-                        'outcome' => $a->interview->outcome,
-                        'referredTo' => $a->interview->referredProgram?->code,
-                    ] : null,
+                    // The dean's own programs only
+                    'interviews' => $a->interviews->filter(fn ($i) => $programIds->contains($i->schedule->program_id))->map(fn ($i) => [
+                        'program' => $i->schedule->program->code,
+                        'date' => $i->schedule->date->toDateString(),
+                        'outcome' => $i->outcome,
+                    ])->values()->all(),
                     'offeredProgram' => $a->offeredProgram?->code,
                     'submittedAt' => $a->submitted_at?->copy()->setTimezone(config('admission.display_timezone'))->toDateString(),
                 ];

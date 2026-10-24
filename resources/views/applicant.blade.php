@@ -34,9 +34,9 @@
         <ol class="preview-steps">
           <li><span></span>Application</li>
           <li><span></span>Documents</li>
-          <li><span></span>Review</li>
           <li><span></span>Exam</li>
           <li><span></span>Result</li>
+          <li><span></span>Interview</li>
           <li><span></span>Medical</li>
         </ol>
         <p class="preview-foot"><span data-icon="clock"></span>Application deadline: November 28, 2026</p>
@@ -727,6 +727,19 @@
           <button type="button" class="btn btn-brand" id="confirm-submit"><span class="btn-label">Submit for
               review</span></button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Medical requirements upload -->
+  <div class="modal fade" id="medicalModal" tabindex="-1" aria-labelledby="medicalModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 class="modal-title fs-5" id="medicalModalTitle">Medical requirements</h2>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body" id="medical-form"></div>
       </div>
     </div>
   </div>

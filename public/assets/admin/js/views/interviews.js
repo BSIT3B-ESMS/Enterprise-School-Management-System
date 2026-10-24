@@ -1,10 +1,11 @@
 /* ==========================================================================
    View: Interviews (#/interviews), FR-17 · "Interview" in the Admission
-   Personnel diagram. Programs flagged "requires interview" evaluate the
-   applicants who passed the entrance exam, before the offer (D14).
-   Admission personnel create schedules and assign applicants waiting for
-   one; the program's College Dean records the evaluation (dean.js). The
-   Admin, who runs the whole system, can record it here too.
+   Personnel diagram. Every choice (1st to 3rd) whose program is flagged
+   "requires interview" interviews the applicants who passed the entrance
+   exam, before the offer (D14). Admission personnel create schedules (date,
+   time, venue) and assign each waiting applicant to one per program; that
+   program's College Dean accepts or rejects (dean.js). The Admin, who runs
+   the whole system, can record it here too.
    (Adapted from the interview-ui-validation branch.)
    ========================================================================== */
 (function ($) {
@@ -39,15 +40,16 @@
   function waitingTable() {
     var list = ADM.interviews.waiting;
     var body = list.length ? list.map(function (w) {
+      var key = esc(w.id + "-" + w.program);
       var options = ADM.interviews.schedules.filter(function (s) { return s.program === w.program && s.applicants.length < s.capacity && AO.daysUntil(s.date) >= 0; });
       var pick = options.length
-        ? '<div class="d-flex gap-2"><select class="form-select form-select-sm" id="iv-pick-' + esc(w.id) + '" aria-label="Interview schedule for ' + esc(w.name) + '">' +
+        ? '<div class="d-flex gap-2"><select class="form-select form-select-sm" id="iv-pick-' + key + '" aria-label="Interview schedule for ' + esc(w.name) + '">' +
           options.map(function (s) { return '<option value="' + s.id + '">' + esc(when(s)) + " · " + (s.capacity - s.applicants.length) + " seats left</option>"; }).join("") +
-          '</select><button class="btn btn-brand btn-sm" type="button" data-iv-assign="' + esc(w.id) + '">Assign</button></div>'
+          '</select><button class="btn btn-brand btn-sm" type="button" data-iv-assign="' + esc(w.id) + '" data-program="' + esc(w.program) + '">Assign</button></div>'
         : '<small class="text-muted">No open ' + esc(w.program) + " schedule. Add one above.</small>";
-      return "<tr><td><strong>" + esc(w.name) + '</strong><small class="d-block text-muted">' + esc(w.id) + '</small></td><td><span class="code-chip">' + esc(w.program) + "</span></td><td>" + pick + "</td></tr>";
-    }).join("") : '<tr><td colspan="3">' + ADM.ui.empty("check", "Nobody is waiting", "Applicants appear here when they pass the exam for a program that requires an interview.") + "</td></tr>";
-    return '<section class="table-card" data-reveal><div class="table-toolbar"><div><strong>Waiting for a schedule</strong><small class="d-block text-muted">Passed the entrance exam; first choice requires an interview</small></div></div>' +
+      return "<tr><td><strong>" + esc(w.name) + '</strong><small class="d-block text-muted">' + esc(w.id) + '</small></td><td><span class="code-chip">' + w.rank + ". " + esc(w.program) + "</span></td><td>" + pick + "</td></tr>";
+    }).join("") : '<tr><td colspan="3">' + ADM.ui.empty("check", "Nobody is waiting", "Applicants appear here when they pass the exam and a program they chose requires an interview. After a rejection, their next choice appears here.") + "</td></tr>";
+    return '<section class="table-card" data-reveal><div class="table-toolbar"><div><strong>Waiting for a schedule</strong><small class="d-block text-muted">Passed the entrance exam; each is interviewed one choice at a time, the next only after a rejection</small></div></div>' +
       '<div class="table-responsive"><table class="table data-table"><thead><tr><th>Applicant</th><th>Program</th><th style="width:55%">Schedule</th></tr></thead><tbody>' + body + "</tbody></table></div></section>";
   }
 
@@ -76,13 +78,13 @@
     var count = function (o) { return assigned.filter(function (i) { return i.outcome === o; }).length; };
     var kpis = [
       { icon: "clock", label: "Waiting for a schedule", value: iv.waiting.length },
-      { icon: "calendar", label: "Awaiting evaluation", value: count(null) },
-      { icon: "check", label: "Passed", value: count("passed") },
-      { icon: "users", label: "Failed or referred", value: count("failed") + count("referred") }
+      { icon: "calendar", label: "Awaiting decision", value: count(null) },
+      { icon: "check", label: "Accepted", value: count("passed") },
+      { icon: "users", label: "Rejected", value: count("failed") }
     ];
     $el.html(
-      '<div class="page-title" data-reveal><h1>Interviews</h1><p class="lede">Applicants who passed the exam for a program that requires an interview. ' +
-      (isAdmin() ? "The college dean, or you as Admin, records the evaluation; Passed issues the offer." : "The college dean records the evaluation; Passed issues the offer.") + "</p></div>" +
+      '<div class="page-title" data-reveal><h1>Interviews</h1><p class="lede">Applicants who passed the exam, interviewed by the dean of each program choice that requires it. ' +
+      (isAdmin() ? "The college dean, or you as Admin, accepts or rejects; the offer follows the highest accepting choice." : "The college dean accepts or rejects; the offer follows the highest accepting choice.") + "</p></div>" +
       '<div class="kpi-grid kpi-grid-4 mb-3" data-reveal>' + kpis.map(ADM.ui.kpi).join("") + "</div>" +
       (!iv.programs.length ? '<section class="card-soft" data-reveal>' + ADM.ui.empty("users", "No programs require an interview", "Turn it on per program in Programs & requirements.") + "</section>" : "") +
       scheduleForm() + (iv.programs.length ? waitingTable() : "") +
@@ -100,10 +102,10 @@
   });
 
   $(document).on("click", "[data-iv-assign]", function () {
-    var id = $(this).data("iv-assign");
-    var scheduleId = +$("#iv-pick-" + id).val();
+    var id = $(this).data("iv-assign"), program = $(this).data("program");
+    var scheduleId = +$("#iv-pick-" + id + "-" + program).val();
     AO.busy($(this), AO.api("POST", ADM.API + "/applicants/" + encodeURIComponent(id) + "/interview", { scheduleId: scheduleId }).then(reload))
-      .done(function () { AO.showToast("Interview scheduled. The applicant gets an email."); })
+      .done(function () { AO.showToast("Interview scheduled. The applicant gets an email with the date, time and venue."); })
       .fail(function (xhr) { if (xhr.status !== 401) AO.showToast(AO.apiError(xhr)); });
   });
 
