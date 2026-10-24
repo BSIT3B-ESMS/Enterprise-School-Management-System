@@ -93,13 +93,13 @@
       <nav class="sidebar-nav" aria-label="Office navigation">
         <span class="nav-indicator" aria-hidden="true"></span>
         <a class="nav-link" href="#/dashboard" data-nav="dashboard"><span data-icon="grid"></span>Dashboard</a>
-        <a class="nav-link" href="#/applicants" data-nav="applicants"><span data-icon="users"></span>Applicants</a>
+        <a class="nav-link" href="#/applicants" data-nav="applicants"><span data-icon="users"></span>Applicant registration</a>
         <a class="nav-link" href="#/documents" data-nav="documents"><span data-icon="folder"></span>Document
-          review<span class="nav-count" id="nav-count-documents">0</span></a>
-        <a class="nav-link" href="#/exams" data-nav="exams"><span data-icon="calendar"></span>Entrance exams</a>
+          verification<span class="nav-count" id="nav-count-documents">0</span></a>
+        <a class="nav-link" href="#/exams" data-nav="exams"><span data-icon="calendar"></span>Entrance exam</a>
         <a class="nav-link" href="#/results" data-nav="results"><span data-icon="award"></span>Results<span
             class="nav-count" id="nav-count-results">0</span></a>
-        <a class="nav-link" href="#/interviews" data-nav="interviews"><span data-icon="users"></span>Interviews</a>
+        <a class="nav-link" href="#/interviews" data-nav="interviews"><span data-icon="users"></span>Interview</a>
         <a class="nav-link" href="#/medical" data-nav="medical"><span data-icon="shield"></span>Medical</a>
         <!-- College Dean module (own college only) -->
         <a class="nav-link" href="#/college" data-nav="college" hidden><span data-icon="users"></span>Applicant list</a>
@@ -112,8 +112,7 @@
         <summary class="sidebar-label">More</summary>
         <nav class="sidebar-nav sidebar-nav-plain" aria-label="More navigation">
           <a class="nav-link" href="#/reports" data-nav="reports"><span data-icon="chart"></span>Reports</a>
-          <a class="nav-link" href="#/settings" data-nav="settings"><span data-icon="settings"></span>Programs &amp;
-            requirements</a>
+          <a class="nav-link" href="#/settings" data-nav="settings"><span data-icon="settings"></span>Admission slot setup</a>
           <a class="nav-link" href="#/audit" data-nav="audit"><span data-icon="history"></span>Audit log</a>
           <a class="nav-link" href="#/accounts" data-nav="accounts" hidden><span data-icon="users"></span>Accounts</a>
         </nav>
