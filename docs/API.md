@@ -4,8 +4,8 @@ JSON API under `/api`, used by the existing applicant portal and admission offic
 
 ## Conventions
 
-- **Auth:** `Authorization: Bearer <JWT>` from `POST /api/auth/login`. Tokens expire; `POST /api/auth/refresh` renews one. A disabled account is refused on its next request.
-- **Roles:** `applicant`, `admission` (Admission Personnel), `college_dean`, `clinic`, `sysadmin`. The sysadmin works through artisan commands, Pulse and Log Viewer ([RUNBOOK.md](RUNBOOK.md)), not this API.
+- **Auth:** `Authorization: Bearer <JWT>` from `POST /api/auth/login`. Access tokens last **15 minutes** (NFR-04); `POST /api/auth/refresh` swaps a token for a new one, even just after it expired (within `JWT_REFRESH_TTL`, 24 h), and revokes the old one (rotation). The portals do this silently on a `401`. A disabled account is refused on its next request. **5 failed sign-ins lock the account for 15 minutes** (FR-02).
+- **Roles (SDD FR-30):** `applicant`, `admission` (Admission Staff), `admission_head` (the **Admin**: the whole system; also releases results and sets the admission dates), `proctor` (exam day), `read_only` (deans, registrar, DPO: view and reports), `college_dean` (interviews, own college), `clinic` (Medical), `sysadmin`. Staff accounts will come from the Employment System ([INTEGRATIONS.md](INTEGRATIONS.md)). The sysadmin works through artisan commands, Pulse and Log Viewer ([RUNBOOK.md](RUNBOOK.md)), not this API.
 - **2FA** (column below): staff routes also require a completed two-factor sign-in when `STAFF_2FA_REQUIRED=true`.
 - **Applications** are addressed by their number (`AD-2026-00001`); documents and medical items by their requirement key (`birthCert`, `xray`, …).
 - **Responses:** `{ "data": … }`. Validation errors: `422` with `{ "message", "errors": { field: [messages] } }`. Refused by a business rule (e.g. exam session full): `422` with `message`. Wrong role or not your record: `403`.
@@ -16,7 +16,7 @@ JSON API under `/api`, used by the existing applicant portal and admission offic
 
 | Method | Path | Who | Notes |
 |---|---|---|---|
-| POST | `/api/auth/register` | guest | Applicant account (FR-01). With `APPLICANT_EMAIL_2FA=true`: emails a code and returns `{ two_factor_required, method, challenge }`, no token; the code also confirms the email. Otherwise returns the token and sends the verification link |
+| POST | `/api/auth/register` | guest | Applicant account (FR-01). `captcha` token required when `CAPTCHA_DRIVER` is set (NFR-06). With `APPLICANT_EMAIL_2FA=true`: emails a code and returns `{ two_factor_required, method, challenge }`, no token; the code also confirms the email. Otherwise returns the token and sends the verification link |
 | POST | `/api/auth/login` | guest | `{ email, password, portal: applicant\|office\|clinic, device_token? }`. Returns the token, or `{ two_factor_required, method, challenge }` |
 | POST | `/api/auth/2fa/verify` | guest | `{ challenge, code }` → token. Applicants also get a `device_token` that skips the code on that device |
 | POST | `/api/auth/2fa/resend` | guest | `{ challenge }`: emails a new code (old one stops working). 30 s apart, at most 3 per challenge |
@@ -24,7 +24,8 @@ JSON API under `/api`, used by the existing applicant portal and admission offic
 | POST | `/api/auth/forgot-password` | guest | Emails a reset link (same answer whether the email exists or not) |
 | POST | `/api/auth/reset-password` | guest | `{ token, email, password, password_confirmation }` |
 | GET | `/api/auth/me` | signed in | Current user, roles, `two_factor_enabled` |
-| POST | `/api/auth/refresh` / `/api/auth/logout` | signed in | |
+| POST | `/api/auth/refresh` | bearer token (may be expired) | New 15-minute token; the old one is revoked |
+| POST | `/api/auth/logout` | signed in | |
 | GET | `/api/notifications` | signed in | In-app notices (UI pending) |
 | POST | `/api/notifications/{id}/read`, `/api/notifications/read-all` | signed in | |
 
@@ -32,8 +33,8 @@ JSON API under `/api`, used by the existing applicant portal and admission offic
 
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/api/applicant/portal` | Everything the portal shows: profile, status timeline, documents, exam, result, offer, medical |
-| PUT | `/api/applicant/application` | Save the form (autosave); locked after submission (FR-02) |
+| GET | `/api/applicant/portal` | Everything the portal shows: profile, dated `timeline` (FR-11), documents, exam, result, offer, medical, `strandSuggestions` (FR-06). Until a result is released, `status` stays `for_exam` (FR-20) |
+| PUT | `/api/applicant/application` | Save the form (autosave); locked after submission (FR-04). Applicants under 18 also send `guardianConsentName` and `guardianConsent: "1"` (FR-31) |
 | POST | `/api/applicant/submit` | Submit; checks completeness |
 | POST / DELETE | `/api/applicant/documents/{key}` | Upload (multipart `file`, PDF/JPG/PNG ≤ 5 MB, malware-scanned, sent to the DMS) / remove before review (FR-03) |
 | GET | `/api/applicant/documents/{key}/file` | Own file |
@@ -46,57 +47,76 @@ JSON API under `/api`, used by the existing applicant portal and admission offic
 | POST / DELETE | `/api/applicant/medical/{key}` | Medical uploads after slot acceptance (FR-10) |
 | POST | `/api/applicant/medical/submit` | Send medical requirements to the Clinic |
 
-## Admission office panel (roles `admission`, `clinic`; 2FA)
+## Admission office panel (2FA)
+
+"office" below = `admission` and `admission_head`.
 
 | Method | Path | Who | Notes |
 |---|---|---|---|
-| GET | `/api/admin/state` | admission, clinic | The whole panel state in the shape the panel expects; exam scores only for admission (the clinic never gets them) |
-| PATCH | `/api/admin/applicants/{no}/documents/{key}` | admission | `{ status: verified\|resubmit, remark }`; remark required on resubmit (FR-04) |
+| GET | `/api/admin/state` | office, proctor, read_only | The whole panel state in the shape the panel expects, plus `reference` (strand suggestions, barangays); exam scores only for office roles |
+| GET | `/api/admin/reference` | office, proctor, read_only | Strands with suggested programs, barangays by district (FR-26) |
+| PATCH | `/api/admin/applicants/{no}/documents/{key}` | office | `{ status: verified\|resubmit\|rejected, remark }`; remark required unless verified (FR-09). Rejected files can't be replaced and block *For Exam* |
 | POST | `/api/admin/applicants/{no}/documents/verify-pending` | admission | Verify every pending document |
 | GET | `/api/admin/applicants/{no}/documents/{key}/file` | admission (admission docs), clinic (medical) | Medical openings are audited (NFR-05) |
 | PATCH | `/api/admin/applicants/{no}/documents/{key}/photocopy` | admission / clinic | `{ received: bool }` (§9.1) |
 | PATCH | `/api/admin/applicants/{no}/medical/{key}` | clinic | Same body as document review |
 | POST | `/api/admin/applicants/{no}/medical/verify-pending` | clinic | All medical items verified → *Admitted* |
 | PATCH | `/api/admin/applicants/{no}/medical/{key}/flag` | clinic | `{ flagged, note }` suspected falsification |
-| POST | `/api/admin/applicants/{no}/approve` | admission | Move to *For Exam* |
-| PATCH | `/api/admin/applicants/{no}/exam` | admission | Assign to an exam session |
-| POST | `/api/admin/applicants/{no}/reschedule` | admission | Move to another session |
-| POST | `/api/admin/exam-sessions` | admission | Create a Batch A/B session (date, venue, capacity) |
-| POST | `/api/admin/exam/check-in` | admission | Scanned permit QR → attendance (idempotent) |
-| POST | `/api/admin/applicants/{no}/result` | admission | Record score + Passed/Did Not Pass (editable until released, FR-08) |
-| POST | `/api/admin/results/release` | admission | Release one or many results |
+| POST | `/api/admin/applicants/{no}/approve` | office | Move to *For Exam*. `{ sessionId? }`: without it, the earliest session with a free seat (FR-14) |
+| POST | `/api/admin/exam/auto-assign` | office | `{ ids? }`: seat every applicant whose documents are all verified, earliest session first, never over capacity (FR-14) |
+| PATCH | `/api/admin/applicants/{no}/exam` | office, proctor | `{ permitChecked, formChecked, attendance: present\|absent, envelopeReceived }` (FR-16, FR-17) |
+| POST | `/api/admin/applicants/{no}/reschedule` | office | Move to another session |
+| POST / PATCH / DELETE | `/api/admin/exam-sessions`, `/api/admin/exam-sessions/{S1}` | office | Create a Batch A/B session; change venue/capacity (not below seats taken); remove an empty one (FR-26) |
+| GET | `/api/admin/exam-sessions/{S1}/roster?format=json\|pdf` | office, proctor | Printable roster per room and batch (FR-16) |
+| POST | `/api/admin/exam/check-in` | office, proctor | Scanned permit QR → attendance (idempotent) |
+| POST | `/api/admin/applicants/{no}/result` | office | Record score + Passed/Did Not Pass (editable until released) |
+| POST | `/api/admin/results/import` | office | CSV (`file` upload or `csv` text): header row with `application number`, `score`, optional `decision`. Bad lines are listed, the rest recorded (FR-19) |
+| POST | `/api/admin/results/release` | **admission_head** | Release one or many results (FR-20) |
+| POST | `/api/admin/applicants/{no}/placement` | office | `{ program: CODE }`: place a released pass in another of their three choices, within slots (FR-21) |
 | POST | `/api/admin/interview-schedules` | admission | Interview schedule per program, with capacity (FR-17) |
 | POST | `/api/admin/applicants/{no}/interview` | admission | Assign a *Passed Exam* applicant to an interview |
 | GET | `/api/admin/interviews` | admission | Interview outcomes |
-| POST / PATCH | `/api/admin/programs`, `/api/admin/programs/{code}` | admission | Programs and slots; slots can't go below accepted (FR-14) |
-| PATCH | `/api/admin/requirements/{key}` | admission | Turn a requirement on/off |
-| PATCH | `/api/admin/admission-period` | admission | `{ deadline }` application deadline |
+| POST / PATCH | `/api/admin/programs`, `/api/admin/programs/{code}` | office | Programs: `{ slots?, name?, open?, requiresInterview? }`; slots can't go below accepted |
+| PATCH | `/api/admin/requirements/{key}` | office | Turn a requirement on/off |
+| PATCH | `/api/admin/admission-period` | **admission_head** | Dates of admission: `{ deadline?, label?, opensOn?, examStartsOn?, examEndsOn?, resultsReleaseOn?, acceptanceWindowDays? }` (FR-26) |
+| POST | `/api/admin/applicants/{no}/evaluation` | **admission_head** | Record a dean's evaluation for any college (same body as the dean's) |
+| PUT | `/api/admin/strands` | office | `{ name, programs: [CODE…], active? }`: a strand and its suggested programs (FR-06, FR-26) |
+| PUT | `/api/admin/barangays/{1\|2}` | office | `{ names: [...] }`: the whole barangay list of a district (FR-26) |
 
 ## College Dean (role `college_dean`, own college only; 2FA)
 
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/api/dean/interviews` | Interviews for the dean's college |
-| POST | `/api/dean/applicants/{no}/interview` | Record grade (Restricted) and Passed/Failed |
+| GET | `/api/dean/applicants` | Applicant list: submitted applicants who chose one of the college's programs (no scores, no contact details) |
+| GET | `/api/dean/interviews` | Evaluations (interviews) for the dean's college |
+| POST | `/api/dean/applicants/{no}/interview` | `{ grade, outcome: passed\|failed\|referred, program? (referred: another of the applicant's choices, without its own interview), remark? }`. Grade is Restricted |
 
-## Reports (FR-13; 2FA)
+## Reports (FR-27; 2FA)
 
 | Method | Path | Notes |
 |---|---|---|
 | GET | `/api/reports` | Reports the caller may see |
-| GET | `/api/reports/{key}?format=json\|xlsx\|pdf` | Exports are audited |
+| GET | `/api/reports/{key}?format=json\|csv\|xlsx\|pdf` | Exports are audited |
 
 | Key | Roles |
 |---|---|
-| `applicants-per-program`, `status-breakdown`, `document-completion`, `exam-attendance`, `pass-rate`, `daily-submissions` | admission |
-| `medical-completion` | clinic, admission |
-| `interviews` | college_dean (own college), admission |
+| `applicants-per-program` (1st/2nd/3rd choice), `status-breakdown`, `document-completion`, `pass-rate`, `daily-submissions` | office, read_only |
+| `exam-attendance` | office, read_only, proctor |
+| `admitted-applicants` (Registrar layout, FR-29) | office, read_only |
+| `possible-duplicates` (FR-25) | office |
+| `medical-completion` | clinic, office |
+| `interviews` | college_dean (own college), office, read_only |
 
 ## Other systems
 
 | Method | Path | Auth | Notes |
 |---|---|---|---|
 | POST | `/api/integrations/enrollment/student-number` | `X-API-Key` (`api-client:create enrollment`) + IP allowlist | Student-number callback, off unless enabled (D12) |
+| GET / POST | `/api/integrations/employment/employees` | `X-API-Key` (`employment`) | Staff accounts from the Employment System (FR-30) |
+| DELETE | `/api/integrations/employment/employees/{employeeId}` | `X-API-Key` (`employment`) | Disable a staff account |
+| GET | `/api/integrations/registrar/admitted?since=&page=` | `X-API-Key` (`registrar`) | Admitted applicants, Registrar layout (FR-29) |
 | GET | `/up` | none | Health check |
+
+API keys expire after 90 days (NFR-05): run `api-client:create <name>` again to rotate. Request and response details: [INTEGRATIONS.md](INTEGRATIONS.md).
 
 The OAS's own calls **to** the DMS (`PUT /applicants/{ref}`, `POST /applicants/{ref}/events`, `POST /documents`, …) are described in DEVELOPMENT_PLAN.md Phase 11 and switch on with `DMS_DRIVER=http`.

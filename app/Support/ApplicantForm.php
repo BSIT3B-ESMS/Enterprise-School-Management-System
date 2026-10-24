@@ -2,13 +2,16 @@
 
 namespace App\Support;
 
+use App\Models\Barangay;
 use App\Models\Program;
+use App\Models\Strand;
 use Illuminate\Validation\Rule;
 
 /**
  * The contract of the applicant portal's "My application" form
  * (#application-form): field names, the column each one is stored in, and
- * the validation for each of its three sections.
+ * the validation for each of its three sections. Strands and barangays
+ * come from the lists staff maintain (Strand, Barangay; FR-26).
  */
 class ApplicantForm
 {
@@ -37,12 +40,7 @@ class ApplicantForm
         'district' => 'district',
         'barangay' => 'barangay',
         'hasGuardian' => 'has_guardian',
-    ];
-
-    /** Pasig barangays by district (same list as admin-store.js BARANGAYS). */
-    public const BARANGAYS = [
-        1 => ['Bagong Ilog', 'Bagong Katipunan', 'Bambang', 'Buting', 'Caniogan', 'Kalawaan', 'Kapasigan', 'Kapitolyo', 'Malinao', 'Oranbo', 'Palatiw', 'Pineda', 'Sagad', 'San Antonio', 'San Joaquin', 'San Jose', 'San Nicolas', 'Santa Cruz', 'Santa Rosa', 'Santo Tomas', 'Sumilang', 'Ugong'],
-        2 => ['Dela Paz', 'Manggahan', 'Maybunga', 'Pinagbuhatan', 'Rosario', 'San Miguel', 'Santa Lucia', 'Santolan'],
+        'guardianConsentName' => 'guardian_consent_name',
     ];
 
     public const SEXES = ['Female', 'Male', 'Prefer not to say'];
@@ -50,8 +48,6 @@ class ApplicantForm
     public const CIVIL_STATUSES = ['Single', 'Married', 'Other'];
 
     public const SCHOOL_TYPES = ['Public', 'Private'];
-
-    public const STRANDS = ['STEM', 'ABM', 'HUMSS', 'GAS', 'TVL – ICT', 'TVL – Other', 'Arts and Design', 'Sports', 'ALS / Not applicable'];
 
     public const GRAD_YEARS = ['2027 (expected)', '2026', '2025', '2024 or earlier'];
 
@@ -81,14 +77,16 @@ class ApplicantForm
             'guardianPhone' => ['nullable', 'regex:'.self::PH_MOBILE],
             'lastSchool' => ['nullable', 'string', 'max:255'],
             'schoolType' => ['nullable', Rule::in(self::SCHOOL_TYPES)],
-            'strand' => ['nullable', Rule::in(self::STRANDS)],
+            'strand' => ['nullable', Rule::in(Strand::activeNames())],
             'gradYear' => ['nullable', Rule::in(self::GRAD_YEARS)],
             'gwa' => ['nullable', 'numeric', 'between:75,100'],
             'lrn' => ['nullable', 'regex:/^\d{12}$/', Rule::unique('applicants', 'lrn')->ignore($applicantId)],
             'isResident' => ['nullable', 'boolean'],
             'district' => ['nullable', Rule::in([1, 2])],
-            'barangay' => ['nullable', Rule::in(array_merge(...self::BARANGAYS))],
+            'barangay' => ['nullable', Rule::in(array_merge(...array_values(Barangay::byDistrict())))],
             'hasGuardian' => ['nullable', 'boolean'],
+            'guardianConsentName' => ['nullable', 'string', 'max:150'],
+            'guardianConsent' => ['nullable', Rule::in(['0', '1'])],
             'program1' => ['nullable', Rule::in(self::programNames())],
             'program2' => ['nullable', Rule::in(self::programNames()), 'different:program1'],
             'program3' => ['nullable', Rule::in(self::programNames()), 'different:program1', 'different:program2'],
@@ -111,6 +109,9 @@ class ApplicantForm
         'program2.in' => 'This program is not open for applications.',
         'birthDate.before' => 'Check your date of birth.',
         'birthDate.after' => 'Check your date of birth.',
+        'guardianConsentName.required' => "Enter the name of the parent or guardian giving consent.",
+        'guardianConsent.required' => 'Applicants under 18 need a parent or guardian to consent.',
+        'guardianConsent.in' => 'Applicants under 18 need a parent or guardian to consent.',
     ];
 
     /**
@@ -128,6 +129,13 @@ class ApplicantForm
     public static function programNames(): array
     {
         return Program::where('is_open', true)->orderBy('name')->pluck('name')->all();
+    }
+
+    /** FR-31: under 18 on the given date (today), so a parent or guardian must consent. */
+    public static function isMinor(?string $birthDate): bool
+    {
+        return $birthDate !== null && $birthDate !== '' && strtotime($birthDate) !== false
+            && now()->subYears(18)->lt(\Illuminate\Support\Carbon::parse($birthDate));
     }
 
     /** "2027 (expected)" means still in Grade 12; anything else is a graduate. */

@@ -1,5 +1,50 @@
 # Backend Progress
 
+## 🔗 Portals (live server)
+
+| Portal | Link | Who signs in |
+|---|---|---|
+| **Applicant portal** | https://plp-admission-system.3-24-200-123.sslip.io/ | Applicants (create an account there) |
+| **Admin portal** | https://plp-admission-system.3-24-200-123.sslip.io/admin | Admin, Admission Personnel, College Deans (each sees their own screens) |
+| **Nurse portal** (clinic) | https://plp-admission-system.3-24-200-123.sslip.io/nurse | University clinic |
+
+## 👤 Accounts (live server)
+
+> ⚠ Real passwords on a public server: don't share this file outside the team. All staff accounts will come from the Employment System once it is connected ([docs/INTEGRATIONS.md](docs/INTEGRATIONS.md) §1); until then these demo accounts are used. Disable one with `php artisan user:active <email> off`. The demo accounts (Admin, Clinic, Deans) are made or reset with `php artisan db:seed --class=DemoStaffAccountsSeeder --force`.
+
+| Role | Portal | Email | Password |
+|---|---|---|---|
+| **Admin** (whole system) | /admin | `abella_gabrielrey@plpasig.edu.ph` | `admin123` |
+| **Admission Personnel** | /admin | `admissions@plpasig.edu.ph` | `ZCm8HQyHxroo3z3d` |
+| **Admission Personnel** | /admin | `r.dizon@plpasig.edu.ph` | `mkduaLO1bvRfN8YJ` |
+| **College Dean**, College of Arts and Sciences (ABPSY, BSMATH) | /admin | `dean.cas@plpasig.edu.ph` | `dean1234` |
+| **College Dean**, College of Business and Accountancy (BSA, BSBA-ENT, BSBA-MM) | /admin | `dean.cba@plpasig.edu.ph` | `dean1234` |
+| **College Dean**, College of Computer Studies (BSIT, BSCS) | /admin | `dean.ccs@plpasig.edu.ph` | `dean1234` |
+| **College Dean**, College of Hospitality Management (BSHM) | /admin | `dean.chm@plpasig.edu.ph` | `dean1234` |
+| **College Dean**, College of Engineering (BSECE) | /admin | `dean.coe@plpasig.edu.ph` | `dean1234` |
+| **College Dean**, College of Education (BEED, BSED-ENG, BSED-FIL) | /admin | `dean.coed@plpasig.edu.ph` | `dean1234` |
+| **College Dean**, College of Nursing (BSN) | /admin | `dean.con@plpasig.edu.ph` | `dean1234` |
+| **Clinic** | /nurse | `ignacio_keane@plpasig.edu.ph` | `clinic123` |
+| **Clinic** | /nurse | `clinic@plpasig.edu.ph` | `ffn8Psp7taheBy0s` |
+| **Applicant** (any of the 60 samples, e.g. `andrea.manalo0@example.com`; list in the admin portal's Applicants) | / | sample email | `B3m0KhRvwNQ68wao` |
+| **System administrator** (server commands, `/pulse`, `/log-viewer`; no portal) | — | `sysadmin@plpasig.edu.ph` | `(d}6b,30k.^S&~<*vUel` |
+
+**On this computer** (`php artisan app:start`, http://127.0.0.1:8000): the same demo Admin, Clinic and Dean accounts and passwords; `admissions@`, `r.dizon@`, `clinic@` and the sample applicants use `password123`.
+
+### What each role sees in the Admin portal (use-case diagrams, 2026-10-24)
+
+The portal reads the role from the sign-in; the server enforces the same limits on every request.
+
+| Role | Screens | Can't |
+|---|---|---|
+| **Admin**: the whole system | Dashboard · Applicants (student module) · Document review · Entrance exams · Results (also **releases** them) · Interviews · Medical (clinic module, read-only) · Evaluation results (every college's, and can record an evaluation) · Reports · Programs & requirements (also **sets the dates of admission**) · Audit log | Open medical files (clinic only) |
+| **Admission Personnel**: the admissions work | Applicants (registration) · Document review (verification) · Entrance exams · Results (record) · Interviews (schedule, assign) · Medical (read-only) · Programs & requirements (admission slot setup, which programs need an interview) | Release results, set admission dates, see the dashboard, reports or audit log |
+| **College Dean**: own college only | Applicant list (only applicants who chose one of the college's programs, e.g. the CCS dean sees BSIT/BSCS applicants) · Applicant evaluation (grade + Passed / Failed / Refer) · Evaluation results / referral | Anything outside their college; any office screen |
+
+The **Nurse portal** (clinic) has Document verification and Medical approval; the **Applicant portal** has Application, Documents, Exam, Interview, Results and Medical.
+
+Which programs need a dean's evaluation is set per program in Programs & requirements → **Interview** (on now: BSN only). A dean whose programs have it off still sees the applicant list, but has nobody to evaluate.
+
 ## ▶ Quick start: the simplest way to run the system
 
 **On this computer (already set up):** open a terminal in the project folder and run one command:
@@ -9,13 +54,7 @@ cd D:\Admission_System
 php artisan app:start
 ```
 
-Open **http://127.0.0.1:8000/admin** (admission staff), **http://127.0.0.1:8000/nurse** (clinic) or **http://127.0.0.1:8000/** (applicants). Press `Ctrl+C` in the terminal to stop.
-
-| Who | Email | Password |
-|---|---|---|
-| Admission staff | `admissions@plpasig.edu.ph` | `password123` |
-| Clinic (at /nurse) | `clinic@plpasig.edu.ph` | `password123` |
-| Applicant | click **Create account** on http://127.0.0.1:8000/ | your own |
+Open **http://127.0.0.1:8000/admin** (Admin, Admission Personnel, College Deans), **http://127.0.0.1:8000/nurse** (clinic) or **http://127.0.0.1:8000/** (applicants). Press `Ctrl+C` in the terminal to stop. Accounts: see **Accounts** at the top.
 
 **On a new computer (one time):** install [Laravel Herd](https://herd.laravel.com) (it gives you PHP and Composer), then:
 
@@ -27,6 +66,70 @@ php artisan app:start
 ```
 
 That's it: no settings to edit. It uses SQLite (a single file, no database server) and writes emails to `storage/logs/laravel.log` instead of sending them. To use MySQL instead, see "Full setup guide" below.
+
+## ☁ AWS server (demo, set up 2026-10-21)
+
+The three portal links and every account are at the top of this file. HTTPS; the bare IP http://3.24.200.123 redirects to https://plp-admission-system.3-24-200-123.sslip.io.
+
+**Server:** AWS Free plan ($100 credits, ends 2027-04-17 unless upgraded), region Sydney `ap-southeast-2`, EC2 `t3.small` Ubuntu 24.04, Elastic IP `3.24.200.123`, MySQL 8 on the same server, Nginx + PHP 8.4-FPM, queue worker (Supervisor), scheduler (cron), ClamAV. SSH: `ssh -i C:\Users\Keane\.ssh\oas-key.pem ubuntu@3.24.200.123` (only from the allowlisted IP in security group `oas-web`). App in `/var/www/admission`, code pulled from `backend` with a read-only deploy key.
+
+**Address:** free `sslip.io` name (resolves to the Elastic IP, no domain purchase), Let's Encrypt certificate auto-renewed by certbot, HTTP and the bare IP redirect to HTTPS, HSTS on. **Email:** sent through Gmail `ignacio.keane05@gmail.com` (App Password in the server `.env`, revoke it at myaccount.google.com/apppasswords after the demo) as "PLP Admission System"; email verification is on. **Backups:** `app:backup` nightly at 02:00 Manila, encrypted zips in `/var/www/admission/storage/app/backups` (last 14 kept, on the server only, no S3). Backup password: `8b1736f0f7479808020d8e7bb4300948`
+
+**Still to do:** GitHub Actions deploy secrets · least-privilege DB users (`app:db-privileges`) · email subject lines still say "PLP Online Admission" (hard-coded in `app/Notifications`).
+
+## ✅ SDD check (2026-10-24, [SDD-PLP-Online-Admission-System.md](SDD-PLP-Online-Admission-System.md))
+
+The SDD's requirements (§3–5: FR-01…FR-31, NFR-01…NFR-16, D-01…D-06) were checked one by one against the system; the gaps were built on branch `sdd-v2-gaps` (merged into `backend`). Sections 6–13 of the SDD are still the template's fictional example (Northbridge Schools), so there was nothing PLP-specific to check there. Sizing and load targets (NFR-02, NFR-03; 2,000 concurrent users, 20,000 applicants) were left out as agreed. Integrations are built API-ready ([docs/INTEGRATIONS.md](docs/INTEGRATIONS.md)). Tests: 111 passing (18 new in `SddRequirementsTest`); 116 after the role-based Admin portal (2026-10-24).
+
+Legend: ✅ in the system · 🆕 added on 2026-10-24 · 🔌 built, switched off until a setting/other system · ⚠ partly / outside the code
+
+| ID | Requirement | Status |
+|---|---|---|
+| FR-01 | Register, email verification, one account (unique email, unique LRN) | ✅ |
+| FR-02 | Password reset; **lock 15 min after 5 failed sign-ins** | ✅ reset · 🆕 lockout |
+| FR-03 | Form fields incl. residency, district, barangay by district | ✅ (barangays now staff-maintained 🆕) |
+| FR-04 | Draft/resume; locked on submit; reopens on resubmission | ✅ |
+| FR-05 | Distinct 1st/2nd/3rd choice, open programs only | ✅ |
+| FR-06 | Suggested programs by strand, table maintained by staff | 🆕 strand→program table (DB), hint under the 1st choice. Staff edit it through `PUT /api/admin/strands` (no Settings screen yet) |
+| FR-07 | Document checklist by applicant type | ✅ (+ Good Moral and Grade 12 report card, decided in H1) |
+| FR-08 | PDF/JPG/PNG ≤ 5 MB, content check, malware scan, replace while pending/resubmit | ✅ (ClamAV on the server) |
+| FR-09 | Verified / **Rejected** / Requires resubmission, remark required, applicant notified | ✅ · 🆕 Rejected (Reject button in the panel, "Not accepted" in the portal) |
+| FR-10 | For Exam only when all mandatory documents verified | ✅ |
+| FR-11 | Dated status timeline | 🆕 "Status history" card on the applicant overview |
+| FR-12 | Email + in-app notification on each change | ✅ email · ⚠ in-app notices stored and served by `/api/notifications`, the portal has no notification list yet |
+| FR-13 | SMS (Could) | 🔌 `SMS_DRIVER` |
+| FR-14 | Dates, Batch A/B, rooms, capacity; **system assigns** without exceeding capacity | ✅ · 🆕 automatic seating (`POST /api/admin/exam/auto-assign`, and approve without a session) |
+| FR-15 | Permit with photo, QR, what to bring; printable form | ✅ |
+| FR-16 | Rosters per room and batch; Present/Absent | ✅ · 🆕 roster PDF/JSON per session |
+| FR-17 | QR check-in; long brown envelope received | ✅ QR (API) · 🆕 envelope (`envelopeReceived`). No scanner screen in the panel yet |
+| FR-18 | Online exam | Won't (D-01) |
+| FR-19 | Record results one by one **or by CSV**; scores never shown to applicants | ✅ · 🆕 CSV import (Results → Import CSV) |
+| FR-20 | Hidden until the **Admission Head** releases; logged; notifies | 🆕 `admission_head` role, release limited to it · 🆕 fixed: the portal's `status` showed "passed/failed" before release |
+| FR-21 | Place each pass in one of the 3 choices within slots; PDF letter | 🆕 highest choice with a free slot; staff can move them (`POST /api/admin/applicants/{no}/placement`) · ✅ letter |
+| FR-22 | Medical submission, cleared by authorised staff | ✅ (Clinic portal) |
+| FR-23 | Review queues, counts, search/filter | ✅ |
+| FR-24 | Applicant record with change history | ✅ |
+| FR-25 | Flag possible duplicates | ✅ (LRN unique; same name + birthday flagged) · 🆕 report |
+| FR-26 | Periods, programs, slots, requirements, strand map, barangays, venues without code changes | ✅ programs/slots/requirements/deadline in the panel · 🆕 period dates, open/close programs, strands, barangays, session venue/capacity via API (no screens yet) |
+| FR-27 | 6 reports; CSV, XLSX, PDF | ✅ · 🆕 by 1st/2nd/3rd choice, CSV |
+| FR-28 | Dashboard | ✅ |
+| FR-29 | Export admitted applicants to the Registrar | 🆕 report (CSV/XLSX/PDF) + `GET /api/integrations/registrar/admitted` |
+| FR-30 | Roles: Applicant, Admission Staff, Admission Head, Proctor, Medical, Read-only, System Admin | 🆕 `admission_head`, `proctor`, `read_only` · 🆕 accounts from the Employment System (`/api/integrations/employment/employees`), 🔌 until it connects |
+| FR-31 | Privacy notice; parent/guardian consent under 18 | ✅ notice · 🆕 consent fields appear for under-18s and are required |
+| NFR-04 | TLS, bcrypt, min 8; **JWT 15 min**, rotating refresh; MFA for staff | ✅ TLS/bcrypt · 🆕 15-min tokens refreshed silently by the portals · 🔌 staff MFA (`STAFF_2FA_REQUIRED`; the staff panels have no code screen yet) |
+| NFR-05 | Server-side RBAC; API keys hashed, **rotated every 90 days** | ✅ · 🆕 key expiry |
+| NFR-06 | 5/min rate limit, **CAPTCHA**, uploads outside web root, pen test | ✅ rate limit, private storage (served through signed-in requests, not 5-minute links) · 🔌 CAPTCHA (`CAPTCHA_DRIVER`) · ⚠ pen test not done |
+| NFR-07 | RA 10173: PIA, minimal fields, encryption at rest, PH hosting | ⚠ organisational (PIA, NPC); backups encrypted; the demo server is in Sydney |
+| NFR-08 | Delete non-admitted documents 12 months after the period | 🆕 `app:retention` 🔌 `RETENTION_ENABLED` (until the DPO approves) |
+| NFR-09 | Audit every change with user, time, IP, before/after; append-only | ✅ · 🆕 before/after on setup and account changes |
+| NFR-10 | RPO 15 min (binlogs), RTO 4 h, off-site copy, restore test | ⚠ nightly encrypted backup on the server only |
+| NFR-13 | Emails queued, retried | ✅ |
+| NFR-14 | Supported Laravel/PHP/MySQL; tests | ✅ Laravel 13, PHP 8.4, MySQL 8; 111 tests |
+| NFR-15 | Outage alert within 5 min | ⚠ `/up` and Pulse exist; no UptimeRobot alert set |
+| NFR-01, 02, 03, 11, 12, 16 | Availability, load, WCAG, browsers, Filipino help | Not checked (sizing left out as agreed; no accessibility/browser audit yet) |
+
+**New settings** (`.env.example`): `JWT_TTL=15`, `JWT_REFRESH_TTL=1440`, `LOCKOUT_ATTEMPTS/MINUTES`, `CAPTCHA_DRIVER/SITE_KEY/SECRET`, `SMS_DRIVER/URL/API_KEY/SENDER`, `API_KEY_DAYS`, `RETENTION_MONTHS`, `RETENTION_ENABLED`.
+**New migration:** `2026_10_24_000100_sdd_v2_requirements` (lockout and Employment link on users, guardian consent, envelope receipt, API key expiry, `strands`/`strand_program`/`barangays`, `purged_at`, three new roles).
 
 ## ❓ Open questions (everything waiting on a decision)
 

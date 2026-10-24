@@ -15,8 +15,9 @@ use Illuminate\Support\Facades\DB;
  * Acceptance letter and slot acceptance (FR-09, D14, D16).
  *
  * Final pass (exam, plus interview where the program requires one) →
- * Offered: the first-choice program is offered with a deadline from the
- * period's acceptance window. The applicant accepts before the deadline;
+ * Offered: the applicant is placed in the highest of their three choices
+ * that still has slots (FR-21; staff can move them to another of their
+ * choices), with a deadline from the period's acceptance window. The applicant accepts before the deadline;
  * the slot is taken only then, under a row lock, so a program never goes
  * over its slots. Unaccepted offers are forfeited by the scheduler.
  */
@@ -34,20 +35,71 @@ class OfferService
         if ($application->status !== ApplicationStatus::Passed) {
             return;
         }
-        $program = $application->firstChoice();
-        if ($program?->requires_interview) {
-            $this->status->transition($application, ApplicationStatus::ForInterview, $by, "{$program->code} requires an interview");
+        // A first choice that requires an interview is evaluated by its college dean first (D14)
+        $first = $application->firstChoice();
+        if ($first?->requires_interview) {
+            $this->status->transition($application, ApplicationStatus::ForInterview, $by, "{$first->code} requires an interview");
 
             return;
         }
-        $this->offer($application, $by);
+        $program = $this->placementFor($application);
+        if (! $program) {
+            $this->audit->record('offer.no_slot', 'Passed, but none of the three program choices has a free slot. Waiting for placement by admissions', $application, $application);
+
+            return;
+        }
+        $this->offer($application, $by, $program);
     }
 
-    /** Issue the offer (acceptance letter) for the first-choice program. */
-    public function offer(Application $application, ?User $by): void
+    /**
+     * FR-21: the applicant's highest-ranked choice that is open and still has
+     * a free slot (accepted offers count against slots), or null. A 2nd or
+     * 3rd choice that needs its own interview is skipped (only the first
+     * choice is interviewed).
+     */
+    public function placementFor(Application $application): ?Program
     {
-        $program = $application->firstChoice()
-            ?? throw new BusinessRuleException('The applicant has no program choice to offer.');
+        $filled = Program::filledCounts();
+
+        return $application->choices()->with('program')->get()->pluck('program')->filter()->values()
+            ->first(fn (Program $p, int $i) => ($filled[$p->id] ?? 0) < $p->slots && ($i === 0 || ! $p->requires_interview));
+    }
+
+    /**
+     * FR-21: admissions places a passer in another of their three choices
+     * (before they accept), e.g. when the offered program fills up.
+     */
+    public function place(Application $application, Program $program, User $staff): void
+    {
+        if (! $application->choices()->where('program_id', $program->id)->exists()) {
+            throw new BusinessRuleException("{$program->code} is not one of this applicant's three choices.");
+        }
+        if (! in_array($application->status, [ApplicationStatus::Passed, ApplicationStatus::Offered], true)
+            || ($application->status === ApplicationStatus::Passed && ! $application->result?->is_released)) {
+            throw new BusinessRuleException('Only a released pass that has not accepted a slot yet can be placed.');
+        }
+        if ((Program::filledCounts()[$program->id] ?? 0) >= $program->slots) {
+            throw new BusinessRuleException("All {$program->code} slots have been taken.");
+        }
+
+        if ($application->status === ApplicationStatus::Passed) {
+            $this->offer($application, $staff, $program);
+
+            return;
+        }
+        $from = $application->offeredProgram?->code;
+        $application->update(['offered_program_id' => $program->id]);
+        $this->audit->record('offer.placed', "Placed in {$program->code}".($from ? " instead of {$from}" : ''), $application, $application);
+        $this->dms->record('offer.issued', $application, ['program' => $program->code]);
+        $application->applicant->user->notify(new AdmissionNotice('offer_changed', 'Your offered program changed',
+            "Admissions placed you in {$program->name}. Sign in to the applicant portal to see your updated acceptance letter.", $application->number));
+    }
+
+    /** Issue the offer (acceptance letter) for the placed program (FR-21). */
+    public function offer(Application $application, ?User $by, ?Program $program = null): void
+    {
+        $program ??= $this->placementFor($application)
+            ?? throw new BusinessRuleException("None of the applicant's program choices has a free slot.");
         $days = $application->period->acceptance_window_days ?: config('admission.offers.default_window_days');
         $deadline = now()->setTimezone(config('admission.display_timezone'))->addDays($days)->endOfDay()->utc();
 

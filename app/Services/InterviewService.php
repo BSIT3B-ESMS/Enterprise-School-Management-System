@@ -82,8 +82,12 @@ class InterviewService
         return $assignment;
     }
 
-    /** The dean records the grade and outcome (own college only). Final once recorded. */
-    public function record(Application $application, int $grade, string $outcome, User $dean): InterviewAssignment
+    /**
+     * The dean records the grade and outcome (own college only). Final once
+     * recorded. Passed → offer; Failed → final; Referred → offer for another
+     * of the applicant's choices (one without its own interview, with slots).
+     */
+    public function record(Application $application, int $grade, string $outcome, User $dean, ?Program $referTo = null, ?string $remark = null): InterviewAssignment
     {
         $assignment = $application->interview?->load('schedule.program')
             ?? throw new BusinessRuleException('This applicant has no interview scheduled.');
@@ -91,20 +95,33 @@ class InterviewService
         if ($assignment->outcome) {
             throw new BusinessRuleException('The interview outcome is already recorded.');
         }
+        if ($outcome === InterviewAssignment::REFERRED) {
+            $this->assertReferral($application, $assignment->schedule->program, $referTo);
+        }
 
-        DB::transaction(function () use ($application, $assignment, $grade, $outcome, $dean) {
-            $assignment->update(['grade' => $grade, 'outcome' => $outcome, 'recorded_by' => $dean->id, 'recorded_at' => now()]);
-            $label = $outcome === InterviewAssignment::PASSED ? 'Passed' : 'Failed';
-            $this->audit->record('interview.recorded', "Recorded the interview outcome: {$label}", $assignment, $application);
+        DB::transaction(function () use ($application, $assignment, $grade, $outcome, $dean, $referTo, $remark) {
+            $assignment->update([
+                'grade' => $grade, 'outcome' => $outcome, 'recorded_by' => $dean->id, 'recorded_at' => now(),
+                'referred_program_id' => $outcome === InterviewAssignment::REFERRED ? $referTo->id : null,
+                'remark' => $remark ? mb_substr(trim($remark), 0, 500) : null,
+            ]);
+            $label = match ($outcome) {
+                InterviewAssignment::PASSED => 'Passed',
+                InterviewAssignment::REFERRED => "Referred to {$referTo->code}",
+                default => 'Failed',
+            };
+            $this->audit->record('interview.recorded', "Recorded the evaluation: {$label}", $assignment, $application);
             $this->dms->record('interview.recorded', $application, [
                 'program' => $assignment->schedule->program->code,
                 'outcome' => $outcome,
                 'grade' => ['value' => $grade, 'classification' => 'restricted'],
             ]);
 
-            $outcome === InterviewAssignment::PASSED
-                ? $this->offers->offer($application, $dean)
-                : $this->status->transition($application, ApplicationStatus::InterviewFailed, $dean);
+            match ($outcome) {
+                InterviewAssignment::PASSED => $this->offers->offer($application, $dean, $assignment->schedule->program),
+                InterviewAssignment::REFERRED => $this->offers->offer($application, $dean, $referTo),
+                default => $this->status->transition($application, ApplicationStatus::InterviewFailed, $dean),
+            };
         });
 
         return $assignment->fresh();
@@ -113,7 +130,7 @@ class InterviewService
     /** Programs whose interviews the user may see: the dean's college, or all for admission personnel. */
     public function visiblePrograms(User $user)
     {
-        if ($user->hasAnyRole([Role::Admission->value, Role::SuperAdmin->value])) {
+        if ($user->isAdmissionOffice() || $user->hasRole(Role::ReadOnly->value)) {
             return Program::orderBy('code')->get();
         }
         $college = $user->deanOf;
@@ -121,8 +138,28 @@ class InterviewService
         return $college ? $college->programs()->orderBy('code')->get() : collect();
     }
 
+    private function assertReferral(Application $application, Program $evaluated, ?Program $referTo): void
+    {
+        if (! $referTo || $referTo->id === $evaluated->id) {
+            throw new BusinessRuleException('Pick the program to refer the applicant to.');
+        }
+        if (! $application->choices()->where('program_id', $referTo->id)->exists()) {
+            throw new BusinessRuleException("{$referTo->code} is not one of this applicant's three choices.");
+        }
+        if ($referTo->requires_interview) {
+            throw new BusinessRuleException("{$referTo->code} needs its own interview. Refer to a program without one.");
+        }
+        if ((Program::filledCounts()[$referTo->id] ?? 0) >= $referTo->slots) {
+            throw new BusinessRuleException("All {$referTo->code} slots have been taken.");
+        }
+    }
+
     private function assertDeanOf(User $dean, Program $program): void
     {
+        // The Admin runs the whole system, the College Dean module included
+        if ($dean->hasAnyRole([Role::AdmissionHead->value, Role::SuperAdmin->value])) {
+            return;
+        }
         if (! $dean->hasRole(Role::CollegeDean->value) || ! $program->college_id || $dean->deanOf?->id !== $program->college_id) {
             throw new AuthorizationException("Only the dean of {$program->code}'s college can record this interview.");
         }

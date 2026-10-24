@@ -5,7 +5,7 @@
 @section('body_class', 'admin')
 
 @push('styles')
-  <link href="{{ asset('assets/admin/css/admin.css') }}" rel="stylesheet">
+  <link href="{{ \App\Support\Asset::v('assets/admin/css/admin.css') }}" rel="stylesheet">
 @endpush
 
 @section('content')
@@ -89,34 +89,39 @@
         <span class="brand-text"><span class="brand-name">Pamantasan ng Lungsod ng Pasig</span><span class="brand-sub">Online Admission</span></span>
       </a>
 
-      <p class="sidebar-label" id="sidebar-role-label">Admission personnel</p>
+      <p class="sidebar-label" id="sidebar-section">Admission office</p>
       <nav class="sidebar-nav" aria-label="Office navigation">
         <span class="nav-indicator" aria-hidden="true"></span>
-        <a class="nav-link" href="#/settings" data-nav="settings"><span data-icon="settings"></span>Admission slot setup</a>
-        <a class="nav-link" href="#/applicants" data-nav="applicants"><span data-icon="users"></span>Applicant registration</a>
+        <a class="nav-link" href="#/dashboard" data-nav="dashboard"><span data-icon="grid"></span>Dashboard</a>
+        <a class="nav-link" href="#/applicants" data-nav="applicants"><span data-icon="users"></span>Applicants</a>
         <a class="nav-link" href="#/documents" data-nav="documents"><span data-icon="folder"></span>Document
-          verification<span class="nav-count" id="nav-count-documents">0</span></a>
-        <a class="nav-link" href="#/exams" data-nav="exams"><span data-icon="calendar"></span>Entrance exam</a>
+          review<span class="nav-count" id="nav-count-documents">0</span></a>
+        <a class="nav-link" href="#/exams" data-nav="exams"><span data-icon="calendar"></span>Entrance exams</a>
         <a class="nav-link" href="#/results" data-nav="results"><span data-icon="award"></span>Results<span
             class="nav-count" id="nav-count-results">0</span></a>
-        <a class="nav-link" href="#/interview" data-nav="interview"><span data-icon="clipboard"></span>Interview</a>
+        <a class="nav-link" href="#/interviews" data-nav="interviews"><span data-icon="users"></span>Interviews</a>
         <a class="nav-link" href="#/medical" data-nav="medical"><span data-icon="shield"></span>Medical</a>
+        <!-- College Dean module (own college only) -->
+        <a class="nav-link" href="#/college" data-nav="college" hidden><span data-icon="users"></span>Applicant list</a>
+        <a class="nav-link" href="#/evaluation" data-nav="evaluation" hidden><span data-icon="clipboard"></span>Applicant evaluation</a>
+        <a class="nav-link" href="#/evaluated" data-nav="evaluated" hidden><span data-icon="award"></span>Evaluation results</a>
       </nav>
 
-      <!-- Super admin only: oversight on top of the admission personnel modules -->
-      <div data-superadmin hidden>
-        <p class="sidebar-label">Super admin</p>
-        <nav class="sidebar-nav sidebar-nav-plain" aria-label="Super admin navigation">
-          <a class="nav-link" href="#/dashboard" data-nav="dashboard"><span data-icon="grid"></span>Dashboard</a>
-          <a class="nav-link" href="#/accounts" data-nav="accounts"><span data-icon="users"></span>Accounts</a>
+      <!-- Less frequent screens, folded away; opens by itself when one of them is the current page -->
+      <details class="sidebar-more" id="sidebar-more">
+        <summary class="sidebar-label">More</summary>
+        <nav class="sidebar-nav sidebar-nav-plain" aria-label="More navigation">
           <a class="nav-link" href="#/reports" data-nav="reports"><span data-icon="chart"></span>Reports</a>
-          <a class="nav-link" href="#/audit" data-nav="audit"><span data-icon="history"></span>Audit logs</a>
+          <a class="nav-link" href="#/settings" data-nav="settings"><span data-icon="settings"></span>Programs &amp;
+            requirements</a>
+          <a class="nav-link" href="#/audit" data-nav="audit"><span data-icon="history"></span>Audit log</a>
+          <a class="nav-link" href="#/accounts" data-nav="accounts" hidden><span data-icon="users"></span>Accounts</a>
         </nav>
-      </div>
+      </details>
 
       <div class="sidebar-footer">
         <span class="avatar" id="sidebar-avatar">MS</span>
-        <div class="user-mini"><strong id="sidebar-name">Maria Santos</strong><span>Admission personnel</span></div>
+        <div class="user-mini"><strong id="sidebar-name">Maria Santos</strong><span id="sidebar-role">Admission personnel</span></div>
         <button class="icon-button logout-button" type="button" aria-label="Sign out" data-bs-toggle="tooltip"
           data-bs-title="Sign out"><span data-icon="logout"></span></button>
       </div>
@@ -127,7 +132,7 @@
       <header class="topbar">
         <button class="icon-button menu-toggle" type="button" aria-label="Open navigation" aria-expanded="false"><span
             data-icon="menu"></span></button>
-        <div class="breadcrumb-text"><span id="crumb-root">Admission personnel</span><span class="crumb-sep">/</span><strong
+        <div class="breadcrumb-text"><span class="crumb-root">Admission office</span><span class="crumb-sep">/</span><strong
             id="page-breadcrumb">Dashboard</strong></div>
         <div class="topbar-actions">
           <form class="topbar-search" id="quick-search" role="search">
@@ -150,12 +155,15 @@
         <section class="view-section" id="view-exams"></section>
         <section class="view-section" id="view-session"></section>
         <section class="view-section" id="view-results"></section>
+        <section class="view-section" id="view-interviews"></section>
+        <section class="view-section" id="view-college"></section>
+        <section class="view-section" id="view-evaluation"></section>
+        <section class="view-section" id="view-evaluated"></section>
         <section class="view-section" id="view-medical"></section>
         <section class="view-section" id="view-reports"></section>
         <section class="view-section" id="view-settings"></section>
         <section class="view-section" id="view-audit"></section>
         <section class="view-section" id="view-accounts"></section>
-        <section class="view-section" id="view-interview"></section>
         <footer class="page-footer">© 2026 Pamantasan ng Lungsod ng Pasig · Admission office</footer>
       </div>
     </main>
@@ -361,19 +369,20 @@
 @endsection
 
 @push('scripts')
-  <script src="{{ asset('assets/admin/js/admin-store.js') }}"></script>
-  <script src="{{ asset('assets/admin/js/admin-actions.js') }}"></script>
-  <script src="{{ asset('assets/admin/js/admin-ui.js') }}"></script>
-  <script src="{{ asset('assets/admin/js/views/dashboard.js') }}"></script>
-  <script src="{{ asset('assets/admin/js/views/applicants.js') }}"></script>
-  <script src="{{ asset('assets/admin/js/views/documents.js') }}"></script>
-  <script src="{{ asset('assets/admin/js/views/exams.js') }}"></script>
-  <script src="{{ asset('assets/admin/js/views/results.js') }}"></script>
-  <script src="{{ asset('assets/admin/js/views/medical.js') }}"></script>
-  <script src="{{ asset('assets/admin/js/views/reports.js') }}"></script>
-  <script src="{{ asset('assets/admin/js/views/settings.js') }}"></script>
-  <script src="{{ asset('assets/admin/js/views/audit.js') }}"></script>
-  <script src="{{ asset('assets/admin/js/views/accounts.js') }}"></script>
-  <script src="{{ asset('assets/admin/js/views/interview.js') }}"></script>
-  <script src="{{ asset('assets/admin/js/admin.js') }}"></script>
+  <script src="{{ \App\Support\Asset::v('assets/admin/js/admin-store.js') }}"></script>
+  <script src="{{ \App\Support\Asset::v('assets/admin/js/admin-actions.js') }}"></script>
+  <script src="{{ \App\Support\Asset::v('assets/admin/js/admin-ui.js') }}"></script>
+  <script src="{{ \App\Support\Asset::v('assets/admin/js/views/dashboard.js') }}"></script>
+  <script src="{{ \App\Support\Asset::v('assets/admin/js/views/applicants.js') }}"></script>
+  <script src="{{ \App\Support\Asset::v('assets/admin/js/views/documents.js') }}"></script>
+  <script src="{{ \App\Support\Asset::v('assets/admin/js/views/exams.js') }}"></script>
+  <script src="{{ \App\Support\Asset::v('assets/admin/js/views/results.js') }}"></script>
+  <script src="{{ \App\Support\Asset::v('assets/admin/js/views/interviews.js') }}"></script>
+  <script src="{{ \App\Support\Asset::v('assets/admin/js/views/dean.js') }}"></script>
+  <script src="{{ \App\Support\Asset::v('assets/admin/js/views/medical.js') }}"></script>
+  <script src="{{ \App\Support\Asset::v('assets/admin/js/views/reports.js') }}"></script>
+  <script src="{{ \App\Support\Asset::v('assets/admin/js/views/settings.js') }}"></script>
+  <script src="{{ \App\Support\Asset::v('assets/admin/js/views/audit.js') }}"></script>
+  <script src="{{ \App\Support\Asset::v('assets/admin/js/views/accounts.js') }}"></script>
+  <script src="{{ \App\Support\Asset::v('assets/admin/js/admin.js') }}"></script>
 @endpush

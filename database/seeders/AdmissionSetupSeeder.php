@@ -63,6 +63,8 @@ class AdmissionSetupSeeder extends Seeder
         Program::whereIn('code', ['BSIS', 'BSBA', 'BSPSY', 'ABCOMM', 'BSED'])->update(['is_open' => false]);
         // Colleges, deans' scope and interview programs (FR-17)
         $this->call(CollegeSeeder::class);
+        // Strands with suggested programs, barangays (FR-26)
+        $this->call(ReferenceListSeeder::class);
 
         // Freshman documentary requirements (decision T6: the admin panel's list,
         // plus the portal's Grade 12 report card and Good Moral cards: H1).

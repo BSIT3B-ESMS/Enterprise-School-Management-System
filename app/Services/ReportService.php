@@ -25,16 +25,20 @@ use OpenSpout\Writer\XLSX\Writer;
  */
 class ReportService
 {
-    /** report key => [title, roles allowed] */
+    private const OFFICE = ['admission', 'admission_head', 'read_only'];
+
+    /** report key => [title, roles allowed] (FR-27; FR-29 Registrar export) */
     public const REPORTS = [
-        'applicants-per-program' => ['Applicants per program', ['admission']],
-        'status-breakdown' => ['Applications by status', ['admission']],
-        'document-completion' => ['Document completion', ['admission']],
-        'exam-attendance' => ['Exam attendance', ['admission']],
-        'pass-rate' => ['Exam pass rate per program', ['admission']],
-        'daily-submissions' => ['Daily submissions', ['admission']],
-        'medical-completion' => ['Medical completion', ['clinic', 'admission']],
-        'interviews' => ['Interviews', ['college_dean', 'admission']],
+        'applicants-per-program' => ['Applicants per program', self::OFFICE],
+        'status-breakdown' => ['Applications by status', self::OFFICE],
+        'document-completion' => ['Document completion', self::OFFICE],
+        'exam-attendance' => ['Exam attendance', [...self::OFFICE, 'proctor']],
+        'pass-rate' => ['Exam pass rate per program', self::OFFICE],
+        'daily-submissions' => ['Daily submissions', self::OFFICE],
+        'possible-duplicates' => ['Possible duplicate applicants', ['admission', 'admission_head']],
+        'admitted-applicants' => ['Admitted applicants (Registrar)', self::OFFICE],
+        'medical-completion' => ['Medical completion', ['clinic', 'admission', 'admission_head']],
+        'interviews' => ['Interviews', ['college_dean', 'admission', 'admission_head', 'read_only']],
     ];
 
     /** The reports this user may open. */
@@ -58,6 +62,21 @@ class ReportService
         return ['title' => $title, 'period' => $period->label] + $this->{$method}($period->id, $user);
     }
 
+    /** CSV (FR-27), with a BOM so Excel opens accented names correctly. */
+    public function toCsv(array $report): string
+    {
+        $out = fopen('php://temp', 'r+');
+        fwrite($out, "\xEF\xBB\xBF");
+        fputcsv($out, $report['columns']);
+        foreach ($report['rows'] as $row) {
+            // A leading = + - @ would run as a formula in Excel (CSV injection)
+            fputcsv($out, array_map(fn ($v) => is_string($v) && preg_match('/^[=+\-@]/', $v) ? "'".$v : $v, $row));
+        }
+        rewind($out);
+
+        return stream_get_contents($out);
+    }
+
     /** Excel file (FR-13). Returns the path of a temporary .xlsx. */
     public function toXlsx(array $report): string
     {
@@ -76,17 +95,44 @@ class ReportService
 
     private function applicantsPerProgram(int $periodId): array
     {
-        $first = $this->apps($periodId)->join('application_program_choices as c', 'c.application_id', '=', 'a.id')
-            ->where('c.rank', 1)->where('a.status', '!=', 'draft')
-            ->groupBy('c.program_id')->pluck(DB::raw('count(*)'), 'c.program_id');
+        // FR-27: by choice (1st, 2nd, 3rd), submitted applications only
+        $counts = $this->apps($periodId)->join('application_program_choices as c', 'c.application_id', '=', 'a.id')
+            ->where('a.status', '!=', 'draft')
+            ->groupBy('c.program_id', 'c.rank')->get(['c.program_id', 'c.rank', DB::raw('count(*) as n')])
+            ->groupBy('program_id')->map(fn ($rows) => $rows->pluck('n', 'rank'));
         $filled = Program::filledCounts();
 
         return [
-            'columns' => ['Code', 'Program', 'Applicants (1st choice)', 'Slots', 'Slots accepted', 'Slots left'],
-            'rows' => Program::orderBy('code')->get()->map(fn (Program $p) => [
-                $p->code, $p->name, (int) ($first[$p->id] ?? 0), $p->slots, $filled[$p->id] ?? 0, max(0, $p->slots - ($filled[$p->id] ?? 0)),
-            ])->all(),
+            'columns' => ['Code', 'Program', '1st choice', '2nd choice', '3rd choice', 'Total', 'Slots', 'Slots accepted', 'Slots left'],
+            'rows' => Program::orderBy('code')->get()->map(function (Program $p) use ($counts, $filled) {
+                $by = $counts[$p->id] ?? collect();
+                $n = fn ($rank) => (int) ($by[$rank] ?? 0);
+
+                return [$p->code, $p->name, $n(1), $n(2), $n(3), $n(1) + $n(2) + $n(3), $p->slots, $filled[$p->id] ?? 0, max(0, $p->slots - ($filled[$p->id] ?? 0))];
+            })->all(),
         ];
+    }
+
+    /** FR-25: same LRN can't happen (unique); same name and birthday is flagged at save. */
+    private function possibleDuplicates(int $periodId): array
+    {
+        $rows = DB::table('applicants as p')->whereNotNull('p.possible_duplicate_of')->whereNull('p.deleted_at')
+            ->join('applicants as o', 'o.id', '=', 'p.possible_duplicate_of')
+            ->leftJoin('applications as a', fn ($j) => $j->on('a.applicant_id', '=', 'p.id')->where('a.admission_period_id', $periodId))
+            ->leftJoin('applications as oa', fn ($j) => $j->on('oa.applicant_id', '=', 'o.id')->where('oa.admission_period_id', $periodId))
+            ->orderBy('p.last_name')->orderBy('p.first_name')
+            ->get(['a.number', 'p.last_name', 'p.first_name', 'p.birthday', 'p.lrn', 'oa.number as other_number', 'o.lrn as other_lrn']);
+
+        return [
+            'columns' => ['Application no.', 'Name', 'Birthday', 'LRN', 'Possible duplicate of', 'Their LRN'],
+            'rows' => $rows->map(fn ($r) => [$r->number, $r->last_name.', '.$r->first_name, $r->birthday ? substr($r->birthday, 0, 10) : '', $r->lrn, $r->other_number, $r->other_lrn])->all(),
+        ];
+    }
+
+    /** FR-29: the Registrar's layout. */
+    private function admittedApplicants(int $periodId): array
+    {
+        return app(RegistrarExportService::class)->report();
     }
 
     private function statusBreakdown(int $periodId): array
@@ -201,7 +247,7 @@ class ReportService
         $query = DB::table('interview_schedules as s')->where('s.admission_period_id', $periodId)
             ->join('programs as p', 'p.id', '=', 's.program_id')
             ->leftJoin('interview_assignments as i', 'i.interview_schedule_id', '=', 's.id');
-        if (! $user->hasAnyRole([Role::Admission->value, Role::SuperAdmin->value])) {
+        if (! $user->isAdmissionOffice() && ! $user->hasRole(Role::ReadOnly->value)) {
             $query->where('p.college_id', $user->deanOf?->id ?? 0);
         }
         $rows = $query->groupBy('s.id', 'p.code', 's.date', 's.time', 's.venue', 's.capacity')->orderBy('s.date')

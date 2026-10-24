@@ -20,5 +20,9 @@ Schedule::command('dms:outbox --retry')->hourly()->withoutOverlapping();
 // NFR-06: nightly encrypted backup
 Schedule::command('app:backup')->dailyAt('02:00')->timezone('Asia/Manila')->withoutOverlapping();
 
+// NFR-08: delete documents of applicants not admitted, 12 months after their period closed
+Schedule::command('app:retention --apply')->monthlyOn(1, '03:00')->timezone('Asia/Manila')->withoutOverlapping()
+    ->when(fn () => config('admission.retention_enabled'));
+
 Schedule::command('queue:prune-failed --hours=168')->daily();
 Schedule::command('queue:prune-batches --hours=168')->daily();

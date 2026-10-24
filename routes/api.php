@@ -3,7 +3,10 @@
 use App\Http\Controllers\Api\Applicant\ApplicationController;
 use App\Http\Controllers\Api\Applicant\DocumentController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\DeanController;
+use App\Http\Controllers\Api\Integration\EmploymentController;
 use App\Http\Controllers\Api\Integration\EnrollmentController;
+use App\Http\Controllers\Api\Integration\RegistrarController;
 use App\Http\Controllers\Api\InterviewController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\Clinic;
@@ -24,18 +27,29 @@ Route::prefix('auth')->group(function () {
     Route::post('2fa/resend', [AuthController::class, 'resendTwoFactor'])->middleware('throttle:login');
     Route::post('forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:login');
     Route::post('reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:login');
+    // Works with an expired access token inside the refresh window; the old token is revoked (rotation)
+    Route::post('refresh', [AuthController::class, 'refresh'])->middleware('throttle:login');
 
     Route::middleware(['auth:api', 'active'])->group(function () {
         Route::get('me', [AuthController::class, 'me']);
-        Route::post('refresh', [AuthController::class, 'refresh']);
         Route::post('logout', [AuthController::class, 'logout']);
         Route::post('email/resend', [AuthController::class, 'resendVerification'])->middleware('throttle:login');
     });
 });
 
-// Other ERP systems (REST + X-API-Key + IP allowlist; api-client:create)
+// Other ERP systems (REST + X-API-Key + IP allowlist; api-client:create). docs/INTEGRATIONS.md
 Route::prefix('integrations')->middleware('throttle:api')->group(function () {
     Route::post('enrollment/student-number', [EnrollmentController::class, 'studentNumber'])->middleware('integration:enrollment');
+
+    // Employment System: staff accounts (FR-30)
+    Route::middleware('integration:employment')->group(function () {
+        Route::get('employment/employees', [EmploymentController::class, 'index']);
+        Route::post('employment/employees', [EmploymentController::class, 'sync']);
+        Route::delete('employment/employees/{employeeId}', [EmploymentController::class, 'destroy']);
+    });
+
+    // Registrar: admitted applicants (FR-29)
+    Route::get('registrar/admitted', [RegistrarController::class, 'admitted'])->middleware('integration:registrar');
 });
 
 // In-app notifications for any signed-in user
@@ -68,11 +82,30 @@ Route::prefix('applicant')->middleware(['auth:api', 'active', 'role:applicant'])
     Route::delete('medical/{key}', [DocumentController::class, 'destroyMedical']);
 });
 
-// Admission office panel: admission personnel only. Medical clearance shows
-// there read-only; the clinic has its own portal below. There are no routes
-// here for accounts, backups or security settings (§7.1).
-Route::prefix('admin')->middleware(['auth:api', 'active', 'two_factor', 'role:admission|super_admin'])->group(function () {
-    Route::get('state', [Office\StateController::class, 'show']);
+// Admission office panel. Admission Staff and the Admission Head do the
+// office work; only the Head releases results (FR-20). Proctors handle exam
+// day (FR-16, FR-17); Read-only users (deans, registrar, DPO) only look.
+// Medical clearance shows there read-only; the clinic has its own portal
+// below. There are no routes here for accounts, backups or security
+// settings (§4 role boundaries).
+Route::prefix('admin')->middleware(['auth:api', 'active', 'two_factor'])->group(function () {
+    Route::get('state', [Office\StateController::class, 'show'])->middleware('role:admission|admission_head|proctor|read_only');
+    Route::get('reference', [Office\SetupController::class, 'reference'])->middleware('role:admission|admission_head|proctor|read_only');
+
+    Route::middleware('role:admission|admission_head|proctor')->group(function () {
+        Route::patch('applicants/{application}/exam', [Office\ExamController::class, 'roster']);
+        Route::post('exam/check-in', [Office\ExamController::class, 'checkIn']);
+        Route::get('exam-sessions/{session}/roster', [Office\ExamController::class, 'sessionRoster']);
+    });
+
+    // Admin only (use-case diagram "Admin Module"): release results (FR-20), set the admission dates
+    Route::post('results/release', [Office\ExamController::class, 'release'])->middleware('role:admission_head');
+    Route::patch('admission-period', [Office\SetupController::class, 'updatePeriod'])->middleware('role:admission_head');
+    // The Admin can also record a dean's evaluation (any college)
+    Route::post('applicants/{application}/evaluation', [InterviewController::class, 'record'])->middleware('role:admission_head');
+});
+
+Route::prefix('admin')->middleware(['auth:api', 'active', 'two_factor', 'role:admission|admission_head|super_admin'])->group(function () {
 
     Route::prefix('applicants/{application}')->group(function () {
         Route::patch('documents/{key}', [Office\DocumentController::class, 'review']);
@@ -83,11 +116,13 @@ Route::prefix('admin')->middleware(['auth:api', 'active', 'two_factor', 'role:ad
 
     Route::post('applicants/{application}/approve', [Office\ExamController::class, 'approve']);
     Route::post('applicants/{application}/reschedule', [Office\ExamController::class, 'reschedule']);
-    Route::patch('applicants/{application}/exam', [Office\ExamController::class, 'roster']);
     Route::post('applicants/{application}/result', [Office\ExamController::class, 'recordResult']);
-    Route::post('results/release', [Office\ExamController::class, 'release']);
+    Route::post('applicants/{application}/placement', [Office\ExamController::class, 'place']);
+    Route::post('results/import', [Office\ExamController::class, 'importResults']);
+    Route::post('exam/auto-assign', [Office\ExamController::class, 'autoAssign']);
     Route::post('exam-sessions', [Office\ExamController::class, 'storeSession']);
-    Route::post('exam/check-in', [Office\ExamController::class, 'checkIn']);
+    Route::patch('exam-sessions/{session}', [Office\SetupController::class, 'updateSession']);
+    Route::delete('exam-sessions/{session}', [Office\SetupController::class, 'deleteSession']);
 
     Route::get('interviews', [InterviewController::class, 'index']);
     Route::post('interview-schedules', [InterviewController::class, 'storeSchedule']);
@@ -96,8 +131,6 @@ Route::prefix('admin')->middleware(['auth:api', 'active', 'two_factor', 'role:ad
     Route::post('programs', [Office\SetupController::class, 'storeProgram']);
     Route::patch('programs/{program:code}', [Office\SetupController::class, 'updateProgram']);
     Route::patch('requirements/{key}', [Office\SetupController::class, 'updateRequirement']);
-    Route::patch('admission-period', [Office\SetupController::class, 'updatePeriod']);
-
     // Super admin only: staff accounts (admission personnel, clinic, college deans)
     Route::middleware('role:super_admin')->prefix('accounts')->group(function () {
         Route::get('/', [Office\AccountController::class, 'index']);
@@ -107,6 +140,8 @@ Route::prefix('admin')->middleware(['auth:api', 'active', 'two_factor', 'role:ad
 
     // Super admin oversight: open an applicant's medical files (read-only, every opening is audited)
     Route::get('applicants/{application}/medical/{key}/file', [Clinic\MedicalController::class, 'file'])->middleware('role:super_admin');
+    Route::put('strands', [Office\SetupController::class, 'saveStrand']);
+    Route::put('barangays/{district}', [Office\SetupController::class, 'saveBarangays'])->whereNumber('district');
 });
 
 // Clinic portal (nurse/): the clinic nurse sees medical files only, sends a
@@ -122,14 +157,15 @@ Route::prefix('clinic')->middleware(['auth:api', 'active', 'two_factor', 'role:c
     });
 });
 
-// College Dean (FR-17): interviews for the dean's own college. API only (no screens yet).
+// College Dean module (admin portal): applicant list, evaluation and results/referral, own college only
 Route::prefix('dean')->middleware(['auth:api', 'active', 'two_factor', 'role:college_dean'])->group(function () {
+    Route::get('applicants', [DeanController::class, 'applicants']);
     Route::get('interviews', [InterviewController::class, 'index']);
     Route::post('applicants/{application}/interview', [InterviewController::class, 'record']);
 });
 
-// Reports (FR-13), scoped by role inside ReportService
-Route::prefix('reports')->middleware(['auth:api', 'active', 'two_factor', 'role:admission|clinic|college_dean|super_admin'])->group(function () {
+// Reports (FR-27), scoped by role inside ReportService
+Route::prefix('reports')->middleware(['auth:api', 'active', 'two_factor', 'role:admission|admission_head|clinic|college_dean|proctor|read_only'])->group(function () {
     Route::get('/', [ReportController::class, 'index']);
     Route::get('{report}', [ReportController::class, 'show']);
 });

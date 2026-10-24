@@ -11,11 +11,25 @@ $(function () {
   var ADM = window.ADM;
 
   // Hash → view name; the second segment is passed to render() as param
-  var ROUTES = { dashboard: "dashboard", applicants: "applicants", documents: "documents", exams: "exams", results: "results", medical: "medical", reports: "reports", settings: "settings", audit: "audit", accounts: "accounts", interview: "interview" };
-  // Oversight screens: super admin only. Admission personnel work in the seven modules of their use case.
-  var SUPER_ONLY = ["dashboard", "accounts", "reports", "audit"];
-  function isSuper() { return ADM.STAFF.roleKey === "super_admin"; }
-  function home() { return isSuper() ? "#/dashboard" : "#/applicants"; }
+  var ROUTES = { dashboard: "dashboard", applicants: "applicants", documents: "documents", exams: "exams", results: "results", interviews: "interviews", medical: "medical", reports: "reports", settings: "settings", audit: "audit", college: "college", evaluation: "evaluation", evaluated: "evaluated", accounts: "accounts" };
+
+  /* Role-based access (use-case diagrams). One portal, three main roles;
+     the server enforces the same limits on every request.
+     - Admin: the whole system (dashboard, every admissions screen, the
+       Clinic and College Dean modules, admission dates, audit log, reports)
+     - Admission Personnel: slot setup, applicants, documents, entrance exam,
+       results, interviews, medical
+     - College Dean: applicant list, evaluation, results/referral (own college) */
+  var ACCESS = {
+    admission_head: ["dashboard", "applicants", "documents", "exams", "results", "interviews", "evaluated", "medical", "reports", "settings", "audit"],
+    super_admin: ["dashboard", "applicants", "documents", "exams", "results", "interviews", "evaluated", "medical", "reports", "settings", "audit", "accounts"],
+    admission: ["applicants", "documents", "exams", "results", "interviews", "medical", "settings"],
+    college_dean: ["college", "evaluation", "evaluated"],
+    proctor: ["exams"],
+    read_only: ["dashboard", "applicants", "reports"]
+  };
+  function allowed() { return ACCESS[ADM.STAFF.roleKey] || ["dashboard"]; }
+  function home() { return "#/" + allowed()[0]; }
   var DETAIL = { applicants: "applicant", exams: "session", documents: "docreview" };   // #/applicants/:id → view "applicant"
   var current = { view: null, param: null };
 
@@ -27,11 +41,16 @@ $(function () {
     $("#app").prop("hidden", false);
     $("#sidebar-name").text(ADM.STAFF.name);
     $("#sidebar-avatar").text(ADM.STAFF.initials);
-    $(".sidebar-footer .user-mini span").text(ADM.STAFF.role);
-    $("[data-superadmin]").prop("hidden", !isSuper());
-    $("#super-chip").prop("hidden", !isSuper());
-    $("#crumb-root").text(isSuper() ? "Super admin" : "Admission personnel");
-    $("#sidebar-role-label").text(isSuper() ? "Admission modules (as Super Admin)" : "Admission personnel");
+    $("#sidebar-role").text(ADM.STAFF.role);
+    var dean = ADM.STAFF.roleKey === "college_dean";
+    $("#sidebar-section").text(dean ? "College dean" + (ADM.dean.college ? " · " + ADM.dean.college.code : "") : ADM.STAFF.roleKey === "super_admin" ? "Super admin" : ADM.STAFF.roleKey === "admission_head" ? "Admin" : "Admission office");
+    $("#super-chip").prop("hidden", ADM.STAFF.roleKey !== "super_admin");
+    $(".crumb-root").text(dean ? "College dean" : ADM.STAFF.roleKey === "super_admin" ? "Super admin" : "Admission office");
+    // Only this role's screens in the menu; "More" only if it has any
+    $(".sidebar .nav-link[data-nav]").each(function () { $(this).prop("hidden", allowed().indexOf($(this).data("nav")) === -1); });
+    $("#sidebar-more").prop("hidden", !$("#sidebar-more .nav-link:not([hidden])").length);
+    $("#quick-search").prop("hidden", allowed().indexOf("applicants") === -1);
+    $(".sidebar .brand").attr("href", home());
     if (!location.hash) location.replace(home());
     route();
   }
@@ -74,8 +93,7 @@ $(function () {
      ========================================================================== */
   function parseHash() {
     var parts = location.hash.replace(/^#\/?/, "").split("/").map(decodeURIComponent);
-    var base = ROUTES[parts[0]] ? parts[0] : home().slice(2);
-    if (!isSuper() && SUPER_ONLY.indexOf(base) !== -1) base = home().slice(2);
+    var base = ROUTES[parts[0]] && allowed().indexOf(parts[0]) !== -1 ? parts[0] : allowed()[0];
     var param = parts[1] || null;
     return { view: param && DETAIL[base] ? DETAIL[base] : ROUTES[base], nav: base, param: param };
   }

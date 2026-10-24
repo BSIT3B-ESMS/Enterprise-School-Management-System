@@ -4,10 +4,12 @@ namespace App\Http\Presenters;
 
 use App\Models\AdmissionPeriod;
 use App\Models\Application;
+use App\Models\Barangay;
 use App\Models\ExamSession;
 use App\Models\Program;
 use App\Models\Requirement;
 use App\Models\User;
+use App\Services\ProgramSuggestionService;
 use DateTimeImmutable;
 use DateTimeZone;
 use Illuminate\Support\Facades\DB;
@@ -52,9 +54,14 @@ class OfficeStatePresenter
                 'roleKey' => $staff->primaryRole()?->value,
                 'email' => $staff->email,
             ],
-            'programs' => Program::orderBy('id')->get()->map(fn (Program $p) => [
-                'code' => $p->code, 'name' => $p->name, 'slots' => $p->slots,
+            'programs' => Program::with('college')->orderBy('id')->get()->map(fn (Program $p) => [
+                'code' => $p->code, 'name' => $p->name, 'slots' => $p->slots, 'open' => $p->is_open, 'requiresInterview' => $p->requires_interview, 'college' => $p->college?->code,
             ])->all(),
+            // FR-06, FR-26: lists the office maintains (strand suggestions, barangays)
+            'reference' => [
+                'strandSuggest' => app(ProgramSuggestionService::class)->table(),
+                'barangays' => Barangay::byDistrict(),
+            ],
             'sessions' => ExamSession::where('admission_period_id', $period->id)->orderBy('date')->orderBy('batch')->get()
                 ->map(fn (ExamSession $s) => $this->session($s))->all(),
             'applicants' => $this->allApplicants($staff, $period->id),
@@ -62,9 +69,16 @@ class OfficeStatePresenter
                 'deadline' => $period->application_deadline->toDateString(),
                 'period' => $period->label,
                 'inactiveDocs' => Requirement::admission()->where('is_active', false)->pluck('key')->all(),
+                // "Set Dates of Admission" (Admin)
+                'opensOn' => $period->opens_on?->toDateString(),
+                'examStartsOn' => $period->exam_starts_on?->toDateString(),
+                'examEndsOn' => $period->exam_ends_on?->toDateString(),
+                'resultsReleaseOn' => $period->results_release_on?->toDateString(),
+                'acceptanceWindowDays' => $period->acceptance_window_days,
             ],
-            // Applicant sign-ins are audited too, but they are not office activity
-            'audit' => DB::table('audit_logs')->whereNull('application_id')->where('action', '!=', 'applicant.login')->orderBy('id')
+            // Applicant sign-ins are audited too, but they are not office activity.
+            // The office-wide audit log is the Admin's (use-case diagram "Admin Module").
+            'audit' => ! $staff->hasRole('admission_head') ? [] : DB::table('audit_logs')->whereNull('application_id')->where('action', '!=', 'applicant.login')->orderBy('id')
                 ->get(['actor_name', 'description', 'created_at'])
                 ->map(fn ($l) => $this->entry($l))->all(),
         ];
@@ -99,7 +113,7 @@ class OfficeStatePresenter
     /** The given applications, in id order. */
     private function applicants(User $staff, array $ids): array
     {
-        $withScore = $staff->hasAnyRole(['admission', 'super_admin']);
+        $withScore = $staff->isAdmissionOffice();
 
         $rows = DB::table('applications as a')
             ->join('applicants as p', 'p.id', '=', 'a.applicant_id')

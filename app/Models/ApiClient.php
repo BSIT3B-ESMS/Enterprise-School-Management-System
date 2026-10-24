@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Model;
  * Created by the sysadmin with `php artisan api-client:create`; only the
  * key's SHA-256 is stored.
  */
-#[Fillable(['name', 'key_hash', 'allowed_ips', 'is_active', 'last_used_at'])]
+#[Fillable(['name', 'key_hash', 'allowed_ips', 'is_active', 'expires_at', 'last_used_at'])]
 #[Hidden(['key_hash'])]
 class ApiClient extends Model
 {
@@ -21,6 +21,7 @@ class ApiClient extends Model
             'allowed_ips' => 'array',
             'is_active' => 'boolean',
             'last_used_at' => 'datetime',
+            'expires_at' => 'datetime',
         ];
     }
 

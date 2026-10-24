@@ -24,6 +24,9 @@ class ApplicationDocument extends Model
 
     public const RESUBMIT = 'resubmit';
 
+    /** FR-09: not acceptable and not replaceable; blocks For Exam until staff change the decision. */
+    public const REJECTED = 'rejected';
+
     protected function casts(): array
     {
         return [

@@ -83,7 +83,7 @@ class ExamAndResultTest extends TestCase
         // Unreleased: the applicant sees nothing about it
         $this->asUser($user)->getJson('/api/applicant/portal')->assertJsonPath('data.phase', 'exam')->assertJsonPath('data.result', null);
 
-        $this->asUser($this->officer())->postJson('/api/admin/results/release', ['ids' => [$number]])
+        $this->asUser($this->admissionHead())->postJson('/api/admin/results/release', ['ids' => [$number]])
             ->assertOk()->assertJsonPath('released', 1);
         $this->asUser($this->officer())->postJson("/api/admin/applicants/{$number}/result", ['score' => 10, 'decision' => 'failed'])->assertUnprocessable();
 
@@ -97,7 +97,7 @@ class ExamAndResultTest extends TestCase
     public function test_score_never_reaches_the_applicant(): void
     {
         $user = $this->examined('passed', 87);
-        $this->asUser($this->officer())->postJson('/api/admin/results/release', ['ids' => [$this->number($user)]]);
+        $this->asUser($this->admissionHead())->postJson('/api/admin/results/release', ['ids' => [$this->number($user)]]);
 
         $responses = [
             $this->asUser($user)->getJson('/api/applicant/portal'),
@@ -123,7 +123,7 @@ class ExamAndResultTest extends TestCase
         $user = $this->examined('passed');
         $this->asUser($user)->postJson('/api/applicant/offer/accept')->assertUnprocessable();
 
-        $this->asUser($this->officer())->postJson('/api/admin/results/release', ['ids' => [$this->number($user)]]);
+        $this->asUser($this->admissionHead())->postJson('/api/admin/results/release', ['ids' => [$this->number($user)]]);
         $this->asUser($user)->postJson('/api/applicant/offer/accept')->assertOk()->assertJsonPath('data.accepted', true);
     }
 

@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Notifications\AdmissionNotice;
 use App\Notifications\TwoFactorCode;
 use App\Services\ApplicationService;
+use Database\Seeders\DemoStaffAccountsSeeder;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Notification;
 use Tests\Concerns\BuildsApplications;
@@ -157,6 +158,89 @@ class OfferAndInterviewTest extends TestCase
         $this->asUser($user)->postJson('/api/applicant/offer/accept')->assertStatus(422);
     }
 
+    /** College Dean module: "Evaluation Results/Referral" refers to another of the applicant's choices */
+    public function test_dean_refers_to_another_choice(): void
+    {
+        $dean = $this->dean('CON');
+        $user = $this->interviewee();
+        $number = $this->number($user);
+        $schedule = $this->asUser($this->officer())->postJson('/api/admin/interview-schedules', [
+            'program' => 'BSN', 'date' => now()->addDays(3)->toDateString(), 'venue' => 'Nursing Bldg 105', 'capacity' => 5,
+        ])->json('data.id');
+        $this->asUser($this->officer())->postJson("/api/admin/applicants/{$number}/interview", ['scheduleId' => $schedule])->assertOk();
+
+        $this->asUser($dean)->postJson("/api/dean/applicants/{$number}/interview", ['grade' => 70, 'outcome' => 'referred'])->assertUnprocessable();
+        $this->asUser($dean)->postJson("/api/dean/applicants/{$number}/interview", ['grade' => 70, 'outcome' => 'referred', 'program' => 'BSIT'])
+            ->assertUnprocessable()->assertJsonPath('message', "BSIT is not one of this applicant's three choices.");
+        $this->asUser($dean)->postJson("/api/dean/applicants/{$number}/interview", ['grade' => 70, 'outcome' => 'referred', 'program' => 'BSCS', 'remark' => 'Strong in math'])
+            ->assertOk()->assertJsonPath('data.status', 'offered')->assertJsonPath('data.referredTo', 'BSCS');
+
+        $this->asUser($user)->getJson('/api/applicant/portal')->assertJsonPath('data.offer.program', 'BS Computer Science')
+            ->assertJsonPath('data.interview.outcome', 'referred');
+        $this->asUser($dean)->getJson('/api/dean/interviews')->assertJsonPath('data.schedules.0.applicants.0.remark', 'Strong in math');
+    }
+
+    /** The Admin runs the whole system: records an evaluation for any college; personnel can't */
+    public function test_admin_can_record_an_evaluation(): void
+    {
+        $user = $this->interviewee();
+        $number = $this->number($user);
+        $schedule = $this->asUser($this->officer())->postJson('/api/admin/interview-schedules', [
+            'program' => 'BSN', 'date' => now()->addDays(3)->toDateString(), 'venue' => 'Room 1', 'capacity' => 5,
+        ])->json('data.id');
+        $this->asUser($this->officer())->postJson("/api/admin/applicants/{$number}/interview", ['scheduleId' => $schedule])->assertOk();
+
+        $this->asUser($this->officer())->postJson("/api/admin/applicants/{$number}/evaluation", ['grade' => 88, 'outcome' => 'passed'])->assertForbidden();
+        $this->asUser($this->admissionHead())->postJson("/api/admin/applicants/{$number}/evaluation", ['grade' => 88, 'outcome' => 'passed'])
+            ->assertOk()->assertJsonPath('data.status', 'offered');
+        $this->assertSame('BSN', $this->app_($user)->offeredProgram->code);
+    }
+
+    /** College Dean "Applicant List": only applicants who chose one of the dean's college programs */
+    public function test_dean_applicant_list_is_scoped_to_the_college(): void
+    {
+        $ccs = $this->dean('CCS');
+        $con = $this->dean('CON');
+        $it = $this->submitted();   // BSIT, BSCS, ABPSY
+        $nurse = $this->makeApplicant(true, 'nurse@example.com');
+        app(ApplicationService::class)->saveForm($this->applicationOf($nurse), ['program1' => 'BS Nursing', 'program2' => 'AB Psychology', 'program3' => 'BS Mathematics'], $nurse);
+        foreach (app(ApplicationService::class)->requiredDocuments($this->applicationOf($nurse)) as $r) {
+            $this->uploadDoc($nurse, $r->key)->assertCreated();
+        }
+        $this->asUser($nurse)->postJson('/api/applicant/submit')->assertOk();
+
+        $list = $this->asUser($ccs)->getJson('/api/dean/applicants')->assertOk();
+        $this->assertSame([$this->number($it)], array_column($list->json('data.applicants'), 'id'));
+        $this->assertSame('CCS', $list->json('data.college.code'));
+        $this->assertSame(['BSCS', 'BSIT'], array_column($list->json('data.programs'), 'code'));
+        $this->assertStringNotContainsString('score', $list->getContent());
+
+        $this->assertSame([$this->number($nurse)], array_column($this->asUser($con)->getJson('/api/dean/applicants')->json('data.applicants'), 'id'));
+        $this->asUser($this->officer())->getJson('/api/dean/applicants')->assertForbidden();
+    }
+
+    /** Admin-only: dates of admission and the office audit log (use-case diagrams) */
+    public function test_admin_only_screens(): void
+    {
+        $this->asUser($this->officer())->patchJson('/api/admin/admission-period', ['deadline' => '2026-12-01'])->assertForbidden();
+        $this->asUser($this->admissionHead())->patchJson('/api/admin/admission-period', ['deadline' => '2026-12-01', 'examStartsOn' => '2026-12-07'])->assertOk();
+        // Slot setup and the interview switch stay with admission personnel
+        $this->asUser($this->officer())->patchJson('/api/admin/programs/BSIT', ['slots' => 100, 'requiresInterview' => true])->assertOk()->assertJsonPath('data.requiresInterview', true);
+
+        $this->asUser($this->officer())->getJson('/api/admin/state')->assertJsonPath('data.audit', []);
+        $this->assertNotEmpty($this->asUser($this->admissionHead())->getJson('/api/admin/state')->json('data.audit'));
+    }
+
+    /** Demo College Dean per college (dean.<code>@plpasig.edu.ph / dean1234), linked to it */
+    public function test_demo_dean_accounts(): void
+    {
+        $this->seed(DemoStaffAccountsSeeder::class);
+        $this->postJson('/api/auth/login', ['email' => 'dean.ccs@plpasig.edu.ph', 'password' => 'dean1234', 'portal' => 'office'])
+            ->assertOk()->assertJsonPath('data.user.role', 'college_dean');
+        $this->assertSame('dean.ccs@plpasig.edu.ph', College::where('code', 'CCS')->first()->dean->email);
+        $this->assertSame(College::count(), User::role('college_dean')->count());
+    }
+
     /** A pass whose first choice is BS Nursing (requires an interview). */
     private function interviewee(string $email = 'jordan@example.com'): User
     {
@@ -164,7 +248,7 @@ class OfferAndInterviewTest extends TestCase
         $number = $this->number($user);
         $this->asUser($this->officer())->patchJson("/api/admin/applicants/{$number}/exam", ['permitChecked' => true, 'formChecked' => true, 'attendance' => 'present'])->assertOk();
         $this->asUser($this->officer())->postJson("/api/admin/applicants/{$number}/result", ['score' => 85, 'decision' => 'passed'])->assertOk();
-        $this->asUser($this->officer())->postJson('/api/admin/results/release', ['ids' => [$number]])->assertOk();
+        $this->asUser($this->admissionHead())->postJson('/api/admin/results/release', ['ids' => [$number]])->assertOk();
 
         return $user;
     }

@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\AdmissionPeriod;
 use App\Models\Application;
+use App\Models\Barangay;
 use App\Models\ExamSession;
 use App\Models\InterviewSchedule;
 use App\Models\Program;
@@ -14,7 +15,6 @@ use App\Services\DocumentService;
 use App\Services\ExamService;
 use App\Services\InterviewService;
 use App\Services\OfferService;
-use App\Support\ApplicantForm;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 use Illuminate\Http\UploadedFile;
@@ -80,6 +80,7 @@ class DemoApplicantsSeeder extends Seeder
             }
         }
         $programs = Program::pluck('name')->all();
+        $barangays = Barangay::byDistrict();
 
         for ($i = 0; $i < 60; $i++) {
             $age = mt_rand(0, 40);                       // days since submission
@@ -110,8 +111,8 @@ class DemoApplicantsSeeder extends Seeder
                 'phone' => $user->applicant->phone, 'birthDate' => (2007 + mt_rand(0, 1)).'-'.sprintf('%02d-%02d', mt_rand(1, 12), mt_rand(1, 28)),
                 'sex' => mt_rand(0, 1) ? 'Female' : 'Male', 'address' => mt_rand(1, 199).' Mabini St.',
                 'isResident' => $resident ? '1' : '0', 'district' => $resident ? (string) $district : null,
-                'barangay' => $resident ? ApplicantForm::BARANGAYS[$district][mt_rand(0, count(ApplicantForm::BARANGAYS[$district]) - 1)] : null,
-                'hasGuardian' => mt_rand(0, 9) ? '0' : '1', 'lastSchool' => $school, 'schoolType' => $type,
+                'barangay' => $resident ? $barangays[$district][mt_rand(0, count($barangays[$district]) - 1)] : null,
+                'hasGuardian' => mt_rand(0, 9) ? '0' : '1', 'guardianConsentName' => 'Parent '.$last, 'guardianConsent' => '1', 'lastSchool' => $school, 'schoolType' => $type,
                 'strand' => self::STRANDS[mt_rand(0, count(self::STRANDS) - 1)], 'gradYear' => mt_rand(0, 9) < 7 ? '2027 (expected)' : '2026',
                 'lrn' => (string) (100000000000 + $i * 7919),
                 'program1' => $choices[0], 'program2' => $choices[1], 'program3' => $choices[2], 'step' => 3, 'completed' => [1, 2, 3],

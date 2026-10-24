@@ -8,20 +8,28 @@
   var ADM = window.ADM;
   var esc = AO.esc, icon = AO.icon;
 
-  var CAN = [
-    "Review applications and verify documents",
-    "Schedule entrance exams and keep rosters",
-    "Record and release results through the system",
-    "Update programs, slots and requirements",
-    "Generate reports",
-    "See medical approvals sent by the clinic nurse"
-  ];
-  var CANNOT = [
-    "Check or approve medical files (clinic nurse only)",
-    "Create, delete, or change user accounts and roles",
-    "Run backups or change security settings",
-    "Edit or delete audit log entries"
-  ];
+  // What each role may do (use-case diagrams); the server enforces the same
+  var ACCESS = {
+    admission_head: {
+      can: ["Everything admission personnel do", "Set the dates of admission", "Release results through the system", "See the dashboard, reports and audit log",
+        "See the Clinic module (medical approvals) and every college's evaluations", "Record a dean's evaluation for any college"],
+      cannot: ["Open medical files (clinic nurse only)", "Edit or delete audit log entries"]
+    },
+    super_admin: {
+      can: ["Everything the Admin does", "Create and disable admission personnel, clinic and college dean accounts", "Open medical files (each opening is logged)"],
+      cannot: ["Edit or delete audit log entries"]
+    },
+    admission: {
+      can: ["Set up programs and admission slots", "Review applicants and verify documents", "Schedule entrance exams and keep rosters",
+        "Record results (the Admin releases them)", "Schedule interviews", "See medical approvals sent by the clinic nurse"],
+      cannot: ["Set the dates of admission (Admin)", "Release results (Admin)", "Open medical files (clinic nurse only)", "See the audit log (Admin)"]
+    }
+  };
+  function isAdmin() { return ADM.STAFF.roleKey === "admission_head" || ADM.STAFF.roleKey === "super_admin"; }
+  function access() { return ACCESS[ADM.STAFF.roleKey] || ACCESS.admission; }
+  function dateField(id, label, value) {
+    return '<div class="col-sm-6"><label class="form-label" for="' + id + '">' + label + '</label><input class="form-control" type="date" id="' + id + '" value="' + esc(value || "") + '"' + (isAdmin() ? "" : " disabled") + '><div class="invalid-feedback" id="' + id + '-error"></div></div>';
+  }
 
   function render($el) {
     var ui = ADM.ui;
@@ -36,12 +44,13 @@
 
       '<section class="table-card" data-reveal><div class="table-toolbar"><div><strong>Programs and slots</strong><small class="d-block text-muted">' + esc(st.settings.period) + "</small></div>" +
       '<button class="btn btn-ghost ms-auto" type="button" id="add-program">' + icon("plus") + "Add program</button></div>" +
-      '<div class="table-responsive"><table class="table data-table"><thead><tr><th>Code</th><th>Program</th><th>1st-choice applicants</th><th>Passed vs slots</th><th style="width:130px">Slots</th></tr></thead><tbody>' +
+      '<div class="table-responsive"><table class="table data-table"><thead><tr><th>Code</th><th>Program</th><th>1st-choice applicants</th><th>Passed vs slots</th><th style="width:130px">Slots</th><th title="The college dean evaluates passers before the offer">Interview</th></tr></thead><tbody>' +
       st.programs.map(function (p) {
         var pass = passed[p.code] || 0;
         return '<tr><td><span class="code-chip">' + esc(p.code) + "</span></td><td>" + esc(p.name) + "</td><td>" + (firstChoice[p.code] || 0) + "</td>" +
           '<td><span class="doc-meter wide' + (pass > p.slots ? " over" : "") + '"><span style="--w:' + Math.min(100, ui.pct(pass, p.slots)) + '%"></span></span><small>' + pass + " of " + p.slots + (pass > p.slots ? " · over capacity" : "") + "</small></td>" +
-          '<td><input class="form-control form-control-sm slot-input" type="number" min="1" max="2000" value="' + p.slots + '" data-code="' + esc(p.code) + '" aria-label="Slots for ' + esc(p.code) + '"></td></tr>';
+          '<td><input class="form-control form-control-sm slot-input" type="number" min="1" max="2000" value="' + p.slots + '" data-code="' + esc(p.code) + '" aria-label="Slots for ' + esc(p.code) + '"></td>' +
+          '<td><div class="form-check form-switch"><input class="form-check-input" type="checkbox" role="switch" data-interview="' + esc(p.code) + '"' + (p.requiresInterview ? " checked" : "") + ' aria-label="' + esc(p.code) + ' requires an interview"></div></td></tr>';
       }).join("") + "</tbody></table></div></section>" +
 
       '<div class="row g-3">' +
@@ -58,14 +67,21 @@
       "</ul></section></div>" +
 
       '<div class="col-xl-5 d-flex flex-column gap-3" data-reveal>' +
-      '<section class="card-soft"><h3 class="card-title">Admission period</h3><form id="period-form" class="row g-2 align-items-end" novalidate>' +
-      '<div class="col"><label class="form-label" for="deadline">Application deadline</label><input class="form-control" type="date" id="deadline" value="' + st.settings.deadline + '" required><div class="invalid-feedback" id="deadline-error"></div></div>' +
-      '<div class="col-auto"><button class="btn btn-brand" type="submit">Save</button></div></form>' +
+      // "Set Dates of Admission" (Admin); admission personnel see them read-only
+      '<section class="card-soft"><h3 class="card-title">Dates of admission</h3>' + (isAdmin() ? "" : '<p class="text-muted small">Set by the Admin.</p>') +
+      '<form id="period-form" class="row g-2 align-items-end" novalidate>' +
+      dateField("opens-on", "Applications open", st.settings.opensOn) +
+      '<div class="col-sm-6"><label class="form-label" for="deadline">Application deadline</label><input class="form-control" type="date" id="deadline" value="' + st.settings.deadline + '" required' + (isAdmin() ? "" : " disabled") + '><div class="invalid-feedback" id="deadline-error"></div></div>' +
+      dateField("exam-starts", "Entrance exams start", st.settings.examStartsOn) +
+      dateField("exam-ends", "Entrance exams end", st.settings.examEndsOn) +
+      dateField("results-on", "Release of results", st.settings.resultsReleaseOn) +
+      '<div class="col-sm-6"><label class="form-label" for="accept-days">Days to accept an offer</label><input class="form-control" type="number" min="1" max="90" id="accept-days" value="' + esc(st.settings.acceptanceWindowDays || "") + '"' + (isAdmin() ? "" : " disabled") + ' data-msg-range="Use 1 to 90 days."><div class="invalid-feedback" id="accept-days-error"></div></div>' +
+      (isAdmin() ? '<div class="col-12"><button class="btn btn-brand" type="submit" id="period-save">Save dates</button></div>' : "") + "</form>" +
       '<dl class="kv kv-compact mt-3"><div><dt>Review target</dt><dd>' + ADM.REVIEW_SLA_DAYS + " working days</dd></div><div><dt>Passing score</dt><dd>" + ADM.PASSING_SCORE + ' / 100 <small class="text-muted">' + icon("lock") + "internal</small></dd></div></dl></section>" +
 
       '<section class="card-soft"><h3 class="card-title">Your access · ' + esc(ADM.STAFF.role) + "</h3>" +
-      '<ul class="access-list">' + CAN.map(function (c) { return '<li class="can">' + icon("check") + esc(c) + "</li>"; }).join("") +
-      CANNOT.map(function (c) { return '<li class="cannot">' + icon("lock") + esc(c) + "</li>"; }).join("") + "</ul>" +
+      '<ul class="access-list">' + access().can.map(function (c) { return '<li class="can">' + icon("check") + esc(c) + "</li>"; }).join("") +
+      access().cannot.map(function (c) { return '<li class="cannot">' + icon("lock") + esc(c) + "</li>"; }).join("") + "</ul>" +
       '<p class="text-muted small mb-0 mt-2">Accounts, roles, backups and security settings are handled by the system administrator.</p></section>' +
 
       '<section class="card-soft demo-card"><h3 class="card-title">Demo data</h3><p class="text-muted small">This prototype keeps its records in this browser. Reset to start over with fresh sample applicants.</p>' +
@@ -90,10 +106,22 @@
 
   $(document).on("submit", "#period-form", function (e) {
     e.preventDefault();
-    if (!AO.validateFields($(this))) return;
-    ADM.actions.setDeadline($("#deadline").val());
-    ADM.refresh();
-    AO.showToast("Application deadline saved.");
+    if (!isAdmin() || !AO.validateFields($(this))) return;
+    var body = { deadline: $("#deadline").val() };
+    [["opensOn", "#opens-on"], ["examStartsOn", "#exam-starts"], ["examEndsOn", "#exam-ends"], ["resultsReleaseOn", "#results-on"]].forEach(function (f) {
+      if ($(f[1]).val()) body[f[0]] = $(f[1]).val();
+    });
+    if ($("#accept-days").val()) body.acceptanceWindowDays = +$("#accept-days").val();
+    AO.busy($("#period-save"), AO.api("PATCH", ADM.API + "/admission-period", body).then(ADM.reload))
+      .done(function () { AO.showToast("Dates of admission saved."); })
+      .fail(function (xhr) { if (xhr.status !== 401) AO.showToast(AO.apiError(xhr)); });
+  });
+
+  $(document).on("change", "[data-interview]", function () {
+    var code = $(this).data("interview"), on = this.checked;
+    AO.api("PATCH", ADM.API + "/programs/" + encodeURIComponent(code), { requiresInterview: on })
+      .done(function () { ADM.program(code).requiresInterview = on; ADM.loadInterviews(); AO.showToast(on ? code + " now requires an interview by the college dean." : code + " no longer requires an interview."); })
+      .fail(function (xhr) { if (xhr.status !== 401) AO.showToast(AO.apiError(xhr)); ADM.reload(); });
   });
 
   $(document).on("click", "#add-program", function () {

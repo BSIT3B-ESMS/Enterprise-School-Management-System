@@ -28,7 +28,7 @@ class InterviewController extends Controller
         $programs = $this->interviews->visiblePrograms($request->user())->where('requires_interview', true);
         $ids = $programs->pluck('id');
 
-        $schedules = InterviewSchedule::whereIn('program_id', $ids)->with(['program', 'assignments.application.applicant'])
+        $schedules = InterviewSchedule::whereIn('program_id', $ids)->with(['program', 'assignments.application.applicant', 'assignments.application.choices.program', 'assignments.referredProgram'])
             ->orderBy('date')->get();
         $waiting = Application::where('status', ApplicationStatus::ForInterview)->with(['applicant', 'choices.program', 'interview'])->get()
             ->filter(fn (Application $a) => $ids->contains($a->choices->first()?->program_id) && ! $a->interview);
@@ -72,19 +72,25 @@ class InterviewController extends Controller
         $data = $request->validate(['scheduleId' => ['required', 'integer', 'exists:interview_schedules,id']]);
         $assignment = $this->interviews->assign($application, InterviewSchedule::findOrFail($data['scheduleId']), $request->user());
 
-        return response()->json(['data' => $this->assignment($assignment->load('application.applicant', 'schedule'))]);
+        return response()->json(['data' => $this->assignment($assignment->load('application.applicant', 'application.choices.program', 'referredProgram', 'schedule'))]);
     }
 
-    /** College Dean: grade (0–100, Restricted) and outcome. Body: { grade, outcome } */
+    /**
+     * College Dean: evaluation grade (0–100, Restricted) and outcome.
+     * Body: { grade, outcome: passed|failed|referred, program? (referred), remark? }
+     */
     public function record(Request $request, Application $application): JsonResponse
     {
         $data = $request->validate([
             'grade' => ['required', 'integer', 'between:0,100'],
-            'outcome' => ['required', Rule::in([InterviewAssignment::PASSED, InterviewAssignment::FAILED])],
+            'outcome' => ['required', Rule::in([InterviewAssignment::PASSED, InterviewAssignment::FAILED, InterviewAssignment::REFERRED])],
+            'program' => ['required_if:outcome,referred', 'nullable', 'string', 'exists:programs,code'],
+            'remark' => ['nullable', 'string', 'max:500'],
         ]);
-        $assignment = $this->interviews->record($application, $data['grade'], $data['outcome'], $request->user());
+        $referTo = isset($data['program']) ? Program::where('code', $data['program'])->first() : null;
+        $assignment = $this->interviews->record($application, $data['grade'], $data['outcome'], $request->user(), $referTo, $data['remark'] ?? null);
 
-        return response()->json(['data' => $this->assignment($assignment->load('application.applicant', 'schedule')) + ['status' => $application->fresh()->status->value]]);
+        return response()->json(['data' => $this->assignment($assignment->load('application.applicant', 'application.choices.program', 'referredProgram', 'schedule')) + ['status' => $application->fresh()->status->value]]);
     }
 
     private function assignment(InterviewAssignment $i): array
@@ -94,6 +100,10 @@ class InterviewController extends Controller
             'name' => $i->application->applicant->fullName(true),
             'scheduleId' => $i->interview_schedule_id,
             'outcome' => $i->outcome,
+            'referredTo' => $i->referredProgram?->code,
+            'remark' => $i->remark,
+            // The applicant's three choices, for a referral
+            'choices' => $i->application->choices->map(fn ($c) => $c->program->code)->values()->all(),
             'grade' => $i->grade,   // staff only: this controller is never routed to applicants
             'recordedAt' => $i->recorded_at?->toIso8601String(),
         ];

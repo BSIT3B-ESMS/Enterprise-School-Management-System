@@ -4,7 +4,7 @@
 @section('description', 'Pamantasan ng Lungsod ng Pasig online admission: applicant portal')
 
 @push('styles')
-  <link href="{{ asset('assets/applicant/css/applicant.css') }}" rel="stylesheet">
+  <link href="{{ \App\Support\Asset::v('assets/applicant/css/applicant.css') }}" rel="stylesheet">
 @endpush
 
 @section('content')
@@ -140,6 +140,14 @@
               </div>
               <div class="invalid-feedback" id="signup-terms-error"></div>
             </div>
+            @if (\App\Services\Security\CaptchaVerifier::enabled())
+              <!-- NFR-06: CAPTCHA on registration -->
+              <div class="col-12">
+                <div class="{{ config('admission.captcha.driver') === 'turnstile' ? 'cf-turnstile' : 'g-recaptcha' }}"
+                  data-sitekey="{{ config('admission.captcha.site_key') }}"></div>
+                <div class="invalid-feedback d-block" id="signup-captcha-error"></div>
+              </div>
+            @endif
           </div>
           <button class="btn btn-brand btn-lg w-100" type="submit" id="signup-submit"><span class="btn-label">Create
               account</span></button>
@@ -320,6 +328,16 @@
                 </div>
                 <ul class="key-dates" id="key-dates"></ul>
               </section>
+              <!-- FR-11: dated status timeline -->
+              <section class="card-soft dates-panel" id="timeline-panel" hidden>
+                <div class="panel-heading">
+                  <div>
+                    <h2>Status history</h2>
+                    <p>Each step of your application, with its date</p>
+                  </div>
+                </div>
+                <ul class="key-dates" id="status-timeline"></ul>
+              </section>
             </div>
           </div>
 
@@ -423,7 +441,7 @@
                   </div>
                   <div class="col-md-4 resident-only"><label class="form-label" for="barangay">Barangay <span
                         class="req">*</span></label><select class="form-select" id="barangay" name="barangay"
-                      data-barangays='@json(\App\Support\ApplicantForm::BARANGAYS)' required>
+                      data-barangays='@json(\App\Models\Barangay::byDistrict())' required>
                       <option value="">Select a district first</option>
                     </select>
                     <div class="invalid-feedback" id="barangay-error"></div>
@@ -438,6 +456,23 @@
                       <option value="0">No</option>
                       <option value="1">Yes (a notarized affidavit of guardianship is required)</option>
                     </select>
+                  </div>
+                  <!-- FR-31: applicants under 18 need a parent's or guardian's consent -->
+                  <div class="col-md-6 minor-only" hidden><label class="form-label" for="guardian-consent-name">Parent or
+                      guardian giving consent <span class="req">*</span></label><input class="form-control"
+                      id="guardian-consent-name" name="guardianConsentName" autocomplete="off" placeholder="Full name"
+                      maxlength="150" required disabled>
+                    <div class="invalid-feedback" id="guardian-consent-name-error"></div>
+                  </div>
+                  <div class="col-12 minor-only" hidden><label class="form-label" for="guardian-consent">Parent or
+                      guardian consent <span class="req">*</span></label><select class="form-select" id="guardian-consent"
+                      name="guardianConsent" required disabled>
+                      <option value="">Select</option>
+                      <option value="1">Yes. My parent or guardian has read the data privacy notice (RA 10173) and agrees
+                        to the processing of my personal data for admission.</option>
+                    </select>
+                    <div class="form-text">You're under 18, so a parent or guardian must consent.</div>
+                    <div class="invalid-feedback" id="guardian-consent-error"></div>
                   </div>
                 </div>
               </section>
@@ -469,15 +504,9 @@
                   <div class="col-md-6"><label class="form-label" for="strand">SHS strand <span
                         class="req">*</span></label><select class="form-select" id="strand" name="strand" required>
                       <option value="">Select</option>
-                      <option>STEM</option>
-                      <option>ABM</option>
-                      <option>HUMSS</option>
-                      <option>GAS</option>
-                      <option>TVL – ICT</option>
-                      <option>TVL – Other</option>
-                      <option>Arts and Design</option>
-                      <option>Sports</option>
-                      <option>ALS / Not applicable</option>
+                      @foreach (\App\Models\Strand::activeNames() as $strand)
+                        <option>{{ $strand }}</option>
+                      @endforeach
                     </select>
                     <div class="invalid-feedback" id="strand-error"></div>
                   </div>
@@ -504,6 +533,8 @@
                       <option value="">Select a program</option>
                     </select>
                     <div class="invalid-feedback" id="program1-error"></div>
+                    <!-- FR-06: programs suggested for the applicant's SHS strand -->
+                    <div class="form-text" id="strand-suggestions" hidden></div>
                   </div>
                   <div class="col-12"><label class="form-label" for="program2">Second-choice program <span
                         class="req">*</span></label><select class="form-select program-select" id="program2"
@@ -725,5 +756,8 @@
 @endsection
 
 @push('scripts')
-  <script src="{{ asset('assets/applicant/js/applicant.js') }}"></script>
+  @if (\App\Services\Security\CaptchaVerifier::enabled())
+    <script src="{{ config('admission.captcha.driver') === 'turnstile' ? 'https://challenges.cloudflare.com/turnstile/v0/api.js' : 'https://www.google.com/recaptcha/api.js' }}" async defer></script>
+  @endif
+  <script src="{{ \App\Support\Asset::v('assets/applicant/js/applicant.js') }}"></script>
 @endpush
