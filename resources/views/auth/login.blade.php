@@ -2,12 +2,16 @@
 
 @section('title', 'Sign In · '.config('app.name'))
 
+{{--
+    The EMS Login for HR and employees, the page the EMS opens on (/ and /login); resources/js/login.js checks it.
+    Applicants log in at the PLP Careers Applicant Portal instead, so applicant credentials are pointed there.
+--}}
 @section('content')
     <div class="row g-0 min-vh-100">
         <x-login-brand />
 
         <section class="col-md-6 d-flex align-items-center justify-content-center px-3 py-5">
-            <form class="login-form w-100 d-grid gap-3" method="post" novalidate data-login-form
+            <form class="login-form w-100 d-grid gap-3" method="post" novalidate data-login-form data-login-for="staff"
                 data-applicant-dashboard-url="{{ route('applicant.dashboard') }}">
                 @csrf
 
@@ -16,6 +20,10 @@
                 <x-flash-messages />
 
                 <div class="alert alert-danger mb-0{{ $errors->any() ? '' : ' d-none' }}" role="alert" data-login-error>{{ $errors->first() }}</div>
+
+                <a class="btn btn-outline-primary login-submit d-none" href="{{ route('applicant.portal') }}" data-login-applicant-hint>
+                    Go to the Applicant Portal
+                </a>
 
                 <div>
                     <label for="email" class="form-label">Email</label>
@@ -53,11 +61,11 @@
 
                 <button type="submit" class="btn btn-primary login-submit">Login</button>
 
-                {{-- Applicants start on the public Careers website, where they can browse without an account. --}}
+                {{-- Applicants use PLP Careers and its Applicant Portal, not this login. --}}
                 <div class="d-grid gap-2 border-top pt-3 text-center" data-applicant-entry>
                     <span class="text-body-secondary">Looking for a job?</span>
                     <a class="btn btn-outline-primary login-submit d-inline-flex align-items-center justify-content-center"
-                        href="{{ route('careers.index') }}">Apply for a Job</a>
+                        href="{{ route('careers.index') }}">Visit PLP Careers</a>
                 </div>
             </form>
         </section>
