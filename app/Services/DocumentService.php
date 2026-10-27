@@ -183,7 +183,7 @@ class DocumentService
     }
 
     /**
-     * The clinic nurse's "Approve" (clinic portal): every medical file is in,
+     * The clinic nurse's "Approve" (Clinic module): every medical file is in,
      * sent by the applicant and none is waiting on a replacement. Verifies
      * them all; the office then sees the applicant as Approved.
      */

@@ -12,10 +12,7 @@
      ========================================================================== */
   // Filled from the signed-in account when the state loads
   var STAFF = { name: "", initials: "", role: "", email: "" };
-  // <body data-role="nurse"> is the clinic portal (resources/views/nurse.blade.php):
-  // it loads a medical-only state from /api/clinic instead of /api/admin.
-  var ROLE = document.body.getAttribute("data-role") === "nurse" ? "nurse" : "admin";
-  var API = ROLE === "nurse" ? "/api/clinic" : "/api/admin";
+  var API = "/api/admin";
   var REVIEW_SLA_DAYS = 3;        // working days to review a new application
   var PASSING_SCORE = 60;         // internal; scores are never shown to applicants
   var PAGE_SIZE = 12;
@@ -121,7 +118,8 @@
 
   /* Load everything the panel shows, for the signed-in role (use-case
      diagrams): the Admin and Admission Personnel get the office state and
-     interviews; a College Dean only the dean module for their own college.
+     interviews; a College Dean only the dean module for their own college;
+     the clinic nurse a medical-only state from /api/clinic.
      The objects are updated in place, so code holding them keeps working. */
   function load() {
     return AO.api("GET", "/api/auth/me").then(function (res) {
@@ -131,7 +129,8 @@
         $.extend(STAFF, { name: me.name, initials: me.initials, role: me.role_label, email: me.email });
         return $.when(loadDean(), loadInterviews());
       }
-      return $.when(loadState(), me.role === "admission" || me.role === "admission_head" || me.role === "super_admin" ? loadInterviews() : null);
+      if (me.role === "clinic") return loadState("/api/clinic");
+      return $.when(loadState(API), me.role === "admission" || me.role === "admission_head" || me.role === "super_admin" ? loadInterviews() : null);
     });
   }
   function loadDean() {
@@ -144,8 +143,8 @@
       ["programs", "schedules", "waiting"].forEach(function (k) { interviews[k] = res.data[k]; });
     });
   }
-  function loadState() {
-    return AO.api("GET", API + "/state").done(function (res) {
+  function loadState(api) {
+    return AO.api("GET", api + "/state").done(function (res) {
       var d = res.data;
       $.extend(STAFF, d.staff);
       ["version", "programs", "sessions", "applicants", "settings", "audit"].forEach(function (k) { state[k] = d[k]; });
@@ -251,10 +250,10 @@
   function findType(key) { return DOC_TYPES.concat(MED_TYPES).filter(function (d) { return d.key === key; })[0]; }
   function isMedical(key) { return MED_TYPES.some(function (m) { return m.key === key; }); }
   function fileOf(a, key) { return isMedical(key) ? (a.medical && a.medical.files[key]) : a.docs[key]; }
-  /* Where to fetch an uploaded file. Medical files are confidential: clinic portal only. */
+  /* Where to fetch an uploaded file. Medical files are confidential: the clinic (and the Super Admin, audited). */
   function fileUrl(a, key) {
     var id = encodeURIComponent(a.id), k = encodeURIComponent(key);
-    return isMedical(key) ? (ROLE === "admin" ? "/api/admin/applicants/" : "/api/clinic/applicants/") + id + "/medical/" + k + "/file" : "/api/admin/applicants/" + id + "/documents/" + k + "/file";
+    return isMedical(key) ? (STAFF.roleKey === "clinic" ? "/api/clinic/applicants/" : "/api/admin/applicants/") + id + "/medical/" + k + "/file" : "/api/admin/applicants/" + id + "/documents/" + k + "/file";
   }
 
   function isOverdue(a) { return statusOf(a) === "submitted" && docSummary(a).pending > 0 && workingDaysSince(a.submittedAt) > REVIEW_SLA_DAYS; }
@@ -320,7 +319,7 @@
   }
 
   window.ADM = {
-    ROLE: ROLE, API: API, STAFF: STAFF, REVIEW_SLA_DAYS: REVIEW_SLA_DAYS, PASSING_SCORE: PASSING_SCORE, PAGE_SIZE: PAGE_SIZE,
+    API: API, STAFF: STAFF, REVIEW_SLA_DAYS: REVIEW_SLA_DAYS, PASSING_SCORE: PASSING_SCORE, PAGE_SIZE: PAGE_SIZE,
     STATUSES: STATUSES, STATUS_ORDER: STATUS_ORDER, DOC_STATUS: DOC_STATUS, DOC_TYPES: DOC_TYPES,
     PHYSICAL_ITEMS: PHYSICAL_ITEMS, EXAM_KIT: EXAM_KIT, REMARK_PRESETS: REMARK_PRESETS,
     MED_TYPES: MED_TYPES, MED_STATUS: MED_STATUS, MED_REMARKS: MED_REMARKS, medStatus: medStatus, canApproveMedical: canApproveMedical, medApproval: medApproval,

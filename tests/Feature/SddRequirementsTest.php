@@ -300,7 +300,7 @@ class SddRequirementsTest extends TestCase
         $this->seed(DemoStaffAccountsSeeder::class);
         $this->postJson('/api/auth/login', ['email' => 'abella_gabrielrey@plpasig.edu.ph', 'password' => 'admin123', 'portal' => 'office'])
             ->assertOk()->assertJsonPath('data.user.role', 'admission_head');
-        $this->postJson('/api/auth/login', ['email' => 'ignacio_keane@plpasig.edu.ph', 'password' => 'clinic123', 'portal' => 'clinic'])
+        $this->postJson('/api/auth/login', ['email' => 'ignacio_keane@plpasig.edu.ph', 'password' => 'clinic123', 'portal' => 'office'])
             ->assertOk()->assertJsonPath('data.user.role', 'clinic');
         // Running it again is harmless
         $this->seed(DemoStaffAccountsSeeder::class);

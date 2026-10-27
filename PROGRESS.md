@@ -5,8 +5,7 @@
 | Portal | Link | Who signs in |
 |---|---|---|
 | **Applicant portal** | https://plp-admission-system.3-24-200-123.sslip.io/ | Applicants (create an account there) |
-| **Admin portal** | https://plp-admission-system.3-24-200-123.sslip.io/admin | Admin, Admission Personnel, College Deans (each sees their own screens) |
-| **Nurse portal** (clinic) | https://plp-admission-system.3-24-200-123.sslip.io/nurse | University clinic |
+| **Admin portal** | https://plp-admission-system.3-24-200-123.sslip.io/admin | Admin, Admission Personnel, College Deans, Clinic nurse (each sees their own screens) |
 
 ## 👤 Accounts (live server)
 
@@ -24,8 +23,8 @@
 | **College Dean**, College of Engineering (BSECE) | /admin | `dean.coe@plpasig.edu.ph` | `dean1234` |
 | **College Dean**, College of Education (BEED, BSED-ENG, BSED-FIL) | /admin | `dean.coed@plpasig.edu.ph` | `dean1234` |
 | **College Dean**, College of Nursing (BSN) | /admin | `dean.con@plpasig.edu.ph` | `dean1234` |
-| **Clinic** | /nurse | `ignacio_keane@plpasig.edu.ph` | `clinic123` |
-| **Clinic** | /nurse | `clinic@plpasig.edu.ph` | `ffn8Psp7taheBy0s` |
+| **Clinic** | /admin | `ignacio_keane@plpasig.edu.ph` | `clinic123` |
+| **Clinic** | /admin | `clinic@plpasig.edu.ph` | `ffn8Psp7taheBy0s` |
 | **Applicant** (any of the 60 samples, e.g. `andrea.manalo0@example.com`; list in the admin portal's Applicants) | / | sample email | `B3m0KhRvwNQ68wao` |
 | **System administrator** (server commands, `/pulse`, `/log-viewer`; no portal) | — | `sysadmin@plpasig.edu.ph` | `(d}6b,30k.^S&~<*vUel` |
 
@@ -39,9 +38,10 @@ The portal reads the role from the sign-in; the server enforces the same limits 
 |---|---|---|
 | **Admin**: the whole system | Dashboard · Applicants (student module) · Document review · Entrance exams · Results (also **releases** them) · Interviews · Medical (clinic module, read-only) · Evaluation results (every college's, and can record an evaluation) · Reports · Programs & requirements (also **sets the dates of admission**) · Audit log | Open medical files (clinic only) |
 | **Admission Personnel**: the admissions work | Applicants (registration) · Document review (verification) · Entrance exams · Results (record) · Interviews (schedule, assign) · Medical (read-only) · Programs & requirements (admission slot setup, which programs need an interview) | Release results, set admission dates, see the dashboard, reports or audit log |
+| **Clinic nurse**: medical files only | To check · Sent back · Approved (open an applicant's medical files, send one back with a remark, or approve) | See anything but medical files (no profile, exam, score or documents) |
 | **College Dean**: own college only | Applicant list (only applicants who chose one of the college's programs, e.g. the CCS dean sees BSIT/BSCS applicants) · Applicant evaluation (grade + Passed / Failed / Refer) · Evaluation results / referral | Anything outside their college; any office screen |
 
-The **Nurse portal** (clinic) has Document verification and Medical approval; the **Applicant portal** has Application, Documents, Exam, Interview, Results and Medical.
+The old Nurse portal (`/nurse`) is gone (2026-10-27): the clinic nurse is a role in the Admin portal and `/nurse` redirects to `/admin`. The **Applicant portal** has Application, Documents, Exam, Interview, Results and Medical.
 
 Which programs need a dean's evaluation is set per program in Programs & requirements → **Interview** (on now: BSN only). A dean whose programs have it off still sees the applicant list, but has nobody to evaluate.
 
@@ -54,7 +54,7 @@ cd D:\Admission_System
 php artisan app:start
 ```
 
-Open **http://127.0.0.1:8000/admin** (Admin, Admission Personnel, College Deans), **http://127.0.0.1:8000/nurse** (clinic) or **http://127.0.0.1:8000/** (applicants). Press `Ctrl+C` in the terminal to stop. Accounts: see **Accounts** at the top.
+Open **http://127.0.0.1:8000/admin** (Admin, Admission Personnel, College Deans, Clinic) or **http://127.0.0.1:8000/** (applicants). Press `Ctrl+C` in the terminal to stop. Accounts: see **Accounts** at the top.
 
 **On a new computer (one time):** install [Laravel Herd](https://herd.laravel.com) (it gives you PHP and Composer), then:
 
@@ -201,7 +201,7 @@ This starts the web server, the queue worker (emails, notifications) and the sch
 |---|---|---|
 | Applicant portal | http://127.0.0.1:8000/ | **Create account**, or a sample applicant (any email in the admin panel's Applicants list) / `password123` |
 | Admission office | http://127.0.0.1:8000/admin | `admissions@plpasig.edu.ph` / `password123` |
-| Clinic (medical) | http://127.0.0.1:8000/nurse | `clinic@plpasig.edu.ph` / `password123` |
+| Clinic (medical) | http://127.0.0.1:8000/admin | `clinic@plpasig.edu.ph` / `password123` |
 | Monitoring (Pulse) | http://127.0.0.1:8000/pulse | local only |
 
 ### After pulling new code

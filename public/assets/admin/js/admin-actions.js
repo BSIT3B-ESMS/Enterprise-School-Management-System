@@ -162,8 +162,8 @@
       return n;
     },
 
-    // Medical requirements are checked and approved in the clinic portal
-    // (assets/nurse/js/nurse.js, /api/clinic). The office sees them read-only.
+    // Medical requirements are checked and approved in the Clinic module
+    // (views/clinic.js, /api/clinic). The office sees them read-only.
 
     createSession: function (date, batch, venue, capacity) {
       var dup = ADM.state.sessions.filter(function (s) { return s.date === date && s.batch === batch && s.venue.toLowerCase() === venue.toLowerCase(); })[0];

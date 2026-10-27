@@ -148,6 +148,7 @@
     $("#remark-doc").html("<strong>" + esc(d.title) + "</strong> · " + esc(ADM.fullName(a)) + " (" + esc(a.id) + ")");
     $("#remark-text").val((f && f.remark) || "");
     AO.clearError($("#remark-text"));
+    $("#remark-where").text(ADM.isMedical(key) ? "The applicant sees this remark on their Medical requirements step." : "The applicant sees this remark on their Documents page.");
     $("#remark-presets").html((ADM.isMedical(key) ? ADM.MED_REMARKS : ADM.REMARK_PRESETS).map(function (r) { return '<button type="button" class="chip-btn">' + esc(r) + "</button>"; }).join(""));
     open("remarkModal");
   }
@@ -307,6 +308,12 @@
     });
     $("#nav-count-documents").text(pendingDocs).toggleClass("full", pendingDocs === 0);
     $("#nav-count-results").text(toRecord + unreleased).toggleClass("full", toRecord + unreleased === 0);
+    // Clinic module
+    var med = { pending: 0, resubmit: 0, cleared: 0 };
+    ADM.state.applicants.forEach(function (a) { var st = ADM.medStatus(a); if (st in med) med[st]++; });
+    $("#nav-count-check").text(med.pending).toggleClass("full", med.pending === 0);
+    $("#nav-count-returned").text(med.resubmit).toggleClass("full", med.resubmit === 0);
+    $("#nav-count-approved").text(med.cleared).toggleClass("full", med.cleared === 0);
   }
 
   ADM.ui = {

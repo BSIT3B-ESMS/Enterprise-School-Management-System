@@ -14,10 +14,9 @@ Route::get('/email/verify/{id}/{hash}', VerifyEmailController::class)
     ->middleware(['signed', 'throttle:6,1'])
     ->name('verification.verify');
 
-// Clinic portal: the clinic nurse's medical-files-only screen
-Route::view('/nurse', 'nurse')->name('nurse');
-
 // Old static-site URLs
 Route::redirect('/index.html', '/', 301);
 Route::redirect('/admin/index.html', '/admin', 301);
-Route::redirect('/nurse/index.html', '/nurse', 301);
+// The clinic nurse is a role in the admin portal now
+Route::redirect('/nurse', '/admin', 301);
+Route::redirect('/nurse/index.html', '/admin', 301);

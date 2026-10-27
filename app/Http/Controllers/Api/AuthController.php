@@ -71,8 +71,7 @@ class AuthController extends Controller
         }
         if (! $this->allowedOnPortal($user, $request->string('portal'))) {
             $hint = match ($user->primaryRole()) {
-                Role::Clinic => ' Clinic accounts sign in at the clinic portal (/nurse).',
-                Role::Admission, Role::AdmissionHead, Role::Proctor, Role::ReadOnly, Role::SuperAdmin => ' Admission office accounts sign in at /admin.',
+                Role::Admission, Role::AdmissionHead, Role::Clinic, Role::Proctor, Role::ReadOnly, Role::SuperAdmin => ' Admission office accounts sign in at /admin.',
                 default => '',
             };
             throw ValidationException::withMessages(['email' => "This account can't sign in here.".$hint]);
@@ -247,11 +246,10 @@ class AuthController extends Controller
 
     private function allowedOnPortal(User $user, string $portal): bool
     {
-        // Each sign-in screen lets in its own roles only (NFR-01). The dean signs in on the office side.
+        // Each sign-in screen lets in its own roles only (NFR-01). The dean and the clinic nurse sign in on the office side.
         return in_array($user->primaryRole(), match ($portal) {
             'applicant' => [Role::Applicant],
-            'office' => [Role::Admission, Role::AdmissionHead, Role::CollegeDean, Role::Proctor, Role::ReadOnly, Role::SuperAdmin],
-            'clinic' => [Role::Clinic],
+            'office' => [Role::Admission, Role::AdmissionHead, Role::Clinic, Role::CollegeDean, Role::Proctor, Role::ReadOnly, Role::SuperAdmin],
         }, true);
     }
 

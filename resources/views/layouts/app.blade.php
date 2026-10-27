@@ -16,7 +16,7 @@
   @stack('styles')
 </head>
 
-<body @hasSection('body_class') class="@yield('body_class')" @endif @hasSection('body_role') data-role="@yield('body_role')" @endif>
+<body @hasSection('body_class') class="@yield('body_class')" @endif>
 @yield('content')
 
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
