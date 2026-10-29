@@ -50,7 +50,7 @@ jobs:
       - name: Remove files the server does not need
         run: rm -rf node_modules tests .git .github .ai .agents .claude
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: release
           path: .
