@@ -1,0 +1,49 @@
+/.phpunit.cache
+/.phpunit.result.cache
+/node_modules
+/public/build
+/public/hot
+/public/storage
+/public/vendor/pdfjs
+/storage/*.key
+/storage/pail
+/storage/tools
+/storage/app/private
+/storage/logs/*
+!/storage/logs/.gitignore
+/vendor
+
+# Environment files; the example template is intentionally committed.
+.env
+.env.*
+!.env.example
+
+# Local credentials and certificate material.
+/auth.json
+/*.pem
+/*.key
+/*.p12
+/*.pfx
+
+# Local databases and runtime journals.
+/database/*.sqlite
+/database/*.sqlite3
+*.sqlite
+*.sqlite3
+*.sqlite-journal
+
+# Editor and operating-system files.
+.DS_Store
+Thumbs.db
+.phpactor.json
+Homestead.json
+Homestead.yaml
+/.fleet
+/.idea
+/.nova
+/.vscode
+/.zed
+
+# Logs.
+npm-debug.log*
+yarn-error.log*
