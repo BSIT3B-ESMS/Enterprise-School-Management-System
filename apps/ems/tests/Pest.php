@@ -1,0 +1,95 @@
+<?php
+
+use App\Models\Employee;
+use App\Models\User;
+use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Tests\TestCase;
+
+/*
+|--------------------------------------------------------------------------
+| Test Case
+|--------------------------------------------------------------------------
+|
+| The closure you provide to your test functions is always bound to a specific PHPUnit test
+| case class. By default, that class is "PHPUnit\Framework\TestCase". Of course, you may
+| need to change it using the "pest()" function to bind different classes or traits.
+|
+*/
+
+pest()->extend(TestCase::class)
+    ->use(LazilyRefreshDatabase::class)
+    ->in('Feature');
+
+/*
+|--------------------------------------------------------------------------
+| Expectations
+|--------------------------------------------------------------------------
+|
+| When you're writing tests, you often need to check that values meet certain conditions. The
+| "expect()" function gives you access to a set of "expectations" methods that you can use
+| to assert different things. Of course, you may extend the Expectation API at any time.
+|
+*/
+
+expect()->extend('toBeOne', function () {
+    return $this->toBe(1);
+});
+
+/*
+|--------------------------------------------------------------------------
+| Functions
+|--------------------------------------------------------------------------
+|
+| While Pest is very powerful out-of-the-box, you may have some testing code specific to your
+| project that you don't want to repeat in every file. Here you can also expose helpers as
+| global functions to help you to reduce the number of lines of code in your test files.
+|
+*/
+
+/**
+ * A signed-in HR Admin, for the many page tests that need HR access.
+ */
+function hrAdmin(): User
+{
+    return User::factory()->hrAdmin()->create();
+}
+
+function hrStaff(): User
+{
+    return User::factory()->hrStaff()->create();
+}
+
+/**
+ * An Employee login linked to an employee record, as every real employee account is.
+ */
+function employeeUser(): User
+{
+    return User::factory()->create(['employee_id' => Employee::factory()->create()->id]);
+}
+
+/**
+ * An Employee-role login that is not linked to any employee record.
+ */
+function unlinkedEmployeeUser(): User
+{
+    return User::factory()->create();
+}
+
+function applicantUser(): User
+{
+    return User::factory()->applicant()->create();
+}
+
+/**
+ * The user who may open a page, by its route name: an employee for the Employee interface, nobody for the public pages
+ * (Login, Careers, the Applicant interface), and an HR Admin for every HR page.
+ */
+function userFor(string $route): ?User
+{
+    return match (true) {
+        str_starts_with($route, 'employee.') => employeeUser(),
+        $route === 'applicant.register', $route === 'login', $route === 'home', str_starts_with($route, 'careers.') => null,
+        str_starts_with($route, 'applicant.') => applicantUser(),
+        default => hrAdmin(),
+    };
+}
