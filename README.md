@@ -31,13 +31,30 @@ Check each app's own README for seeders and demo accounts.
 
 Open `apps/tap-pms/index.html` in Chrome or Edge. See [its README](apps/tap-pms/README.md).
 
-## Keeping in sync with the original repos
+## Where do I make changes?
 
-Teams still push to their original repositories. To pull their latest work into this monorepo:
+**This monorepo is a read-only mirror.** Each team keeps working in its original repository, with its own branch rules and CI. Changes flow one way: original repo → monorepo.
+
+| To change... | Push to |
+|---|---|
+| `apps/ems` | [yumulniccolo/EMS](https://github.com/yumulniccolo/EMS) (`main`) |
+| `apps/tap-pms` | [JD-Slayin/TAP-PMS](https://github.com/JD-Slayin/TAP-PMS) (`main`) |
+| `apps/admission` | [hanimehub06-eng/Admission_System](https://github.com/hanimehub06-eng/Admission_System) (`main`) |
+| `apps/document-management` | [AAAAA13-sys/school-document-management](https://github.com/AAAAA13-sys/school-document-management) (`master`) |
+
+Only root-level files (this README, `scripts/`, `.github/`) are edited here. Pull requests that touch `apps/` are blocked by the **Guard apps** check.
+
+## How syncing works
+
+The **Sync upstream apps** workflow ([`.github/workflows/sync-upstream.yml`](.github/workflows/sync-upstream.yml)) runs on a schedule. It pulls each original repo's default branch into its `apps/` folder with `git subtree pull` and pushes the result to `main`. Only the default branches are synced. Feature branches stay in the original repos until they are merged there.
+
+To sync right away, open **Actions → Sync upstream apps → Run workflow** on GitHub, or run it locally:
 
 ```bash
 scripts/sync.sh              # all apps
 scripts/sync.sh admission    # one app
 ```
 
-The script runs `git subtree pull` for each app. Changes to an app can also be made here and sent back upstream with `git subtree push --prefix=apps/<app> <repo-url> <branch>`, preferably to a new branch so the team can review it as a pull request.
+If the sync fails, it is usually because someone edited `apps/` here and it conflicts with upstream. Revert that edit and make it in the original repo instead.
+
+The CI workflows inside `apps/*/.github/` do not run in this repo. GitHub only reads workflows from the root `.github/workflows/`. They keep running in the original repos.

@@ -1,0 +1,27 @@
+name: Guard apps
+
+# Fails any pull request that edits apps/. Those folders are synced from the original
+# repositories, so changes must be made there (see "Where do I make changes?" in README.md).
+on:
+  pull_request:
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Block edits under apps/
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          changed=$(git diff --name-only "origin/${BASE_REF}...HEAD" -- apps/)
+          if [[ -n "$changed" ]]; then
+            echo "::error::This PR edits files under apps/, which are mirrored from the original repositories."
+            echo "Make these changes in the app's original repo instead (see README.md):"
+            echo "$changed" | sed 's/^/  - /'
+            exit 1
+          fi
+          echo "No changes under apps/."
