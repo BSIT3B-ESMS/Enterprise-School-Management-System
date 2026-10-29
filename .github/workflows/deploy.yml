@@ -1,0 +1,94 @@
+name: Deploy
+
+# Runs after CI passes on main. The build happens on a GitHub-hosted runner; the deploy runs on a self-hosted Windows
+# runner on the PLP server (labels: self-hosted, windows, ems-prod), gated by the "production" environment's required
+# reviewers. Nothing is deployed until the repository variable DEPLOY_ENABLED is set to "true".
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build release
+    if: >-
+      vars.DEPLOY_ENABLED == 'true' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'))
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - run: composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist --no-progress
+
+      - name: Build assets
+        run: |
+          npm ci
+          npm run build
+
+      - name: Remove files the server does not need
+        run: rm -rf node_modules tests .git .github .ai .agents .claude
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release
+          path: .
+          include-hidden-files: true
+          retention-days: 14
+
+  deploy:
+    name: Deploy to production
+    needs: build
+    runs-on: [self-hosted, windows, ems-prod]
+    environment: production
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release
+          path: release
+
+      # The server keeps its own .env and storage/ (uploaded documents, logs, sessions); they are never overwritten.
+      - name: Deploy
+        shell: pwsh
+        env:
+          APP_PATH: ${{ vars.APP_PATH || 'C:\laragon\www\EMS' }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $app = $env:APP_PATH
+
+          php "$app\artisan" down --retry=60
+
+          robocopy release $app /MIR /XD "$app\storage" "$app\public\storage" /XF .env /NFL /NDL /NP
+          if ($LASTEXITCODE -ge 8) {
+              php "$app\artisan" up
+              throw "robocopy failed with exit code $LASTEXITCODE"
+          }
+
+          php "$app\artisan" migrate --force
+          if ($LASTEXITCODE -ne 0) { throw 'Migrations failed; the application stays in maintenance mode.' }
+
+          php "$app\artisan" optimize
+          php "$app\artisan" queue:restart
+          php "$app\artisan" up
+          exit 0
