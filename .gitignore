@@ -1,0 +1,7 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Each app under apps/ keeps its own .gitignore for vendor/, node_modules/, .env, etc.
