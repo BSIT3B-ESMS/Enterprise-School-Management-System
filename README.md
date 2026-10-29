@@ -1,58 +1,189 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# PLP Employee Management System (EMS)
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+A server-rendered Laravel application for the Human Resources office of Pamantasan ng Lungsod ng Pasig (PLP). It covers the employee records, recruitment, leave, and contracts that HR manages, plus self-service portals for employees and applicants and a read-only API for external systems such as Payroll.
 
-## About Laravel
+## Features
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+**HR (HR Admin and HR Staff)**
+- **Employees**: Faculty and Non-Teaching Staff records with search, filters, profiles, emergency contacts, documents, and masked government IDs. Records are archived, never deleted.
+- **Reference data**: colleges, offices, job titles, and effective-dated pay rates (Philippine Salary Grades).
+- **Recruitment**: job postings, the application pipeline (Applied → Demo Interview → Offered → Hired), interview scheduling with conflict detection, offers, and hiring. Hiring creates the employee record and their login in one step.
+- **Leave**: CSC-based leave credits (earned monthly, prorated for part-time), filing, approval, and rejection with an append-only history.
+- **Calendar**: interviews, HR events, and approved leave, with drag-and-drop rescheduling.
+- **Contracts**: ending contracts, renewals, and changes of assignment that take effect once the employee signs.
+- **In-app notifications** for every role.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+**HR Admin only**
+- Reports and CSV/XLSX exports (each export is audited), the employee archive, the audit log, account administration, and revealing a government ID (a reason is required and recorded).
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+**Employee portal** (`/employee`): profile, emergency contacts, files, benefits, directory, calendar, leave, and contract offers.
 
-## Learning Laravel
+**Applicant portal** (`/applicant`) and **public Careers site** (`/careers`): browse open positions, register, apply with a resume and portfolio, follow the application, request an interview reschedule, and accept or decline an offer.
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+**External API** (`/api/v1`): read-only employee and reference data, authenticated with one bearer token per consumer.
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+## Tech stack
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+| Layer | Technology |
+| --- | --- |
+| Backend | PHP 8.3+ (developed on 8.4), Laravel 13, Laravel Fortify (authentication and 2FA) |
+| Database | MySQL |
+| Frontend | Blade, Bootstrap 5.3 (Sass), jQuery 4, jQuery UI 1.14 |
+| Bundler | Vite 8 with `laravel-vite-plugin` |
+| Testing | Pest 5 |
+| Formatting | Laravel Pint |
 
-## Agentic Development
+There is no SPA and no Tailwind. All frontend assets are bundled by Vite; do not add CDN `<script>` or `<link>` tags.
 
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+## Requirements
+
+- PHP 8.3 or newer with the usual Laravel extensions (`pdo_mysql`, `mbstring`, `openssl`, `fileinfo`, …)
+- Composer
+- Node.js and npm
+- MySQL (one database for the app, one for tests)
+
+## Getting started
 
 ```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+git clone https://github.com/yumulniccolo/EMS.git
+cd EMS
+cp .env.example .env
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+Create the databases and set the credentials in `.env`:
 
-## Contributing
+```sql
+CREATE DATABASE ems;
+CREATE DATABASE ems_testing;
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+```dotenv
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=ems
+DB_USERNAME=root
+DB_PASSWORD=
+```
 
-## Code of Conduct
+Then install, migrate, and build:
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+```bash
+composer run setup        # composer install, key:generate, migrate, npm install, npm run build
+php artisan db:seed       # synthetic sample data (see below)
+composer run dev          # app server, Vite, and the other dev processes
+```
 
-## Security Vulnerabilities
+The app is served at `http://localhost:8000` and opens on the sign-in page.
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+### Sample accounts
 
-## License
+`php artisan db:seed` loads synthetic data only. The development accounts below are **not created in production** and must never be used there.
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+| Role | Email | Password |
+| --- | --- | --- |
+| HR Admin | `yumul_niccolofranco@plpasig.edu.ph` | `password` |
+| HR Admin | `bellen_prespurtjames@plpasig.edu.ph` | `password` |
+| HR Staff | `manansala_lourdes@plpasig.edu.ph` | their employee number |
+| Employee | any seeded employee's official email | their employee number (`YY-00000`) |
+| Applicant | e.g. `maricel.soriano@example.test` | `Applicant#2026` |
+
+## Configuration
+
+EMS-specific settings live in [config/ems.php](config/ems.php) and are driven by these environment variables:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `EMS_REQUIRE_MFA` | `false` | Require an authenticator app (TOTP) for HR accounts. Must be `true` before production. |
+| `EMS_CHECK_BREACHED_PASSWORDS` | `true` | Reject passwords found in known data breaches. |
+| `EMS_HR_EMAIL` | `hr@plpasig.edu.ph` | HR contact address shown on the "Forgot password?" page. |
+
+The application timezone is `Asia/Manila`. Mail is sent only to personal email addresses, never to `@plpasig.edu.ph`.
+
+## Scheduled tasks
+
+Future-dated transfers and accepted agreements are applied by scheduled commands (see [routes/console.php](routes/console.php)):
+
+| Command | Runs | Does |
+| --- | --- | --- |
+| `transfers:apply` | daily at 00:05 | Applies transfers whose effective date has arrived |
+| `agreements:apply` | daily at 00:10 | Applies accepted contract offers and changes of assignment on their start date |
+
+The server must run the scheduler every minute, e.g. with cron or Windows Task Scheduler:
+
+```bash
+php artisan schedule:run
+```
+
+## External API
+
+The read-only API is served at `/api/v1`, returns 50 records per page, and allows 60 requests per minute per consumer. Every call is logged.
+
+| Endpoint | Ability |
+| --- | --- |
+| `GET /api/v1/employees` | `employees:read` |
+| `GET /api/v1/employees/{employeeNo}` | `employees:read` |
+| `GET /api/v1/employees/{employeeNo}/status` | `employees:read` |
+| `GET /api/v1/colleges` | `reference:read` |
+| `GET /api/v1/job-titles` | `reference:read` |
+| `GET /api/v1/rate-tiers` | `reference:read` |
+
+Consumers and their tokens are managed from the command line:
+
+```bash
+php artisan api:consumer create Payroll --ability=employees:read --ability=reference:read
+php artisan api:consumer list
+php artisan api:consumer rotate Payroll
+php artisan api:consumer revoke Payroll
+php artisan api:consumer restore Payroll
+```
+
+Send the token as `Authorization: Bearer <token>`.
+
+## Development
+
+| Task | Command |
+| --- | --- |
+| Run everything for development | `composer run dev` |
+| Vite dev server only | `npm run dev` |
+| Production asset build | `npm run build` |
+| Run the tests | `php artisan test --compact` |
+| Run one test file | `php artisan test --compact tests/Feature/HomePageTest.php` |
+| Format changed PHP files | `vendor/bin/pint --dirty` |
+
+Tests run against the MySQL database `ems_testing` (see [phpunit.xml](phpunit.xml)).
+
+If a frontend change doesn't show up, or you see "Unable to locate file in Vite manifest", rebuild with `npm run build` or keep `npm run dev` running.
+
+## Project structure
+
+```
+app/
+├── Actions/        Business operations (Accounts, Employees, Leave, Recruitment)
+├── Console/        Artisan commands (api:consumer, transfers:apply, agreements:apply)
+├── Enums/          Roles, statuses, leave types, employment types, …
+├── Http/           Controllers (web, Applicant, Api\V1), middleware, form requests, API resources
+├── Models/         Eloquent models
+├── Policies/       Authorization (employees, leave requests, users)
+└── Services/       Leave balances, academic calendar, document storage, audit logging, …
+database/
+├── factories/      Model factories for tests
+├── migrations/
+└── seeders/        Synthetic sample data
+resources/
+├── js/             jQuery page scripts
+├── scss/           Bootstrap theme and page styles
+└── views/          Blade templates per module
+routes/
+├── web.php         HR, Employee, Applicant, and Careers routes
+├── api.php         /api/v1
+└── console.php     Scheduled tasks
+tests/              Pest feature and unit tests
+```
+
+### Notes for contributors and AI agents
+
+- [AGENTS.md](AGENTS.md) is generated by Laravel Boost (`php artisan boost:update`). Don't edit inside its `<laravel-boost-guidelines>` block.
+- Durable project guidance lives in [.ai/guidelines/](.ai/guidelines/) (always loaded) and [.ai/rules/](.ai/rules/) (path-scoped; start at [.ai/rules/index.md](.ai/rules/index.md)).
+- [.ai/ems-module-guide.md](.ai/ems-module-guide.md) records the domain decisions behind each module.
+- Don't change dependencies without approval.
