@@ -23,6 +23,7 @@ class AcademicController extends Controller {
   $fields=config('academic.'.$resource);abort_unless(is_array($fields),404);$data=$request->validate($fields);if($resource==='subjects' && array_diff(explode(',',$data['allowed_days']),['Mon','Tue','Wed','Thu','Fri','Sat','Sun']))AcademicService::fail('Allowed days must be comma-separated day codes, such as Mon,Wed,Fri.');if($resource==='rooms'){$floor=DB::table('floors')->find($data['floor_id']);$building=DB::table('buildings')->find($data['building_id']);if(!$building->active || !$floor->active || $floor->building_id!=$building->id)AcademicService::fail('Choose an active floor belonging to the selected building.');$data['building']=$building->name;$data['floor']=$floor->name;}
   try{DB::transaction(function()use($resource,$data,$service){
    DB::table('periods')->orderBy('id')->lockForUpdate()->get();
+   if($resource==='curriculum_subjects' && DB::table('students')->where('curriculum_id',$data['curriculum_id'])->exists())AcademicService::fail('This curriculum is assigned to students. Create a new version before changing its requirements.');
    // Serialize scheduling configuration changes on the academic period row.
    if(in_array($resource,['schedules','offerings'])){
     $period=$resource==='offerings'?$data['period_id']:DB::table('offerings')->find($data['offering_id'])->period_id;
@@ -55,10 +56,20 @@ class AcademicController extends Controller {
  public function deactivate(string $resource,int $id,AcademicService $service) {
   abort_unless(is_array(config('academic.'.$resource)),404);
   DB::transaction(function()use($resource,$id,$service){DB::table('periods')->orderBy('id')->lockForUpdate()->get();
-   $row=DB::table($resource)->where('id',$id)->lockForUpdate()->first();abort_unless($row,404);if(in_array($resource,['schedules','offerings','buildings','floors']))$this->assertMutable($resource,$row);DB::table($resource)->where('id',$id)->update(['active'=>false,'updated_at'=>now()]);$service->audit('deactivated',$resource,$id,(array)$row);},3);
+   $row=DB::table($resource)->where('id',$id)->lockForUpdate()->first();abort_unless($row,404);if(in_array($resource,['schedules','offerings','buildings','floors','curriculums','curriculum_subjects']))$this->assertMutable($resource,$row);DB::table($resource)->where('id',$id)->update(['active'=>false,'updated_at'=>now()]);$service->audit('deactivated',$resource,$id,(array)$row);},3);
   return back()->with('status','Record deactivated. History was retained.');
  }
+ public function activate(string $resource,int $id,AcademicService $service){
+  abort_unless(is_array(config('academic.'.$resource)),404);
+  DB::transaction(function()use($resource,$id,$service){DB::table('periods')->orderBy('id')->lockForUpdate()->get();$row=DB::table($resource)->where('id',$id)->lockForUpdate()->first();abort_unless($row,404);
+   if(in_array($resource,['schedules','offerings','curriculum_subjects']))$this->assertMutable($resource,$row);
+   if($resource==='prerequisites'){DB::table('subjects')->orderBy('id')->lockForUpdate()->get();$service->prerequisite((array)$row,$id);}
+   if($resource==='schedules')$service->schedule((array)$row,$id);
+   DB::table($resource)->where('id',$id)->update(['active'=>true,'updated_at'=>now()]);$service->audit('activated',$resource,$id);
+  },3);return request()->expectsJson()?response()->json(['message'=>'Record activated.']):back()->with('status','Record activated.');
+ }
  private function assertMutable(string $resource,object $row):void {
+  if(in_array($resource,['curriculums','curriculum_subjects']) && DB::table('students')->where('curriculum_id',$resource==='curriculums'?$row->id:$row->curriculum_id)->exists())AcademicService::fail('This curriculum is assigned to students. Create a new version to preserve historical requirements.');
   $query=DB::table('proposal_items as i')->join('offerings as o','o.id','=','i.offering_id');
   if($resource==='offerings')$query->where('o.id',$row->id);
   elseif($resource==='schedules')$query->where('o.id',$row->offering_id);

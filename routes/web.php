@@ -73,3 +73,5 @@ Route::middleware(['auth','password.changed'])->group(function(){
  Route::get('/enrollments/{id}/pdf/{version}',[\App\Http\Controllers\EnrollmentController::class,'pdf'])->whereNumber('version');
 });
 Route::get('/reports',[\App\Http\Controllers\EnrollmentController::class,'index'])->middleware(['auth','password.changed','role:registrar'])->name('reports');
+
+Route::post('/academic/{resource}/{id}/activate',[\App\Http\Controllers\AcademicController::class,'activate'])->middleware(['auth','password.changed','role:registrar']);

@@ -38,6 +38,8 @@
 <td><span class="badge {{ $row->active?'text-bg-success':'text-bg-secondary' }}">{{ $row->active?'Active':'Inactive' }}</span></td><td>
 
 @if($row->active)<a href="?edit={{ $row->id }}" class="btn btn-sm btn-outline-primary mb-1">Edit</a><form method="post" action="/academic/{{ $resource }}/{{ $row->id }}/deactivate" class="confirm-action">@csrf<button class="btn btn-sm btn-outline-secondary">Deactivate</button></form>
+@else
+<form method="post" action="/academic/{{ $resource }}/{{ $row->id }}/activate">@csrf<button class="btn btn-sm btn-outline-primary">Activate</button></form>
 
 @endif</td></tr>
 

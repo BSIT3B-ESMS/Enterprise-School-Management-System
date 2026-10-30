@@ -112,4 +112,13 @@ class EnrollmentWorkflowTest extends TestCase {
   $subject=$this->row('subjects',['code'=>'BLOCK2','name'=>'Another subject','units'=>3,'type'=>'lecture','allowed_days'=>'Mon']);$this->row('curriculum_subjects',['curriculum_id'=>$this->f['curriculum'],'subject_id'=>$subject,'year_level'=>1,'semester'=>1]);$this->row('professor_subjects',['professor_id'=>$this->f['professor'],'subject_id'=>$subject]);$offering=$this->row('offerings',['subject_id'=>$subject,'section_id'=>$this->f['section'],'period_id'=>$this->f['period'],'capacity'=>1]);$this->row('schedules',['offering_id'=>$offering,'professor_id'=>$this->f['professor'],'room_id'=>$this->f['room'],'day'=>'Mon','start_time'=>'09:00','end_time'=>'10:00']);
   $user=User::factory()->create(['role'=>'student','must_change_password'=>false]);$student=$this->row('students',['user_id'=>$user->id,'admission_id'=>'BLOCK-NEW','curriculum_id'=>$this->f['curriculum']]);$this->expectException(ValidationException::class);app(EnrollmentService::class)->propose($student,$this->f['period'],[$offering]);
  }
+ public function test_regular_proposal_includes_all_prescribed_required_subjects():void {
+  $subject=$this->row('subjects',['code'=>'REQUIRED2','name'=>'Additional required course','units'=>3]);$this->row('curriculum_subjects',['curriculum_id'=>$this->f['curriculum'],'subject_id'=>$subject,'year_level'=>1,'semester'=>1,'elective'=>false]);$this->expectException(ValidationException::class);$this->proposal();
+ }
+ public function test_curriculum_assignments_preserve_historical_requirements():void {
+  $row=DB::table('curriculum_subjects')->first();$this->actingAs($this->f['registrar'])->post('/academic/curriculum_subjects/'.$row->id.'/deactivate')->assertSessionHasErrors('academic');$this->assertDatabaseHas('curriculum_subjects',['id'=>$row->id,'active'=>true]);
+ }
+ public function test_deactivated_subject_can_be_reactivated_without_losing_history():void {
+  $this->actingAs($this->f['registrar'])->post('/academic/subjects/'.$this->f['subject'].'/deactivate')->assertSessionHasNoErrors();$this->assertDatabaseHas('subjects',['id'=>$this->f['subject'],'active'=>false]);$this->post('/academic/subjects/'.$this->f['subject'].'/activate')->assertSessionHasNoErrors();$this->assertDatabaseHas('subjects',['id'=>$this->f['subject'],'active'=>true]);
+ }
 }

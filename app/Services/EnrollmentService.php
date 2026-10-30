@@ -23,6 +23,12 @@ class EnrollmentService {
   foreach($sections as $sectionId){$section=DB::table('sections')->find($sectionId);$count=DB::table('enrollments as e')->join('proposal_items as i','i.enrollment_id','=','e.id')->join('offerings as o','o.id','=','i.offering_id')->whereColumn('i.version','e.version')->where('e.status','finalized')->where('o.section_id',$sectionId)->where('e.student_id','!=',$e->student_id)->distinct()->count('e.student_id');if($count >= $section->capacity)AcademicService::fail('The section has reached its student capacity. The Registrar must choose or approve another section.');}
   $subjects=DB::table('offerings')->whereIn('id',$ids)->pluck('subject_id');
   if($subjects->unique()->count()!==count($ids))AcademicService::fail('A subject cannot be selected twice.');
+  $student=DB::table('students')->find($e->student_id);
+  if($student->classification==='regular'){
+   $completed=DB::table('academic_records')->where(['student_id'=>$student->id,'active'=>true])->whereIn('status',['PASSED','CREDITED'])->pluck('subject_id');
+   $required=DB::table('curriculum_subjects as c')->join('subjects as s','s.id','=','c.subject_id')->where(['c.curriculum_id'=>$student->curriculum_id,'c.year_level'=>$student->year_level,'c.semester'=>DB::table('periods')->where('id',$e->period_id)->value('semester'),'c.active'=>true,'c.elective'=>false])->whereNotIn('s.id',$completed)->whereNotIn('s.id',$subjects)->pluck('s.code');
+   if($required->isNotEmpty())AcademicService::fail('The regular proposal is missing prescribed required subjects: '.$required->implode(', ').'. A special academic arrangement requires evaluation.');
+  }
  }
  public function propose(int $studentId,int $periodId,array $ids,bool $special=false): int {
   return DB::transaction(function()use($studentId,$periodId,$ids,$special){

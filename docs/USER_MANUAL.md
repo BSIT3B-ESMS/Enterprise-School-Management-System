@@ -53,3 +53,5 @@ Notifications shows enrollment and academic-evaluation events. Open details mark
 Minimum-grade prerequisites use GRADE_ORDER=lower or higher. Confirm the institutional policy before setting it. An unconfigured direction blocks threshold-dependent eligibility. Required/elective flags are maintained in curriculum requirements. Dedicated rooms can specify a single subject; shared rooms leave that field empty.
 
 Enrollment reports supports period, program and status filters and a CSV export. The export neutralizes spreadsheet-formula prefixes. Staff accounts can be activated or deactivated; deactivation revokes sessions and API tokens. A Registrar cannot deactivate their own account.
+
+Curriculum versions already assigned to students preserve their historical requirements. Create a new curriculum version to change those requirements. Inactive academic records can be reactivated when validation permits; schedule/offerings with proposal history retain stricter revision controls. A regular proposal must include all still-required subjects prescribed for its year and semester. Special academic loads require the evaluation workflow.
