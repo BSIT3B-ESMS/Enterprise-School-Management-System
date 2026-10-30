@@ -1,0 +1,20 @@
+<?php
+return [
+ 'department_head_programs'=>['user_id'=>'required|exists:users,id','program_id'=>'required|exists:programs,id'],
+ 'room_closures'=>['room_id'=>'required|exists:rooms,id','period_id'=>'required|exists:periods,id','day'=>'required|in:Mon,Tue,Wed,Thu,Fri,Sat,Sun','start_time'=>'required|date_format:H:i','end_time'=>'required|date_format:H:i|after:start_time','reason'=>'required|string|max:2000'],
+ 'buildings'=>['name'=>'required|string|max:100'],
+ 'floors'=>['building_id'=>'required|exists:buildings,id','name'=>'required|string|max:50'],
+ 'programs'=>['code'=>'required|string|max:30','name'=>'required|string|max:255'],
+ 'periods'=>['name'=>'required|string|max:100','academic_year'=>'required|regex:/^\\d{4}-\\d{4}$/','semester'=>'required|in:1,2,3'],
+ 'curriculums'=>['program_id'=>'required|exists:programs,id','name'=>'required|string|max:100'],
+ 'subjects'=>['code'=>'required|string|max:30','name'=>'required|string|max:255','units'=>'required|integer|min:1|max:12','type'=>'required|in:lecture,laboratory,computer_laboratory,science_laboratory,specialized_laboratory,physical_education','description'=>'nullable|string|max:5000','department'=>'nullable|string|max:100','allowed_days'=>'required|string|max:27'],
+ 'curriculum_subjects'=>['curriculum_id'=>'required|exists:curriculums,id','subject_id'=>'required|exists:subjects,id','year_level'=>'required|integer|min:1|max:8','semester'=>'required|integer|min:1|max:3','elective'=>'required|boolean'],
+ 'prerequisites'=>['subject_id'=>'required|exists:subjects,id','required_subject_id'=>'required|exists:subjects,id','alternative_group'=>'required|integer|min:0|max:20','minimum_grade'=>'nullable|numeric|min:0|max:100'],
+ 'academic_records'=>['student_id'=>'required|exists:students,id','subject_id'=>'required|exists:subjects,id','period_id'=>'required|exists:periods,id','grade'=>'nullable|string|max:30','status'=>'required|in:PASSED,FAILED,INCOMPLETE,WITHDRAWN,IN_PROGRESS,CREDITED','remarks'=>'nullable|string|max:2000'],
+ 'sections'=>['program_id'=>'required|exists:programs,id','period_id'=>'required|exists:periods,id','name'=>'required|string|max:100','year_level'=>'required|integer|min:1|max:8','capacity'=>'required|integer|min:1|max:500'],
+ 'rooms'=>['code'=>'required|string|max:30','building_id'=>'required|exists:buildings,id','floor_id'=>'required|exists:floors,id','type'=>'required|in:lecture,laboratory,computer_laboratory,science_laboratory,specialized_laboratory,physical_education','capacity'=>'required|integer|min:1|max:1000','equipment'=>'nullable|string|max:3000','dedicated_subject_id'=>'nullable|exists:subjects,id'],
+ 'professor_subjects'=>['professor_id'=>'required|exists:professors,id','subject_id'=>'required|exists:subjects,id'],
+ 'professor_availabilities'=>['professor_id'=>'required|exists:professors,id','day'=>'required|in:Mon,Tue,Wed,Thu,Fri,Sat,Sun','start_time'=>'required|date_format:H:i','end_time'=>'required|date_format:H:i|after:start_time'],
+ 'offerings'=>['subject_id'=>'required|exists:subjects,id','section_id'=>'required|exists:sections,id','period_id'=>'required|exists:periods,id','capacity'=>'required|integer|min:1|max:500'],
+ 'schedules'=>['offering_id'=>'required|exists:offerings,id','professor_id'=>'required|exists:professors,id','room_id'=>'required|exists:rooms,id','day'=>'required|in:Mon,Tue,Wed,Thu,Fri,Sat,Sun','start_time'=>'required|date_format:H:i','end_time'=>'required|date_format:H:i|after:start_time'],
+];

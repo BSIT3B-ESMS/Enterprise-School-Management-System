@@ -1,0 +1,11 @@
+<?php
+namespace App\Http\Controllers;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use App\Services\AccessService;
+use App\Services\AcademicService;
+class RecordsController extends Controller {
+ public function index(Request $request,AccessService $access){$query=DB::table('students as s')->join('users as u','u.id','=','s.user_id')->join('curriculums as c','c.id','=','s.curriculum_id')->select('s.*','u.name','u.email','c.name as curriculum');if($request->user()->role==='student')$query->where('s.user_id',$request->user()->id);if($request->user()->role==='department_head')$query->whereIn('s.id',$access->studentIds());$students=$query->orderBy('u.name')->paginate(15);return view('records',compact('students'));}
+ public function show(int $id,AccessService $access){$access->student($id);$student=DB::table('students as s')->join('users as u','u.id','=','s.user_id')->where('s.id',$id)->select('s.*','u.name')->first();$records=DB::table('academic_records as r')->join('subjects as s','s.id','=','r.subject_id')->join('periods as p','p.id','=','r.period_id')->where('r.student_id',$id)->select('r.*','s.code','s.name','p.name as period')->get();$requirements=DB::table('curriculum_subjects as c')->join('subjects as s','s.id','=','c.subject_id')->where(['c.curriculum_id'=>$student->curriculum_id,'c.active'=>true])->select('s.*','c.year_level','c.semester')->get();$periods=DB::table('periods')->where('active',true)->get();$overrides=DB::table('academic_overrides')->where('student_id',$id)->get();return view('record',compact('student','records','requirements','periods','overrides'));}
+ public function update(Request $request,int $id,AcademicService $service){$data=$request->validate(['classification'=>'required|in:regular,irregular,transferee,returning','year_level'=>'required|integer|min:1|max:8','student_number'=>['nullable','string','max:50',\Illuminate\Validation\Rule::unique('students','student_number')->ignore($id)]]);$row=DB::table('students')->find($id);abort_unless($row,404);DB::transaction(function()use($id,$data,$row,$service){DB::table('students')->where('id',$id)->update($data+['updated_at'=>now()]);$service->audit('classification_updated','students',$id,['before'=>(array)$row,'after'=>$data]);});return back()->with('status','Student classification updated.');}
+}
