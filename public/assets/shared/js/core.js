@@ -7,6 +7,9 @@
 (function ($) {
   "use strict";
 
+  // jQuery effects follow the system's "reduce motion" setting, like the CSS animations
+  if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) $.fx.off = true;
+
   /* ==========================================================================
      ICONS (inline SVG, inherit currentColor)
      ========================================================================== */
@@ -136,8 +139,12 @@
   }
   function setError($input, msg) {
     var errId = $input.attr("id") + "-error";
+    var $err = $("#" + errId);
+    var fresh = !$err.text();
     $input.addClass("is-invalid").attr({ "aria-invalid": "true", "aria-describedby": errId });
-    $("#" + errId).text(msg).addClass("d-block");
+    $err.text(msg).addClass("d-block");
+    // A new message slides down into place (an updated one just changes)
+    if (fresh) $err.stop(true).css({ opacity: 0, marginTop: -6 }).animate({ opacity: 1, marginTop: 4 }, 180, function () { $(this).css({ opacity: "", marginTop: "" }); });
   }
   function clearError($input) {
     $input.removeClass("is-invalid").removeAttr("aria-invalid");
@@ -201,6 +208,8 @@
     $(".menu-toggle").attr("aria-expanded", "false");
   }
   function revealView($view) {
+    // The new screen fades in, then its cards rise in one after another
+    $view.stop(true).css("opacity", 0).animate({ opacity: 1 }, 220, function () { $(this).css("opacity", ""); });
     $view.find("[data-reveal]").each(function (i) {
       $(this).removeClass("reveal-in");
       void this.offsetWidth;

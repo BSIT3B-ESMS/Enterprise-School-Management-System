@@ -28,7 +28,29 @@ $(function () {
     proctor: ["exams"],
     read_only: ["dashboard", "applicants", "reports"]
   };
-  function allowed() { return ACCESS[ADM.STAFF.roleKey] || ["dashboard"]; }
+  /* Task picker ("What's your task?"): admission office accounts pick today's
+     task after signing in, and the menu shows only its screens. A UI filter
+     only: the server still enforces each account's role on every request.
+     The Admin can also pick "all"; the Super Admin is never asked (every screen). Kept for this tab until sign-out. */
+  var TASKS = {
+    personnel: { label: "Admission Personnel", screens: ["applicants", "documents"] },
+    proctor: { label: "Exam Proctor", screens: ["exams", "reports"] },
+    exam_office: { label: "Exam Office", screens: ["results"] },
+    all: { label: "All tasks" }
+  };
+  var TASK_ROLES = ["admission", "admission_head"];
+  var TASK_KEY = "admitone.task";
+  function picksTask() { return TASK_ROLES.indexOf(ADM.STAFF.roleKey) !== -1; }
+  function canPickAll() { return ADM.STAFF.roleKey === "admission_head"; }
+  function task() {
+    var t = AO.readJSON("session", TASK_KEY);
+    return picksTask() && TASKS[t] && (t !== "all" || canPickAll()) ? t : null;
+  }
+  function allowed() {
+    var t = task();
+    if (t && TASKS[t].screens) return TASKS[t].screens;
+    return ACCESS[ADM.STAFF.roleKey] || ["dashboard"];
+  }
   function home() { return "#/" + allowed()[0]; }
   var DETAIL = { applicants: "applicant", exams: "session", documents: "docreview" };   // #/applicants/:id → view "applicant"
   var current = { view: null, param: null };
@@ -46,17 +68,45 @@ $(function () {
     $("#sidebar-section").text(dean ? "College dean" + (ADM.dean.college ? " · " + ADM.dean.college.code : "") : ADM.STAFF.roleKey === "super_admin" ? "Super admin" : ADM.STAFF.roleKey === "admission_head" ? "Admin" : "Admission office");
     $("#super-chip").prop("hidden", ADM.STAFF.roleKey !== "super_admin");
     $(".crumb-root").text(dean ? "College dean" : ADM.STAFF.roleKey === "super_admin" ? "Super admin" : "Admission office");
-    // Only this role's screens in the menu; "More" only if it has any
-    $(".sidebar .nav-link[data-nav]").each(function () { $(this).prop("hidden", allowed().indexOf($(this).data("nav")) === -1); });
-    $("#sidebar-more").prop("hidden", !$("#sidebar-more .nav-link:not([hidden])").length);
-    $("#quick-search").prop("hidden", allowed().indexOf("applicants") === -1);
-    $(".sidebar .brand").attr("href", home());
+    applyAccess();
+    if (picksTask() && !task()) { askTask(); return; }
     if (!location.hash) location.replace(home());
     route();
   }
 
+  // Only this role's (or task's) screens in the menu; "More" only if it has any
+  function applyAccess() {
+    $(".sidebar .nav-link[data-nav]").each(function () { $(this).prop("hidden", allowed().indexOf($(this).data("nav")) === -1); });
+    $("#sidebar-more").prop("hidden", !$("#sidebar-more .nav-link:not([hidden])").length);
+    $("#quick-search").prop("hidden", allowed().indexOf("applicants") === -1);
+    $(".sidebar .brand").attr("href", home());
+    var t = task();
+    $("#task-chip").prop("hidden", !picksTask());
+    $("#task-chip-label").text(t ? "Task: " + TASKS[t].label : "Pick a task");
+  }
+
+  function askTask() {
+    $('#taskModal [data-task="all"]').prop("hidden", !canPickAll());
+    $("#task-cancel-row").prop("hidden", !task());   // the first time, a task must be picked
+    bootstrap.Modal.getOrCreateInstance(document.getElementById("taskModal")).show();
+  }
+  $("#task-chip").on("click", askTask);
+  $("#taskModal").on("click", "[data-task]", function () {
+    var picked = $(this).data("task");
+    // Every choice goes in the audit log (Audit log → "Task choices")
+    AO.api("POST", "/api/admin/task", { task: picked })
+      .done(function () { ADM.state.audit.push({ at: ADM.nowISO(), by: ADM.STAFF.name, text: "Chose the task: " + $('#taskModal [data-task="' + picked + '"] strong').text(), action: "staff.task" }); })
+      .fail(function () { AO.showToast("Your task choice couldn't be saved to the audit log."); });
+    AO.writeJSON("session", TASK_KEY, picked);
+    bootstrap.Modal.getOrCreateInstance(document.getElementById("taskModal")).hide();
+    applyAccess();
+    AO.showToast("Task: " + TASKS[task()].label + ".");
+    ADM.go(home());
+  });
+
   function leaveApp() {
     AO.setToken(null);
+    AO.removeKey("session", TASK_KEY);
     $(".tooltip").remove();
     $("#app").prop("hidden", true);
     $("#auth-screen").prop("hidden", false);
@@ -150,6 +200,28 @@ $(function () {
     ADM.views.applicants.search(q);
     ADM.go("#/applicants");
   });
+
+  // Live results while typing (AJAX, jQuery UI autocomplete); Enter without picking one still runs the search above
+  $("#quick-search-input").autocomplete({
+    minLength: 2, delay: 250, position: { my: "left top+6", at: "left bottom" },
+    source: function (req, res) {
+      AO.api("GET", "/api/admin/applicants/search?q=" + encodeURIComponent(req.term))
+        .done(function (r) { res(r.data.length ? r.data : [{ empty: true }]); })
+        .fail(function () { res([]); });
+    },
+    focus: function (e) { e.preventDefault(); },   // keep what was typed while arrowing through results
+    select: function (e, ui) {
+      e.preventDefault();
+      if (ui.item.empty) return;
+      $(this).val("").trigger("blur");
+      ADM.go("#/applicants/" + ui.item.id);
+    }
+  }).autocomplete("instance")._renderItem = function ($ul, item) {
+    if (item.empty) return $('<li class="ui-state-disabled">').append('<div class="ac-empty">No applicant matches</div>').appendTo($ul);
+    var st = ADM.STATUSES[item.status];
+    return $("<li>").append('<div class="ac-item"><span class="ac-main">' + AO.esc(item.name) + '</span><span class="ac-sub">' + AO.esc(item.id) + (item.lrn ? " · LRN " + AO.esc(item.lrn) : "") + "</span>" +
+      (st ? '<span class="status-pill ' + st.pill + '">' + AO.esc(st.label) + "</span>" : "") + "</div>").appendTo($ul);
+  };
 
   /* ==========================================================================
      BOOT

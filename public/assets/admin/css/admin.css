@@ -2482,3 +2482,63 @@ button.iv-card:hover {
   background: var(--c);
   color: #fff;
 }
+
+/* ---------- Task picker ("What's your task?") ---------- */
+/* All four choices in view (the session list it borrows from scrolls after 320px) */
+.task-options {
+  max-height: none;
+  overflow: visible;
+}
+
+.task-option {
+  width: 100%;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+}
+
+.task-option strong {
+  display: block;
+  font-size: 15px;
+}
+
+.task-option small {
+  display: block;
+  margin-top: 2px;
+  color: var(--ink-2);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.task-option:focus-visible {
+  outline: 3px solid var(--accent-line);
+  outline-offset: 2px;
+}
+
+.task-icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.task-icon .ico {
+  width: 20px;
+  height: 20px;
+}
+
+/* Top-bar chip that reopens the picker */
+.task-chip {
+  border: 0;
+  cursor: pointer;
+}
+
+.task-chip:hover {
+  background: var(--accent-line);
+}

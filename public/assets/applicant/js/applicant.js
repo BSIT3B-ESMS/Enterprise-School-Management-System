@@ -226,14 +226,17 @@ $(function () {
   /* ==========================================================================
      AUTH (Laravel API, JWT)
      ========================================================================== */
+  var AUTH_FORMS = { signin: "#signin-form", signup: "#signup-form", forgot: "#forgot-form", code: "#code-form" };
+  // The open form fades out, then the new one rises in (CSS); resolves once the new one shows
   function showAuth(panel) {
-    $("#signin-form").prop("hidden", panel !== "signin");
-    $("#signup-form").prop("hidden", panel !== "signup");
-    $("#forgot-form").prop("hidden", panel !== "forgot");
-    $("#code-form").prop("hidden", panel !== "code");
     $(".auth-tabs").prop("hidden", panel === "code").toggleClass("signup", panel === "signup");
     $("#tab-signin").toggleClass("active", panel !== "signup").attr("aria-selected", panel !== "signup");
     $("#tab-signup").toggleClass("active", panel === "signup").attr("aria-selected", panel === "signup");
+    var $old = $("#auth-screen .auth-form:not([hidden])").not(AUTH_FORMS[panel]);
+    return $old.stop(true, true).fadeOut(140).promise().then(function () {
+      $old.css("display", "");   // back to [hidden] deciding what shows
+      $.each(AUTH_FORMS, function (key, sel) { $(sel).prop("hidden", key !== panel); });
+    });
   }
 
   function enterApp() {
@@ -350,8 +353,7 @@ $(function () {
     $("#code-input").val("");
     clearError($("#code-input"));
     $("#code-note").text("");
-    showAuth("code");
-    $("#code-input").trigger("focus");
+    showAuth("code").then(function () { $("#code-input").trigger("focus"); });
   }
 
   // Digits only, and send as soon as all six are in
@@ -772,6 +774,7 @@ $(function () {
     });
     syncResidency();
     $("#barangay").val(state.data.barangay || "");
+    syncBarangayBox();
     syncMinor();
     syncSuggestions();
   }
@@ -798,8 +801,42 @@ $(function () {
     $("#district").prop("disabled", !resident);
     $b.prop("disabled", !resident || !district);
     $(".resident-only").toggleClass("opacity-50", !resident);
+    syncBarangayBox();
   }
   $("#is-resident, #district").on("change", syncResidency);
+
+  /* Barangay: a type-to-search box (jQuery UI autocomplete) over the hidden
+     <select>, which stays the real field for autosave and validation. */
+  var $barangayBox = $('<input class="form-control combo-input" id="barangay-search" type="text" autocomplete="off" aria-describedby="barangay-error">')
+    .insertAfter($("#barangay").addClass("visually-hidden").attr({ tabindex: -1, "aria-hidden": "true" }));
+  $('label[for="barangay"]').attr("for", "barangay-search");
+  function barangayNames() { return $("#barangay option").slice(1).map(function () { return this.value; }).get(); }
+  function syncBarangayBox() {
+    var $b = $("#barangay");
+    $barangayBox.val($b.val() || "").prop("disabled", $b.prop("disabled"))
+      .attr("placeholder", $b.prop("disabled") ? "Select a district first" : "Type to search your barangay");
+  }
+  $barangayBox.autocomplete({
+    minLength: 0, delay: 0,
+    source: function (req, res) {
+      var term = req.term.toLowerCase();
+      res(barangayNames().filter(function (n) { return n.toLowerCase().indexOf(term) !== -1; }));
+    },
+    select: function (e, ui) { $("#barangay").val(ui.item.value).trigger("change"); clearError($("#barangay")); },
+    // Typed text that isn't a barangay on the list: back to the saved choice
+    change: function () { if (barangayNames().indexOf($barangayBox.val()) === -1) syncBarangayBox(); }
+  }).on("focus click", function () { if (!this.disabled) $barangayBox.autocomplete("search", ""); });
+  // Validation focuses the hidden select: send the cursor to the search box instead
+  $("#barangay").on("focus", function () { $barangayBox.trigger("focus"); });
+
+  /* Last school attended: suggestions from the server as the applicant types (AJAX) */
+  $("#last-school").autocomplete({
+    minLength: 2, delay: 250,
+    source: function (req, res) {
+      AO.api("GET", "/api/applicant/schools?q=" + encodeURIComponent(req.term)).done(function (r) { res(r.data); }).fail(function () { res([]); });
+    },
+    select: function (e, ui) { $(this).val(ui.item.value).trigger("change"); }
+  });
   function collectForm() {
     $("#application-form").find("[name]").each(function () { state.data[this.name] = $(this).val(); });
   }
@@ -812,7 +849,8 @@ $(function () {
       collectForm();
       save();
       refreshIdentity();
-      $("#save-state").removeClass("saving").html(icon("check") + "Saved on this device");
+      // jQuery UI color effect: a brief green glow so the applicant notices the save
+      $("#save-state").removeClass("saving").html(icon("check") + "Saved on this device").stop(true, true).effect("highlight", { color: "#d6efdd" }, 900);
     }, 500);
   });
 

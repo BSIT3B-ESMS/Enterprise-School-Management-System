@@ -79,7 +79,7 @@ class OfficeStatePresenter
             // Applicant sign-ins are audited too, but they are not office activity.
             // The office-wide audit log is the Admin's (use-case diagram "Admin Module").
             'audit' => ! $staff->hasRole('admission_head') ? [] : DB::table('audit_logs')->whereNull('application_id')->where('action', '!=', 'applicant.login')->orderBy('id')
-                ->get(['actor_name', 'description', 'created_at'])
+                ->get(['actor_name', 'action', 'description', 'created_at'])
                 ->map(fn ($l) => $this->entry($l))->all(),
         ];
     }
@@ -258,7 +258,7 @@ class OfficeStatePresenter
 
     private function entry(object $log): array
     {
-        return ['at' => $this->at($log->created_at), 'by' => $log->actor_name, 'text' => $log->description];
+        return ['at' => $this->at($log->created_at), 'by' => $log->actor_name, 'text' => $log->description, 'action' => $log->action ?? null];
     }
 
     /** "2026-10-17T09:05" in Philippine time, the format the panel uses. Stored values are UTC. */

@@ -70,6 +70,7 @@ Route::prefix('applicant')->middleware(['auth:api', 'active', 'role:applicant'])
     Route::get('exam-permit', [ApplicationController::class, 'examPermit']);
     Route::get('application-form', [ApplicationController::class, 'applicationForm']);
     Route::get('acceptance-letter', [ApplicationController::class, 'acceptanceLetter']);
+    Route::get('schools', [ApplicationController::class, 'schools'])->middleware('throttle:api');
     Route::get('exam-sessions', [ApplicationController::class, 'examSessions']);       // EXAM_SELF_SCHEDULE only
     Route::post('exam-session', [ApplicationController::class, 'chooseExamSession']);  // EXAM_SELF_SCHEDULE only
 
@@ -90,6 +91,10 @@ Route::prefix('applicant')->middleware(['auth:api', 'active', 'role:applicant'])
 // settings (§4 role boundaries).
 Route::prefix('admin')->middleware(['auth:api', 'active', 'two_factor'])->group(function () {
     Route::get('state', [Office\StateController::class, 'show'])->middleware('role:admission|admission_head|proctor|read_only');
+    // Top-bar live search (the screens that show the applicant list)
+    Route::get('applicants/search', [Office\StateController::class, 'search'])->middleware(['role:admission|admission_head|super_admin|read_only', 'throttle:api']);
+    // "What's your task?" picker (Admission Personnel and the Admin; the controller refuses the Super Admin): each choice goes in the audit log
+    Route::post('task', [Office\StateController::class, 'chooseTask'])->middleware(['role:admission|admission_head', 'throttle:api']);
     Route::get('reference', [Office\SetupController::class, 'reference'])->middleware('role:admission|admission_head|proctor|read_only');
 
     Route::middleware('role:admission|admission_head|proctor')->group(function () {

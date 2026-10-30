@@ -6,6 +6,7 @@ use App\Enums\ApplicationStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Presenters\ApplicantPortalPresenter;
 use App\Http\Presenters\OfficeStatePresenter;
+use App\Models\Applicant;
 use App\Models\Application;
 use App\Models\ExamSession;
 use App\Services\ApplicationService;
@@ -130,6 +131,20 @@ class ApplicationController extends Controller
         $application = $this->application($request);
 
         return $pdf->acceptanceLetter($application)->stream("acceptance-letter-{$application->number}.pdf");
+    }
+
+    /**
+     * "Last school attended" suggestions: up to 10 school names other
+     * applicants already typed, so the same school is spelled the same way.
+     * Only school names are returned, never who typed them.
+     */
+    public function schools(Request $request): JsonResponse
+    {
+        $q = $request->validate(['q' => ['required', 'string', 'min:2', 'max:100']])['q'];
+
+        return response()->json(['data' => Applicant::query()
+            ->where('last_school', 'like', '%'.addcslashes(trim($q), '%_\\').'%')
+            ->distinct()->orderBy('last_school')->limit(10)->pluck('last_school')]);
     }
 
     /** D17 (off by default): sessions the applicant may choose. */
