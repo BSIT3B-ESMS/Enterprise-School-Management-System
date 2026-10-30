@@ -70,7 +70,7 @@
             </div>
             <button class="link-button" type="button" id="forgot-link">Forgot password?</button>
           </div>
-          @include('partials.recaptcha-mock')
+          @include('partials.captcha')
           <button class="btn btn-brand btn-lg w-100" type="submit" id="signin-submit"><span class="btn-label">Sign
               in</span></button>
         </form>
@@ -122,21 +122,14 @@
             <div class="col-12">
               <div class="form-check">
                 <input class="form-check-input" type="checkbox" id="signup-terms" required>
-                <label class="form-check-label" for="signup-terms">I agree to the admission terms and the data privacy
-                  notice (RA 10173).</label>
+                <label class="form-check-label" for="signup-terms">I have read and agree to the <button class="link-button"
+                    type="button" data-bs-toggle="modal" data-bs-target="#termsModal">terms and conditions and the data
+                    privacy notice</button> (RA 10173).</label>
               </div>
               <div class="invalid-feedback" id="signup-terms-error"></div>
             </div>
-            @if (\App\Services\Security\CaptchaVerifier::enabled())
-              <!-- NFR-06: CAPTCHA on registration -->
-              <div class="col-12">
-                <div class="{{ config('admission.captcha.driver') === 'turnstile' ? 'cf-turnstile' : 'g-recaptcha' }}"
-                  data-sitekey="{{ config('admission.captcha.site_key') }}"></div>
-                <div class="invalid-feedback d-block" id="signup-captcha-error"></div>
-              </div>
-            @endif
           </div>
-          @include('partials.recaptcha-mock')
+          @include('partials.captcha')
           <button class="btn btn-brand btn-lg w-100" type="submit" id="signup-submit"><span class="btn-label">Create
               account</span></button>
         </form>
@@ -153,7 +146,7 @@
             <div class="invalid-feedback" id="forgot-email-error"></div>
           </div>
           <p class="form-note" id="forgot-note" role="status"></p>
-          @include('partials.recaptcha-mock')
+          @include('partials.captcha')
           <button class="btn btn-brand btn-lg w-100" type="submit">Send reset link</button>
           <button class="link-button align-self-center back-to-signin" type="button"><span
               data-icon="arrowL"></span>Back to sign in</button>
@@ -701,6 +694,66 @@
     </main>
   </div>
 
+  <!-- User agreement (sign-up). Wording to be reviewed by the admission office and the data protection officer. -->
+  <div class="modal fade" id="termsModal" tabindex="-1" aria-labelledby="termsModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 class="modal-title-serif h5 mb-0" id="termsModalTitle">Terms and conditions</h2>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body small">
+          <p>By creating an account on the Pamantasan ng Lungsod ng Pasig (PLP) Online Admission portal, you agree to the
+            following.</p>
+          <h3 class="h6 mt-3">1. Your account</h3>
+          <ul>
+            <li>Create only one account, in your own name, with an email address and mobile number you use.</li>
+            <li>Keep your password private. You are responsible for everything done with your account.</li>
+            <li>Tell the admission office right away if you think someone else has used your account.</li>
+          </ul>
+          <h3 class="h6 mt-3">2. Truthful information</h3>
+          <ul>
+            <li>Everything you enter and every document you upload must be true, complete and your own.</li>
+            <li>False, altered or borrowed information or documents can lead to your application being rejected, or
+              your admission being cancelled even after enrollment.</li>
+          </ul>
+          <h3 class="h6 mt-3">3. The admission process</h3>
+          <ul>
+            <li>Creating an account or submitting an application does not guarantee admission. Slots are limited and
+              decided by PLP's admission rules, entrance exam results and, for some programs, a college interview.</li>
+            <li>Watch the deadlines shown in the portal. Late or incomplete applications may not be processed.</li>
+            <li>PLP may contact you by email or text message about your application.</li>
+          </ul>
+          <h3 class="h6 mt-3">4. Proper use</h3>
+          <ul>
+            <li>Use the portal only for your own application. Do not try to access other people's records, overload the
+              system, or get around its security checks.</li>
+          </ul>
+          <h3 class="h6 mt-3">5. Data privacy notice (Data Privacy Act of 2012, RA 10173)</h3>
+          <ul>
+            <li><strong>What we collect:</strong> your name, contact details, birth date, address, school records,
+              uploaded documents, exam and interview results, and medical requirements.</li>
+            <li><strong>Why:</strong> to process your application, schedule your exam and interview, release your
+              result, and, if you are admitted, pass your records on for enrollment.</li>
+            <li><strong>Who sees it:</strong> only authorized PLP admission, college and clinic staff, and PLP offices
+              that handle enrollment. We do not sell your data.</li>
+            <li><strong>How long:</strong> only as long as the admission process and PLP's records rules require; then
+              it is securely deleted.</li>
+            <li><strong>Your rights:</strong> you may ask to see, correct or delete your data, or object to its use, by
+              contacting PLP's data protection officer through the admission office.</li>
+            <li>If you are under 18, your parent or guardian must also agree to this notice in the application form.</li>
+          </ul>
+          <h3 class="h6 mt-3">6. Changes</h3>
+          <p class="mb-0">PLP may update these terms. The portal will show the current version.</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" data-bs-dismiss="modal">Close</button>
+          <button type="button" class="btn btn-brand" id="terms-agree">I agree</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Submit confirmation -->
   <div class="modal fade" id="submitModal" tabindex="-1" aria-labelledby="submitModalTitle" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -759,7 +812,7 @@
 
 @push('scripts')
   @if (\App\Services\Security\CaptchaVerifier::enabled())
-    <script src="{{ config('admission.captcha.driver') === 'turnstile' ? 'https://challenges.cloudflare.com/turnstile/v0/api.js' : 'https://www.google.com/recaptcha/api.js' }}" async defer></script>
+    <script src="{{ \App\Services\Security\CaptchaVerifier::script() }}" async defer></script>
   @endif
   <script src="{{ \App\Support\Asset::v('assets/applicant/js/applicant.js') }}"></script>
 @endpush

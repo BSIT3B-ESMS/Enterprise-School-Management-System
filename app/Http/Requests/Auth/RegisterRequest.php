@@ -3,10 +3,8 @@
 namespace App\Http\Requests\Auth;
 
 use App\Services\Security\CaptchaVerifier;
-use Closure;
 use App\Support\ApplicantForm;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 
 /** Fields of the applicant portal's "Create account" form (#signup-form). */
@@ -22,11 +20,7 @@ class RegisterRequest extends FormRequest
             'password' => ['required', 'confirmed', Password::min(8)->letters()->numbers()],
             'terms' => ['accepted'],
             // NFR-06: only checked when a CAPTCHA provider is configured
-            'captcha' => [Rule::requiredIf(fn () => CaptchaVerifier::enabled()), function (string $attribute, mixed $value, Closure $fail) {
-                if (! app(CaptchaVerifier::class)->verify(is_string($value) ? $value : null, $this->ip())) {
-                    $fail('Please complete the "I am human" check and try again.');
-                }
-            }],
+            'captcha' => CaptchaVerifier::rule(),
         ];
     }
 

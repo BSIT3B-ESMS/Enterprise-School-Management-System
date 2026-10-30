@@ -68,7 +68,7 @@ class AuthTest extends TestCase
             ->assertJsonValidationErrors(['email', 'phone']);
     }
 
-    /** NFR-01: each portal only lets its own roles in */
+    /** NFR-01: two sign-in screens, applicants and school employees (clinic included); each only lets its own roles in */
     public function test_portals_only_accept_their_roles(): void
     {
         $applicant = $this->makeUser(Role::Applicant);
@@ -77,12 +77,12 @@ class AuthTest extends TestCase
         $sysadmin = $this->makeUser(Role::Sysadmin);
 
         $this->login($applicant->email, 'applicant')->assertOk();
-        $this->login($applicant->email, 'office')->assertUnprocessable();
+        $this->login($applicant->email, 'office')->assertUnprocessable()->assertJsonPath('errors.email.0', "This account can't sign in here. Applicants sign in at the applicant portal.");
         $this->login($admission->email, 'office')->assertOk();
         $this->login($admission->email, 'clinic')->assertUnprocessable();
         $this->login($clinic->email, 'clinic')->assertOk();
-        $this->login($clinic->email, 'office')->assertUnprocessable()->assertJsonPath('errors.email.0', "This account can't sign in here. Clinic accounts sign in at the clinic portal (/nurse).");
-        $this->login($admission->email, 'applicant')->assertUnprocessable();
+        $this->login($clinic->email, 'office')->assertOk()->assertJsonPath('data.user.role', 'clinic');
+        $this->login($admission->email, 'applicant')->assertUnprocessable()->assertJsonPath('errors.email.0', "This account can't sign in here. School employees sign in at the employee portal (/admin).");
         $this->login($sysadmin->email, 'clinic')->assertUnprocessable();
         $this->login($sysadmin->email, 'office')->assertUnprocessable();
         $this->login($sysadmin->email, 'applicant')->assertUnprocessable();

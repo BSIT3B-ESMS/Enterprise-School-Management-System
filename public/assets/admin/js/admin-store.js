@@ -127,6 +127,8 @@
     return AO.api("GET", "/api/auth/me").then(function (res) {
       var me = res.data;
       STAFF.roleKey = me.role;
+      // One school employee sign-in (/admin): clinic staff carry on to their own portal, same tab token
+      if (ROLE === "admin" && me.role === "clinic") { location.replace("/nurse"); return $.Deferred(); }
       if (me.role === "college_dean") {
         $.extend(STAFF, { name: me.name, initials: me.initials, role: me.role_label, email: me.email });
         return $.when(loadDean(), loadInterviews());

@@ -127,8 +127,8 @@ return [
     ],
 
     /*
-    | CAPTCHA on registration (NFR-06). Off ('none') until a site key is set.
-    | 'turnstile' = Cloudflare Turnstile, 'recaptcha' = Google reCAPTCHA v2/v3.
+    | CAPTCHA on the applicant's sign-up, sign-in and forgot password (NFR-06). Off ('none') until a site key is set.
+    | 'turnstile' = Cloudflare Turnstile, 'recaptcha' = Google reCAPTCHA v2 checkbox.
     | The applicant portal shows the widget only when a driver is on.
     */
     'captcha' => [

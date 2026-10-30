@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Services\Security\CaptchaVerifier;
 use Illuminate\Foundation\Http\FormRequest;
 
 class LoginRequest extends FormRequest
@@ -13,6 +14,8 @@ class LoginRequest extends FormRequest
             'password' => ['required', 'string'],
             // Which sign-in screen sent this: the applicant portal, the admission office or the clinic
             'portal' => ['required', 'in:applicant,office,clinic'],
+            // NFR-06: only the applicant sign-in has the widget (staff use 2FA instead)
+            'captcha' => $this->input('portal') === 'applicant' ? CaptchaVerifier::rule() : [],
         ];
     }
 }

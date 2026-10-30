@@ -176,6 +176,11 @@
   }
   $(document).on("input", 'input[type="tel"]', function () { keepOnly(this, this.value.replace(/[^\d+ ]/g, "").replace(/(?!^)\+/g, "")); });
   $(document).on("input", 'input[inputmode="numeric"]:not([type="number"])', function () { keepOnly(this, this.value.replace(/\D/g, "")); });
+  // Names and places (fields with the letters-only pattern): no digits or symbols
+  var LETTERS_ONLY = "^\\p{L}[\\p{L} .'\\-]*$";
+  $(document).on("input", "input[pattern]", function () {
+    if (this.getAttribute("pattern") === LETTERS_ONLY) keepOnly(this, this.value.replace(/[^\p{L} .'\-]/gu, ""));
+  });
   // Number fields: browsers still let through e, E, + and - (exponents and signs)
   $(document).on("keydown", 'input[type="number"]', function (e) { if ("eE+-".indexOf(e.key) !== -1) e.preventDefault(); });
 

@@ -261,12 +261,33 @@ $(function () {
   $("#forgot-link").on("click", function () { $("#forgot-email").val($("#signin-email").val()); $("#forgot-note").text(""); showAuth("forgot"); });
   $(".back-to-signin").on("click", function () { showAuth("signin"); });
 
+  /* NFR-06: CAPTCHA on sign-in, sign-up and forgot password, when the server
+     has a provider switched on. Each form has its own widget; tokens are
+     single-use, so the widget is reset after every try. */
+  function captchaToken($form) {
+    $form.find(".captcha-error").text("");
+    return $form.find('[name="cf-turnstile-response"], [name="g-recaptcha-response"]').first().val() || undefined;
+  }
+  function resetCaptcha($form) {
+    var w = $form.find(".cf-turnstile, .g-recaptcha")[0];
+    if (!w) return;
+    if (window.turnstile) window.turnstile.reset(w);
+    else if (window.grecaptcha) window.grecaptcha.reset($(".g-recaptcha").index(w));
+  }
+  // Shows the server's CAPTCHA error under the widget; true when there was one
+  function captchaError($form, xhr) {
+    var errors = (xhr.responseJSON && xhr.responseJSON.errors) || {};
+    if (errors.captcha) $form.find(".captcha-error").text(errors.captcha[0]);
+    return !!errors.captcha;
+  }
+
   $("#signin-form").on("submit", function (e) {
     e.preventDefault();
-    if (!validateFields($(this))) return;
+    var $form = $(this);
+    if (!validateFields($form)) return;
     var email = $("#signin-email").val().trim();
     if ($("#remember-me").is(":checked")) writeJSON("local", REMEMBER_KEY, email); else removeKey("local", REMEMBER_KEY);
-    var login = AO.api("POST", "/api/auth/login", { email: email, password: $("#signin-password").val(), portal: "applicant", device_token: readJSON("local", DEVICE_KEY) || undefined })
+    var login = AO.api("POST", "/api/auth/login", { email: email, password: $("#signin-password").val(), portal: "applicant", device_token: readJSON("local", DEVICE_KEY) || undefined, captcha: captchaToken($form) })
       .then(function (res) {
         if (res.data.two_factor_required) return res.data;
         AO.setToken(res.data.token);
@@ -274,10 +295,17 @@ $(function () {
       });
     AO.busy($("#signin-submit"), login)
       .done(function (res) { if (res && res.two_factor_required) askForCode(res.challenge, email, "signin"); else enterApp(); })
-      .fail(function (xhr) { AO.setToken(null); setError($("#signin-email"), AO.apiError(xhr)); });
+      .fail(function (xhr) { AO.setToken(null); if (!captchaError($form, xhr)) setError($("#signin-email"), AO.apiError(xhr)); })
+      .always(function () { resetCaptcha($form); });
   });
 
   // Server field name → the input that shows its error
+  // Terms and conditions pop-up: "I agree" ticks the sign-up checkbox
+  $("#terms-agree").on("click", function () {
+    $("#signup-terms").prop("checked", true).trigger("change");
+    bootstrap.Modal.getOrCreateInstance(document.getElementById("termsModal")).hide();
+  });
+
   var SIGNUP_FIELDS = { first_name: "#signup-first", last_name: "#signup-last", email: "#signup-email", phone: "#signup-phone", password: "#signup-password", terms: "#signup-terms" };
 
   $("#signup-form").on("submit", function (e) {
@@ -289,8 +317,7 @@ $(function () {
       first_name: $("#signup-first").val().trim(), last_name: $("#signup-last").val().trim(),
       email: $("#signup-email").val().trim(), phone: $("#signup-phone").val().trim(),
       password: $("#signup-password").val(), password_confirmation: $("#signup-confirm").val(), terms: $("#signup-terms").is(":checked"),
-      // NFR-06: the CAPTCHA widget's token, when the server has one switched on
-      captcha: $('[name="cf-turnstile-response"], [name="g-recaptcha-response"]').first().val() || undefined
+      captcha: captchaToken($(this))
     }).then(function (res) {
       if (res.data.two_factor_required) return res.data;
       AO.setToken(res.data.token);
@@ -306,10 +333,10 @@ $(function () {
         var errors = (xhr.responseJSON && xhr.responseJSON.errors) || {};
         var shown = false;
         Object.keys(errors).forEach(function (k) { if (SIGNUP_FIELDS[k]) { setError($(SIGNUP_FIELDS[k]), errors[k][0]); shown = true; } });
-        if (errors.captcha) { $("#signup-captcha-error").text(errors.captcha[0]); shown = true; }
-        if (window.turnstile) window.turnstile.reset(); else if (window.grecaptcha) window.grecaptcha.reset();
+        if (captchaError($("#signup-form"), xhr)) shown = true;
         if (!shown) showToast(AO.apiError(xhr));
-      });
+      })
+      .always(function () { resetCaptcha($("#signup-form")); });
   });
 
   /* Email code: the second step of sign-in on a new device, and of sign-up
@@ -364,10 +391,12 @@ $(function () {
 
   $("#forgot-form").on("submit", function (e) {
     e.preventDefault();
-    if (!validateFields($(this))) return;
-    AO.api("POST", "/api/auth/forgot-password", { email: $("#forgot-email").val().trim() })
+    var $form = $(this);
+    if (!validateFields($form)) return;
+    AO.api("POST", "/api/auth/forgot-password", { email: $("#forgot-email").val().trim(), captcha: captchaToken($form) })
       .done(function (res) { $("#forgot-note").text(res.message); })
-      .fail(function (xhr) { $("#forgot-note").text(AO.apiError(xhr)); });
+      .fail(function (xhr) { if (!captchaError($form, xhr)) $("#forgot-note").text(AO.apiError(xhr)); })
+      .always(function () { resetCaptcha($form); });
   });
 
   $(".logout-button").on("click", function () {

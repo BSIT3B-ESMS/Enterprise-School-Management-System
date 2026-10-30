@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Notifications\VerifyApplicantEmail;
 use App\Services\ApplicationService;
 use App\Services\AuditLogger;
+use App\Services\Security\CaptchaVerifier;
 use App\Services\TwoFactorService;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\JsonResponse;
@@ -71,8 +72,8 @@ class AuthController extends Controller
         }
         if (! $this->allowedOnPortal($user, $request->string('portal'))) {
             $hint = match ($user->primaryRole()) {
-                Role::Clinic => ' Clinic accounts sign in at the clinic portal (/nurse).',
-                Role::Admission, Role::AdmissionHead, Role::Proctor, Role::ReadOnly, Role::SuperAdmin => ' Admission office accounts sign in at /admin.',
+                Role::Applicant => ' Applicants sign in at the applicant portal.',
+                Role::Admission, Role::AdmissionHead, Role::CollegeDean, Role::Proctor, Role::ReadOnly, Role::SuperAdmin, Role::Clinic => ' School employees sign in at the employee portal (/admin).',
                 default => '',
             };
             throw ValidationException::withMessages(['email' => "This account can't sign in here.".$hint]);
@@ -186,7 +187,7 @@ class AuthController extends Controller
     /** Same answer whether or not the account exists (no account enumeration). */
     public function forgotPassword(Request $request): JsonResponse
     {
-        $data = $request->validate(['email' => ['required', 'email']]);
+        $data = $request->validate(['email' => ['required', 'email'], 'captcha' => CaptchaVerifier::rule()]);
         Password::sendResetLink(['email' => $data['email']]);
 
         return response()->json(['message' => "If an account exists for {$data['email']}, a reset link is on its way."]);
@@ -247,10 +248,11 @@ class AuthController extends Controller
 
     private function allowedOnPortal(User $user, string $portal): bool
     {
-        // Each sign-in screen lets in its own roles only (NFR-01). The dean signs in on the office side.
+        // Two sign-in screens (NFR-01): applicants, and school employees ('office', every staff role;
+        // the browser sends clinic staff on to /nurse). 'clinic' stays for API callers.
         return in_array($user->primaryRole(), match ($portal) {
             'applicant' => [Role::Applicant],
-            'office' => [Role::Admission, Role::AdmissionHead, Role::CollegeDean, Role::Proctor, Role::ReadOnly, Role::SuperAdmin],
+            'office' => [Role::Admission, Role::AdmissionHead, Role::CollegeDean, Role::Proctor, Role::ReadOnly, Role::SuperAdmin, Role::Clinic],
             'clinic' => [Role::Clinic],
         }, true);
     }

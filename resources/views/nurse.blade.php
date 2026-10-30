@@ -11,63 +11,7 @@
 @endpush
 
 @section('content')
-  <!-- =========================================================
-       SIGN IN (clinic nurse)
-       ========================================================= -->
-  <div class="auth" id="auth-screen">
-    <section class="auth-art">
-      <span class="float-star s1" data-icon="star"></span>
-      <span class="float-star s2" data-icon="star"></span>
-      <span class="float-star s3" data-icon="star"></span>
-      <span class="float-star s4" data-icon="star"></span>
-
-      <div class="brand brand-lg">
-        <img class="brand-mark brand-logo" src="{{ asset('assets/shared/img/plp-logo.png') }}" alt="" aria-hidden="true">
-        <span class="brand-text"><span class="brand-name">Pamantasan ng Lungsod ng Pasig</span><span class="brand-sub">University Clinic</span></span>
-      </div>
-
-      <div class="auth-pitch">
-        <p class="eyebrow">University clinic</p>
-        <h1>Medical files, nothing else.</h1>
-        <p>Check the medical requirements applicants send after passing, and send your approval to the admission office.</p>
-      </div>
-
-    </section>
-
-    <section class="auth-panel">
-      <div class="auth-card">
-        <form id="nurse-signin-form" class="auth-form" novalidate>
-          <div class="auth-head">
-            <span class="role-chip"><span data-icon="shield"></span>Clinic nurse</span>
-            <h2>Sign in to the clinic</h2>
-            <p>Use the clinic account issued by the system administrator.</p>
-          </div>
-          <div>
-            <label class="form-label" for="nurse-email">Clinic email</label>
-            <input class="form-control" id="nurse-email" type="email" autocomplete="username"
-              placeholder="name@plpasig.edu.ph" required>
-            <div class="invalid-feedback" id="nurse-email-error"></div>
-          </div>
-          <div>
-            <label class="form-label" for="nurse-password">Password</label>
-            <div class="input-wrap">
-              <input class="form-control" id="nurse-password" type="password" autocomplete="current-password"
-                minlength="8" required>
-              <button class="pw-toggle" type="button" aria-label="Show password" aria-pressed="false"
-                data-target="nurse-password"><span data-icon="eye"></span></button>
-            </div>
-            <div class="invalid-feedback" id="nurse-password-error"></div>
-          </div>
-          @include('partials.recaptcha-mock')
-          <button class="btn btn-brand btn-lg w-100" type="submit" id="nurse-signin-submit"><span
-              class="btn-label">Sign in</span></button>
-          <a class="link-button align-self-center" href="{{ route('admin') }}"><span data-icon="arrowL"></span>Go to the
-            admission office</a>
-        </form>
-      </div>
-    </section>
-  </div>
-
+  {{-- Clinic staff sign in on the school employee portal (/admin); nurse.js sends anyone signed out there --}}
   <!-- =========================================================
        CLINIC PORTAL
        ========================================================= -->

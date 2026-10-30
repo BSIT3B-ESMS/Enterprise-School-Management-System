@@ -324,6 +324,26 @@ class SddRequirementsTest extends TestCase
         $this->get('/')->assertSee('cf-turnstile', false);
     }
 
+    /** NFR-06: reCAPTCHA also guards the applicant's sign-in and forgot password; staff sign-in is not affected */
+    public function test_recaptcha_on_sign_in_and_forgot_password(): void
+    {
+        $this->makeApplicant();
+        $this->withoutMiddleware(\Illuminate\Routing\Middleware\ThrottleRequests::class);
+        config(['admission.applicant_email_2fa' => false, 'admission.captcha' => ['driver' => 'recaptcha', 'site_key' => 'site', 'secret' => 'secret']]);
+        \Illuminate\Support\Facades\Http::fake(['www.google.com/recaptcha/*' => fn ($r) => \Illuminate\Support\Facades\Http::response(['success' => $r['response'] === 'good'])]);
+        $login = ['email' => 'jordan@example.com', 'password' => 'password', 'portal' => 'applicant'];
+
+        $this->postJson('/api/auth/login', $login)->assertJsonValidationErrors('captcha');
+        $this->postJson('/api/auth/login', ['captcha' => 'bad'] + $login)->assertJsonValidationErrors('captcha');
+        $this->postJson('/api/auth/login', ['captcha' => 'good'] + $login)->assertOk();
+        $this->postJson('/api/auth/login', ['portal' => 'office'] + $login)->assertJsonMissingValidationErrors('captcha');
+
+        $this->postJson('/api/auth/forgot-password', ['email' => 'jordan@example.com'])->assertJsonValidationErrors('captcha');
+        $this->postJson('/api/auth/forgot-password', ['email' => 'jordan@example.com', 'captcha' => 'good'])->assertOk();
+
+        $this->get('/')->assertSee('g-recaptcha', false)->assertSee('google.com/recaptcha/api.js', false);
+    }
+
     /** FR-13: SMS for the exam schedule, only when an SMS provider is set */
     public function test_sms_is_optional(): void
     {

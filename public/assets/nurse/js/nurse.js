@@ -146,10 +146,10 @@ $(function () {
   }
 
   /* ==========================================================================
-     SIGN IN (Laravel API, JWT with the clinic role)
+     SIGN IN: on the school employee portal (/admin), which sends clinic staff
+     here with the tab's token. Signed out, back there.
      ========================================================================== */
   function enterApp() {
-    $("#auth-screen").prop("hidden", true);
     $("#app").prop("hidden", false);
     $("#sidebar-name").text(ADM.STAFF.name);
     $("#sidebar-avatar").text(ADM.STAFF.initials);
@@ -160,33 +160,13 @@ $(function () {
   }
   function leaveApp() {
     AO.setToken(null);
-    $(".tooltip").remove();
-    $("#app").prop("hidden", true);
-    $("#auth-screen").prop("hidden", false);
-    $("#nurse-password").val("");
-    window.scrollTo(0, 0);
+    location.replace("/admin");
   }
-  $("#nurse-signin-form").on("submit", function (e) {
-    e.preventDefault();
-    if (!AO.validateFields($(this))) return;
-    var login = AO.api("POST", "/api/auth/login", { email: $("#nurse-email").val().trim(), password: $("#nurse-password").val(), portal: "clinic" })
-      .then(function (res) {
-        // UI pending: there is no 2FA code screen yet (see PROGRESS.md)
-        if (res.data.two_factor_required) return $.Deferred().reject({ responseJSON: { message: "Two-factor sign-in is on for this account, but this screen can't ask for the code yet." } });
-        AO.setToken(res.data.token);
-        return ADM.load();
-      });
-    AO.busy($("#nurse-signin-submit"), login)
-      .done(enterApp)
-      .fail(function (xhr) { AO.setToken(null); AO.setError($("#nurse-email"), AO.apiError(xhr)); });
-  });
   $(".logout-button").on("click", function () {
-    AO.api("POST", "/api/auth/logout");
-    leaveApp();
-    AO.showToast("You've been signed out.");
+    AO.api("POST", "/api/auth/logout").always(leaveApp);
   });
   // Token expired or revoked
-  $(document).on("ao:signedout", function () { if (!$("#app").prop("hidden")) { leaveApp(); AO.showToast("Your session ended. Sign in again."); } });
+  $(document).on("ao:signedout", leaveApp);
 
   /* ==========================================================================
      ROUTER
@@ -283,6 +263,6 @@ $(function () {
      ========================================================================== */
   AO.paintIcons();
   AO.initTooltips(document);
-  // Still signed in in this tab: reload the state and go straight in
-  if (AO.getToken()) ADM.load().done(enterApp).fail(function () { AO.setToken(null); });
+  // Signed in on the employee portal in this tab: load the clinic's state and go straight in
+  if (AO.getToken()) ADM.load().done(enterApp).fail(function () { location.replace("/admin"); }); else leaveApp();
 });

@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
-@section('title', 'PLP Admission Office')
-@section('description', 'Pamantasan ng Lungsod ng Pasig admission office panel for admission personnel')
+@section('title', 'PLP School Employee Portal')
+@section('description', 'Pamantasan ng Lungsod ng Pasig sign-in for school employees: admission office, college deans and the university clinic')
 @section('body_class', 'admin')
 
 @push('styles')
@@ -10,7 +10,7 @@
 
 @section('content')
   <!-- =========================================================
-       SIGN IN (admission personnel)
+       SIGN IN (school employees: admission office, deans, clinic)
        ========================================================= -->
   <div class="auth" id="auth-screen">
     <section class="auth-art">
@@ -25,7 +25,7 @@
       </div>
 
       <div class="auth-pitch">
-        <p class="eyebrow">Admission office · AY 2027–2028</p>
+        <p class="eyebrow">School employee portal · AY 2027–2028</p>
         <h1>Every application, one desk.</h1>
         <p>Review applications, verify documents, schedule entrance exams, and release results from a single record.</p>
       </div>
@@ -36,9 +36,9 @@
       <div class="auth-card">
         <form id="admin-signin-form" class="auth-form" novalidate>
           <div class="auth-head">
-            <span class="role-chip"><span data-icon="shield"></span>Admission personnel</span>
-            <h2>Sign in to the office</h2>
-            <p>Use the staff account issued by the system administrator.</p>
+            <span class="role-chip"><span data-icon="shield"></span>School employee</span>
+            <h2>Employee sign in</h2>
+            <p>For admission office, college dean and clinic staff. Use the account issued by the system administrator.</p>
           </div>
           <div>
             <label class="form-label" for="admin-email">Staff email</label>
@@ -56,13 +56,10 @@
             </div>
             <div class="invalid-feedback" id="admin-password-error"></div>
           </div>
-          @include('partials.recaptcha-mock')
           <button class="btn btn-brand btn-lg w-100" type="submit" id="admin-signin-submit"><span
               class="btn-label">Sign in</span></button>
-          <a class="link-button align-self-center" href="{{ route('applicant') }}"><span data-icon="arrowL"></span>Go to the
-            applicant portal</a>
-          <a class="link-button align-self-center" href="{{ route('nurse') }}"><span data-icon="shield"></span>Clinic nurse?
-            Go to the clinic portal</a>
+          <a class="link-button align-self-center" href="{{ route('applicant') }}"><span data-icon="arrowL"></span>Applicant?
+            Go to the applicant portal</a>
         </form>
       </div>
     </section>
