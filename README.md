@@ -4,7 +4,7 @@ A working local Laravel 12 / PHP 8.4 / MariaDB enrollment application based on E
 
 ## Start on this computer
 
-Open PowerShell in this folder:
+Double-click Start Enrollment System.cmd, or open PowerShell in this folder:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\start.ps1

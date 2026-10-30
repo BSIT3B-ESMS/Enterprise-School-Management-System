@@ -27,3 +27,6 @@ Server checks must enforce prerequisite completion, authorized overrides with re
 - Verified rooms, professor availability workflow, time grids and required COR template.
 
 The default section size of 40 and sample campus room list are configurable examples, not hardcoded policy.
+## Implemented policy defaults awaiting institutional confirmation
+
+Pending proposals do not reserve seats. Class counts and distinct section membership are both checked under database locks before finalization. Reopening a finalized enrollment releases its seats and requires a new accepted proposal. Existing COR snapshots are retained and superseded copies are labeled historical. The system applies two student approval stages to all special classifications. Regular students follow the assigned curriculum year and period semester. Grade direction remains explicitly unconfigured until the institution confirms it; configured minimum-grade requirements cannot silently assume a scale.
