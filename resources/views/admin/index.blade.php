@@ -174,7 +174,7 @@
           <p class="form-label mb-2">Common reasons</p>
           <div class="remark-presets" id="remark-presets"></div>
           <label class="form-label mt-3" for="remark-text">Remark for the applicant <span class="req">*</span></label>
-          <textarea class="form-control" id="remark-text" rows="3" minlength="10" required
+          <textarea class="form-control" id="remark-text" rows="3" minlength="10" maxlength="500" required
             placeholder="Tell the applicant exactly what to fix."></textarea>
           <div class="invalid-feedback" id="remark-text-error"></div>
           <div class="form-text">The applicant sees this remark on their Documents page.</div>
@@ -249,7 +249,8 @@
           <div class="row g-3">
             <div class="col-sm-6">
               <label class="form-label" for="session-date">Exam date <span class="req">*</span></label>
-              <input class="form-control" id="session-date" type="date" required>
+              <input class="form-control" id="session-date" type="date" min="{{ now(config('admission.display_timezone'))->toDateString() }}"
+                data-msg-range="Pick today or a later date." required>
               <div class="invalid-feedback" id="session-date-error"></div>
             </div>
             <div class="col-sm-6">
@@ -262,7 +263,7 @@
             </div>
             <div class="col-sm-8">
               <label class="form-label" for="session-venue">Venue <span class="req">*</span></label>
-              <input class="form-control" id="session-venue" placeholder="e.g. Main Building · Room 301" required>
+              <input class="form-control" id="session-venue" maxlength="255" placeholder="e.g. Main Building · Room 301" required>
               <div class="invalid-feedback" id="session-venue-error"></div>
             </div>
             <div class="col-sm-4">
@@ -297,7 +298,7 @@
             </div>
             <div class="col-sm-8">
               <label class="form-label" for="program-name">Program name <span class="req">*</span></label>
-              <input class="form-control" id="program-name" required>
+              <input class="form-control" id="program-name" maxlength="255" required>
               <div class="invalid-feedback" id="program-name-error"></div>
             </div>
             <div class="col-sm-4">

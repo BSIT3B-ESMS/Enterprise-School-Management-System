@@ -156,6 +156,8 @@
     var ok = true;
     $scope.find("input, select, textarea").filter(":not([type=file]):not([readonly])").each(function () {
       if (!this.id) return;
+      // Only spaces counts as empty (the server trims every value)
+      if (this.required && this.type !== "checkbox" && this.type !== "radio" && this.value && !this.value.trim()) { setError($(this), labelFor(this) + " is required."); ok = false; return; }
       if (this.minLength > 0 && this.value && this.value.length < this.minLength) { setError($(this), "Use at least " + this.minLength + " characters."); ok = false; return; }
       if (!this.checkValidity()) { setError($(this), messageFor(this)); ok = false; } else clearError($(this));
     });
@@ -163,6 +165,19 @@
     return ok;
   }
   $(document).on("input change", ".is-invalid", function () { if (this.checkValidity()) clearError($(this)); });
+
+  /* Keep typed and pasted values in shape: phone numbers take digits, spaces and
+     a leading +; other numeric fields (ZIP, LRN) take digits only. The caret stays put. */
+  function keepOnly(el, clean) {
+    if (clean === el.value) return;
+    var pos = Math.max(0, (el.selectionStart || 0) - (el.value.length - clean.length));
+    el.value = clean;
+    try { el.setSelectionRange(pos, pos); } catch (e) { /* some input types have no caret API */ }
+  }
+  $(document).on("input", 'input[type="tel"]', function () { keepOnly(this, this.value.replace(/[^\d+ ]/g, "").replace(/(?!^)\+/g, "")); });
+  $(document).on("input", 'input[inputmode="numeric"]:not([type="number"])', function () { keepOnly(this, this.value.replace(/\D/g, "")); });
+  // Number fields: browsers still let through e, E, + and - (exponents and signs)
+  $(document).on("keydown", 'input[type="number"]', function (e) { if ("eE+-".indexOf(e.key) !== -1) e.preventDefault(); });
 
   /* ==========================================================================
      SHELL: sidebar, nav indicator, reveal, tooltips

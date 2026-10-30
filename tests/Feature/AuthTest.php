@@ -30,6 +30,16 @@ class AuthTest extends TestCase
         return $this->postJson('/api/auth/login', compact('email', 'password', 'portal'));
     }
 
+    /** FR-01: the server enforces the sign-up form's formats, not only the browser */
+    public function test_register_rejects_badly_formatted_fields(): void
+    {
+        $this->postJson('/api/auth/register', $this->registerPayload([
+            'first_name' => 'Jordan2', 'last_name' => '123', 'phone' => '0917abc4567', 'password' => 'password', 'password_confirmation' => 'password',
+        ]))->assertUnprocessable()->assertJsonValidationErrors(['first_name', 'last_name', 'phone', 'password']);
+
+        $this->postJson('/api/auth/register', $this->registerPayload(['first_name' => 'Ma. Teresa', 'last_name' => "Peña-O'Brien"]))->assertCreated();
+    }
+
     /** FR-01 */
     public function test_register_creates_applicant_with_draft_application_and_token(): void
     {

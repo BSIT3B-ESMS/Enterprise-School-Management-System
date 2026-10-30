@@ -30,7 +30,7 @@ class ExamController extends Controller
             'date' => ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
             'batch' => ['required', Rule::in(array_keys(ExamSession::BATCHES))],
             'venue' => ['required', 'string', 'max:255'],
-            'capacity' => ['required', 'integer', 'between:1,500'],
+            'capacity' => ['required', 'integer', 'between:5,500'],
         ]);
         $session = $this->exams->createSession($data['date'], $data['batch'], $data['venue'], $data['capacity'], $request->user());
 

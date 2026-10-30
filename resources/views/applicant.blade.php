@@ -84,22 +84,22 @@
           <div class="row g-3">
             <div class="col-sm-6">
               <label class="form-label" for="signup-first">First name</label>
-              <input class="form-control" id="signup-first" autocomplete="given-name" required>
+              <input class="form-control" id="signup-first" autocomplete="given-name" maxlength="100" pattern="^\p{L}[\p{L} .'\-]*$" data-msg-pattern="Use letters only (spaces, hyphens, periods and apostrophes are fine)." required>
               <div class="invalid-feedback" id="signup-first-error"></div>
             </div>
             <div class="col-sm-6">
               <label class="form-label" for="signup-last">Last name</label>
-              <input class="form-control" id="signup-last" autocomplete="family-name" required>
+              <input class="form-control" id="signup-last" autocomplete="family-name" maxlength="100" pattern="^\p{L}[\p{L} .'\-]*$" data-msg-pattern="Use letters only (spaces, hyphens, periods and apostrophes are fine)." required>
               <div class="invalid-feedback" id="signup-last-error"></div>
             </div>
             <div class="col-12">
               <label class="form-label" for="signup-email">Email address</label>
-              <input class="form-control" id="signup-email" type="email" autocomplete="email" required>
+              <input class="form-control" id="signup-email" type="email" autocomplete="email" maxlength="255" required>
               <div class="invalid-feedback" id="signup-email-error"></div>
             </div>
             <div class="col-12">
               <label class="form-label" for="signup-phone">Mobile number</label>
-              <input class="form-control" id="signup-phone" type="tel" autocomplete="tel" placeholder="+63 9XX XXX XXXX"
+              <input class="form-control" id="signup-phone" type="tel" autocomplete="tel" maxlength="16" placeholder="+63 9XX XXX XXXX"
                 pattern="^(\+63|0)\s?9\d{2}\s?\d{3}\s?\d{4}$"
                 data-msg-pattern="Use a PH mobile number, like +63 917 123 4567." required>
               <div class="invalid-feedback" id="signup-phone-error"></div>
@@ -108,7 +108,7 @@
               <label class="form-label" for="signup-password">Password</label>
               <div class="input-wrap">
                 <input class="form-control" id="signup-password" type="password" autocomplete="new-password"
-                  minlength="8" required>
+                  minlength="8" pattern="(?=.*\p{L})(?=.*\d).*" data-msg-pattern="Use at least one letter and one number." required>
                 <button class="pw-toggle" type="button" aria-label="Show password" aria-pressed="false"
                   data-target="signup-password"><span data-icon="eye"></span></button>
               </div>
@@ -149,7 +149,7 @@
           </div>
           <div>
             <label class="form-label" for="forgot-email">Email address</label>
-            <input class="form-control" id="forgot-email" type="email" autocomplete="email" required>
+            <input class="form-control" id="forgot-email" type="email" autocomplete="email" maxlength="255" required>
             <div class="invalid-feedback" id="forgot-email-error"></div>
           </div>
           <p class="form-note" id="forgot-note" role="status"></p>
@@ -379,11 +379,11 @@
                   </div>
                   <div class="col-md-4"><label class="form-label" for="first-name">Given name <span
                         class="req">*</span></label><input class="form-control" id="first-name" name="firstName"
-                      autocomplete="given-name" required>
+                      autocomplete="given-name" maxlength="100" pattern="^\p{L}[\p{L} .'\-]*$" data-msg-pattern="Use letters only (spaces, hyphens, periods and apostrophes are fine)." required>
                     <div class="invalid-feedback" id="first-name-error"></div>
                   </div>
                   <div class="col-md-4"><label class="form-label" for="middle-name">Middle name</label><input
-                      class="form-control" id="middle-name" name="middleName" autocomplete="additional-name">
+                      class="form-control" id="middle-name" name="middleName" autocomplete="additional-name" maxlength="100" pattern="^\p{L}[\p{L} .'\-]*$" data-msg-pattern="Use letters only (spaces, hyphens, periods and apostrophes are fine).">
                     <div class="invalid-feedback" id="middle-name-error"></div>
                   </div>
                   <div class="col-md-4"><label class="form-label" for="sex">Sex <span
@@ -635,11 +635,11 @@
                 <form id="profile-form" class="mt-3" novalidate>
                   <div class="row g-3">
                     <div class="col-md-6"><label class="form-label" for="profile-first">First name</label><input
-                        class="form-control" id="profile-first" autocomplete="given-name" required>
+                        class="form-control" id="profile-first" autocomplete="given-name" maxlength="100" pattern="^\p{L}[\p{L} .'\-]*$" data-msg-pattern="Use letters only (spaces, hyphens, periods and apostrophes are fine)." required>
                       <div class="invalid-feedback" id="profile-first-error"></div>
                     </div>
                     <div class="col-md-6"><label class="form-label" for="profile-last">Last name</label><input
-                        class="form-control" id="profile-last" autocomplete="family-name" required>
+                        class="form-control" id="profile-last" autocomplete="family-name" maxlength="100" pattern="^\p{L}[\p{L} .'\-]*$" data-msg-pattern="Use letters only (spaces, hyphens, periods and apostrophes are fine)." required>
                       <div class="invalid-feedback" id="profile-last-error"></div>
                     </div>
                     <div class="col-md-6"><label class="form-label" for="profile-email">Email address</label><input
@@ -647,7 +647,7 @@
                       <div class="form-text">Your sign-in email. Ask the admission office to change it.</div>
                     </div>
                     <div class="col-md-6"><label class="form-label" for="profile-phone">Mobile number</label><input
-                        class="form-control" id="profile-phone" type="tel" autocomplete="tel" required
+                        class="form-control" id="profile-phone" type="tel" autocomplete="tel" maxlength="16" required
                         placeholder="+63 9XX XXX XXXX" pattern="^(\+63|0)\s?9\d{2}\s?\d{3}\s?\d{4}$"
                         data-msg-pattern="Use a PH mobile number, like +63 917 123 4567.">
                       <div class="invalid-feedback" id="profile-phone-error"></div>
