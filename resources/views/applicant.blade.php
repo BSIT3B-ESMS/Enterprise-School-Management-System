@@ -29,18 +29,6 @@
         <p>Fill in your application, upload your requirements, and follow every stage until your result comes in.</p>
       </div>
 
-      <div class="journey-preview" aria-label="Admission stages">
-        <p class="preview-title">Your journey</p>
-        <ol class="preview-steps">
-          <li><span></span>Application</li>
-          <li><span></span>Documents</li>
-          <li><span></span>Exam</li>
-          <li><span></span>Result</li>
-          <li><span></span>Interview</li>
-          <li><span></span>Medical</li>
-        </ol>
-        <p class="preview-foot"><span data-icon="clock"></span>Application deadline: November 28, 2026</p>
-      </div>
     </section>
 
     <section class="auth-panel">
@@ -82,10 +70,9 @@
             </div>
             <button class="link-button" type="button" id="forgot-link">Forgot password?</button>
           </div>
+          @include('partials.recaptcha-mock')
           <button class="btn btn-brand btn-lg w-100" type="submit" id="signin-submit"><span class="btn-label">Sign
               in</span></button>
-          <p class="demo-note"><span data-icon="help"></span>Demo portal: any email and a password of 8 or more
-            characters will work.</p>
         </form>
 
         <!-- Create account -->
@@ -149,6 +136,7 @@
               </div>
             @endif
           </div>
+          @include('partials.recaptcha-mock')
           <button class="btn btn-brand btn-lg w-100" type="submit" id="signup-submit"><span class="btn-label">Create
               account</span></button>
         </form>
@@ -165,6 +153,7 @@
             <div class="invalid-feedback" id="forgot-email-error"></div>
           </div>
           <p class="form-note" id="forgot-note" role="status"></p>
+          @include('partials.recaptcha-mock')
           <button class="btn btn-brand btn-lg w-100" type="submit">Send reset link</button>
           <button class="link-button align-self-center back-to-signin" type="button"><span
               data-icon="arrowL"></span>Back to sign in</button>

@@ -18,6 +18,19 @@ use Illuminate\Http\Request;
  */
 class DeanController extends Controller
 {
+    /** The dean edits the interview questions of their own college. Body: { questions: string[] } */
+    public function saveQuestions(Request $request): JsonResponse
+    {
+        $college = $request->user()->deanOf ?? abort(403, 'No college is assigned to your account.');
+        $data = $request->validate([
+            'questions' => ['required', 'array', 'min:1', 'max:10'],
+            'questions.*' => ['required', 'string', 'max:300'],
+        ]);
+        $college->update(['interview_questions' => array_values(array_map('trim', $data['questions']))]);
+
+        return response()->json(['data' => ['questions' => $college->questions()]]);
+    }
+
     public function applicants(Request $request): JsonResponse
     {
         $college = $request->user()->deanOf;
@@ -30,7 +43,7 @@ class DeanController extends Controller
             ->orderBy('submitted_at')->get();
 
         return response()->json(['data' => [
-            'college' => $college ? ['code' => $college->code, 'name' => $college->name] : null,
+            'college' => $college ? ['code' => $college->code, 'name' => $college->name, 'questions' => $college->questions()] : null,
             'programs' => $college?->programs()->where('is_open', true)->orderBy('code')->get(['code', 'name', 'requires_interview'])
                 ->map(fn ($p) => ['code' => $p->code, 'name' => $p->name, 'requiresInterview' => $p->requires_interview])->all() ?? [],
             'applicants' => $applications->map(function (Application $a) use ($programIds) {

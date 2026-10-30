@@ -160,6 +160,7 @@ Route::prefix('clinic')->middleware(['auth:api', 'active', 'two_factor', 'role:c
 // College Dean module (admin portal): applicant list, evaluation and results/referral, own college only
 Route::prefix('dean')->middleware(['auth:api', 'active', 'two_factor', 'role:college_dean'])->group(function () {
     Route::get('applicants', [DeanController::class, 'applicants']);
+    Route::put('interview-questions', [DeanController::class, 'saveQuestions']);
     Route::get('interviews', [InterviewController::class, 'index']);
     Route::post('applicants/{application}/interview', [InterviewController::class, 'record']);
 });

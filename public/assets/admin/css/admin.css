@@ -2454,3 +2454,31 @@ textarea.form-control {
     right: -50px;
   }
 }
+
+/* Interviews: each college has its own colour (set as --c on the card) */
+.iv-card {
+  --c: #1b6b45;
+  border: 1px solid color-mix(in srgb, var(--c) 18%, transparent) !important;
+  border-left: 6px solid var(--c) !important;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--c) 8%, #fff), #fff 75%) !important;
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+
+button.iv-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--c) 28%, transparent);
+}
+
+.iv-card .sp-icon {
+  background: var(--c);
+  color: #fff;
+}
+
+.iv-card .card-title {
+  color: var(--c);
+}
+
+.iv-card:not(.table-card) .code-chip {
+  background: var(--c);
+  color: #fff;
+}

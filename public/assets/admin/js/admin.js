@@ -11,7 +11,7 @@ $(function () {
   var ADM = window.ADM;
 
   // Hash → view name; the second segment is passed to render() as param
-  var ROUTES = { dashboard: "dashboard", applicants: "applicants", documents: "documents", exams: "exams", results: "results", interviews: "interviews", medical: "medical", reports: "reports", settings: "settings", audit: "audit", college: "college", evaluation: "evaluation", evaluated: "evaluated", accounts: "accounts" };
+  var ROUTES = { dashboard: "dashboard", applicants: "applicants", documents: "documents", exams: "exams", results: "results", interviews: "interviews", medical: "medical", reports: "reports", settings: "settings", audit: "audit", college: "college", evaluation: "evaluation", evaluated: "evaluated", questions: "questions", accounts: "accounts" };
 
   /* Role-based access (use-case diagrams). One portal, three main roles;
      the server enforces the same limits on every request.
@@ -24,7 +24,7 @@ $(function () {
     admission_head: ["dashboard", "applicants", "documents", "exams", "results", "interviews", "evaluated", "medical", "reports", "settings", "audit"],
     super_admin: ["dashboard", "applicants", "documents", "exams", "results", "interviews", "evaluated", "medical", "reports", "settings", "audit", "accounts"],
     admission: ["applicants", "documents", "exams", "results", "interviews", "medical", "settings"],
-    college_dean: ["college", "evaluation", "evaluated"],
+    college_dean: ["college", "evaluation", "questions", "evaluated"],
     proctor: ["exams"],
     read_only: ["dashboard", "applicants", "reports"]
   };

@@ -42,7 +42,7 @@ class InterviewController extends Controller
             })->filter();
 
         return response()->json(['data' => [
-            'programs' => $programs->map(fn (Program $p) => ['code' => $p->code, 'name' => $p->name])->values(),
+            'programs' => $programs->load('college')->map(fn (Program $p) => ['code' => $p->code, 'name' => $p->name, 'college' => $p->college?->code, 'collegeName' => $p->college?->name])->values(),
             'schedules' => $schedules->map(fn (InterviewSchedule $s) => [
                 'id' => $s->id,
                 'program' => $s->program->code,

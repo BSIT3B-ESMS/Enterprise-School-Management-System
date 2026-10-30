@@ -30,16 +30,6 @@
         <p>Review applications, verify documents, schedule entrance exams, and release results from a single record.</p>
       </div>
 
-      <div class="journey-preview" aria-label="What the office handles">
-        <p class="preview-title">Your desk</p>
-        <ul class="office-points">
-          <li><span data-icon="inbox"></span>Review queues with counts by status</li>
-          <li><span data-icon="folder"></span>Document verification with remarks</li>
-          <li><span data-icon="calendar"></span>Exam batches, rosters and attendance</li>
-          <li><span data-icon="shield"></span>Medical clearance after the exam</li>
-          <li><span data-icon="chart"></span>Reports without separate spreadsheets</li>
-        </ul>
-      </div>
     </section>
 
     <section class="auth-panel">
@@ -66,10 +56,9 @@
             </div>
             <div class="invalid-feedback" id="admin-password-error"></div>
           </div>
+          @include('partials.recaptcha-mock')
           <button class="btn btn-brand btn-lg w-100" type="submit" id="admin-signin-submit"><span
               class="btn-label">Sign in</span></button>
-          <p class="demo-note"><span data-icon="help"></span>Demo panel: any email and a password of 8 or more
-            characters will work. Accounts and roles are managed by the system administrator.</p>
           <a class="link-button align-self-center" href="{{ route('applicant') }}"><span data-icon="arrowL"></span>Go to the
             applicant portal</a>
           <a class="link-button align-self-center" href="{{ route('nurse') }}"><span data-icon="shield"></span>Clinic nurse?
@@ -104,6 +93,7 @@
         <!-- College Dean module (own college only) -->
         <a class="nav-link" href="#/college" data-nav="college" hidden><span data-icon="users"></span>Applicant list</a>
         <a class="nav-link" href="#/evaluation" data-nav="evaluation" hidden><span data-icon="clipboard"></span>Applicant evaluation</a>
+        <a class="nav-link" href="#/questions" data-nav="questions" hidden><span data-icon="help"></span>Interview questions</a>
         <a class="nav-link" href="#/evaluated" data-nav="evaluated" hidden><span data-icon="award"></span>Evaluation results</a>
       </nav>
 
@@ -157,6 +147,7 @@
         <section class="view-section" id="view-interviews"></section>
         <section class="view-section" id="view-college"></section>
         <section class="view-section" id="view-evaluation"></section>
+        <section class="view-section" id="view-questions"></section>
         <section class="view-section" id="view-evaluated"></section>
         <section class="view-section" id="view-medical"></section>
         <section class="view-section" id="view-reports"></section>
@@ -335,6 +326,58 @@
         </div>
         <div class="modal-body" id="doc-preview"></div>
         <div class="modal-footer" id="doc-preview-actions"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Interviews: add a slot -->
+  <div class="modal fade" id="slotModal" tabindex="-1" aria-labelledby="slotModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <form class="modal-content" id="interview-schedule-form" novalidate>
+        <div class="modal-body">
+          <span class="modal-icon" data-icon="calendar"></span>
+          <h2 class="modal-title-serif" id="slotModalTitle">Add an interview slot</h2>
+          <div class="mb-3"><label class="form-label" for="iv-program">Program</label>
+            <select class="form-select" id="iv-program" required></select></div>
+          <div class="row g-2 mb-3">
+            <div class="col-12 col-sm-6"><label class="form-label" for="iv-date">Date</label>
+              <input class="form-control" type="date" id="iv-date" data-msg-range="Pick today or a later date." required>
+              <div class="invalid-feedback" id="iv-date-error"></div></div>
+            <div class="col-6 col-sm-3"><label class="form-label" for="iv-from">From</label>
+              <input class="form-control" type="time" id="iv-from"></div>
+            <div class="col-6 col-sm-3"><label class="form-label" for="iv-to">To</label>
+              <input class="form-control" type="time" id="iv-to"></div>
+          </div>
+          <div class="mb-3"><label class="form-label" for="iv-venue">Where to go (venue)</label>
+            <input class="form-control" id="iv-venue" maxlength="255" placeholder="e.g. 3rd Floor, CCS Faculty" required>
+            <div class="invalid-feedback" id="iv-venue-error"></div></div>
+          <div class="mb-1"><label class="form-label" for="iv-capacity">How many applicants?</label>
+            <input class="form-control" type="number" inputmode="numeric" id="iv-capacity" min="1" max="500" step="1" value="20" data-msg-range="Use 1 to 500." required>
+            <div class="invalid-feedback" id="iv-capacity-error"></div></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-brand" id="iv-create"><span class="btn-label">Add slot</span></button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Interviews: choose a slot for an applicant -->
+  <div class="modal fade" id="pickSlotModal" tabindex="-1" aria-labelledby="pickSlotModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-body">
+          <span class="modal-icon" data-icon="calendar"></span>
+          <h2 class="modal-title-serif" id="pickSlotModalTitle">Choose an interview slot</h2>
+          <p class="text-muted" id="pick-who"></p>
+          <div id="pick-list"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-ghost" id="pick-add" hidden>Add a slot</button>
+          <button type="button" class="btn btn-brand" id="pick-assign"><span class="btn-label">Book this slot</span></button>
+        </div>
       </div>
     </div>
   </div>

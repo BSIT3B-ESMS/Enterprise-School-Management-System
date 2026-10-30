@@ -32,14 +32,6 @@
         <p>Check the medical requirements applicants send after passing, and send your approval to the admission office.</p>
       </div>
 
-      <div class="journey-preview" aria-label="What the clinic handles">
-        <p class="preview-title">Your desk</p>
-        <ul class="office-points">
-          <li><span data-icon="inbox"></span>Medical files sent by applicants</li>
-          <li><span data-icon="flag"></span>Send a file back with a remark</li>
-          <li><span data-icon="send"></span>Approve and notify the admission office</li>
-        </ul>
-      </div>
     </section>
 
     <section class="auth-panel">
@@ -66,10 +58,9 @@
             </div>
             <div class="invalid-feedback" id="nurse-password-error"></div>
           </div>
+          @include('partials.recaptcha-mock')
           <button class="btn btn-brand btn-lg w-100" type="submit" id="nurse-signin-submit"><span
               class="btn-label">Sign in</span></button>
-          <p class="demo-note"><span data-icon="help"></span>Clinic accounts only see medical requirements. Accounts are
-            managed by the system administrator.</p>
           <a class="link-button align-self-center" href="{{ route('admin') }}"><span data-icon="arrowL"></span>Go to the
             admission office</a>
         </form>

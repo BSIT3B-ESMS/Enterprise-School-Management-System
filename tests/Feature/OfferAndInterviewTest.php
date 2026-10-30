@@ -228,6 +228,19 @@ class OfferAndInterviewTest extends TestCase
         $this->assertSame('BSN', $this->app_($user)->offeredProgram->code);
     }
 
+    /** Each dean edits the interview questions of their own college; the defaults show until then */
+    public function test_dean_edits_the_interview_questions(): void
+    {
+        $dean = $this->dean('CCS');
+        $this->asUser($dean)->getJson('/api/dean/applicants')->assertJsonPath('data.college.questions.0', 'Tell me about yourself.');
+
+        $this->asUser($dean)->putJson('/api/dean/interview-questions', ['questions' => ['  Why IT? ', 'What is your goal?']])->assertOk();
+        $this->asUser($dean)->getJson('/api/dean/applicants')->assertJsonPath('data.college.questions', ['Why IT?', 'What is your goal?']);
+        $this->asUser($this->dean('CON'))->getJson('/api/dean/applicants')->assertJsonPath('data.college.questions.0', 'Tell me about yourself.');
+        $this->asUser($dean)->putJson('/api/dean/interview-questions', ['questions' => []])->assertUnprocessable();
+        $this->asUser($this->officer())->putJson('/api/dean/interview-questions', ['questions' => ['x']])->assertForbidden();
+    }
+
     /** College Dean "Applicant List": only applicants who chose one of the dean's college programs */
     public function test_dean_applicant_list_is_scoped_to_the_college(): void
     {
