@@ -17,7 +17,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Document review screen of the admission office panel (FR-03, FR-04).
- * Medical files are reviewed in the clinic portal (Clinic\MedicalController).
+ * Medical files are reviewed in the Clinic module (Clinic\MedicalController).
  * Applications are addressed by number (AD-2026-00001), the id the panel
  * already uses.
  */
@@ -50,7 +50,7 @@ class DocumentController extends Controller
         return response()->json(['data' => $this->presenter->applicant($application->fresh())]);
     }
 
-    /** Open an uploaded admission document. Medical files are confidential: clinic portal only (NFR-05). */
+    /** Open an uploaded admission document. Medical files are confidential: clinic role only (NFR-05). */
     public function file(Request $request, Application $application, string $key, DocumentStorage $storage, AuditLogger $audit): StreamedResponse
     {
         $requirement = Requirement::where('key', $key)->firstOrFail();

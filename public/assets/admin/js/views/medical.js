@@ -1,8 +1,8 @@
 /* ==========================================================================
    View: Medical clearance (#/medical) — the last admission step. Applicants
    who passed submit medical files after their result is released. The clinic
-   nurse checks them in the nurse portal (nurse/index.html) and sends an
-   approval. The office only sees where each applicant is: read-only here.
+   nurse checks them in the Clinic module (views/clinic.js, clinic role) and
+   sends an approval. The office only sees where each applicant is: read-only here.
    ========================================================================== */
 (function ($) {
   "use strict";

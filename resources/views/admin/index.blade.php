@@ -92,6 +92,13 @@
         <a class="nav-link" href="#/evaluation" data-nav="evaluation" hidden><span data-icon="clipboard"></span>Applicant evaluation</a>
         <a class="nav-link" href="#/questions" data-nav="questions" hidden><span data-icon="help"></span>Interview questions</a>
         <a class="nav-link" href="#/evaluated" data-nav="evaluated" hidden><span data-icon="award"></span>Evaluation results</a>
+        <!-- Clinic module (clinic nurse) -->
+        <a class="nav-link" href="#/check" data-nav="check" hidden><span data-icon="inbox"></span>To check<span
+            class="nav-count" id="nav-count-check">0</span></a>
+        <a class="nav-link" href="#/returned" data-nav="returned" hidden><span data-icon="flag"></span>Sent back<span
+            class="nav-count" id="nav-count-returned">0</span></a>
+        <a class="nav-link" href="#/approved" data-nav="approved" hidden><span data-icon="check"></span>Approved<span
+            class="nav-count" id="nav-count-approved">0</span></a>
       </nav>
 
       <!-- Less frequent screens, folded away; opens by itself when one of them is the current page -->
@@ -149,6 +156,10 @@
         <section class="view-section" id="view-questions"></section>
         <section class="view-section" id="view-evaluated"></section>
         <section class="view-section" id="view-medical"></section>
+        <section class="view-section" id="view-check"></section>
+        <section class="view-section" id="view-returned"></section>
+        <section class="view-section" id="view-approved"></section>
+        <section class="view-section" id="view-medreview"></section>
         <section class="view-section" id="view-reports"></section>
         <section class="view-section" id="view-settings"></section>
         <section class="view-section" id="view-audit"></section>
@@ -215,7 +226,7 @@
           <textarea class="form-control" id="remark-text" rows="3" minlength="10" maxlength="500" required
             placeholder="Tell the applicant exactly what to fix."></textarea>
           <div class="invalid-feedback" id="remark-text-error"></div>
-          <div class="form-text">The applicant sees this remark on their Documents page.</div>
+          <div class="form-text" id="remark-where">The applicant sees this remark on their Documents page.</div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-ghost" data-bs-dismiss="modal">Cancel</button>
@@ -461,6 +472,7 @@
   <script src="{{ \App\Support\Asset::v('assets/admin/js/views/interviews.js') }}"></script>
   <script src="{{ \App\Support\Asset::v('assets/admin/js/views/dean.js') }}"></script>
   <script src="{{ \App\Support\Asset::v('assets/admin/js/views/medical.js') }}"></script>
+  <script src="{{ \App\Support\Asset::v('assets/admin/js/views/clinic.js') }}"></script>
   <script src="{{ \App\Support\Asset::v('assets/admin/js/views/reports.js') }}"></script>
   <script src="{{ \App\Support\Asset::v('assets/admin/js/views/settings.js') }}"></script>
   <script src="{{ \App\Support\Asset::v('assets/admin/js/views/audit.js') }}"></script>

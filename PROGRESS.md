@@ -5,8 +5,7 @@
 | Portal | Link | Who signs in |
 |---|---|---|
 | **Applicant portal** | https://plp-admission-system.3-24-200-123.sslip.io/ | Applicants (create an account there) |
-| **Admin portal** | https://plp-admission-system.3-24-200-123.sslip.io/admin | Admin, Admission Personnel, College Deans (each sees their own screens) |
-| **Nurse portal** (clinic) | https://plp-admission-system.3-24-200-123.sslip.io/nurse | University clinic |
+| **Admin portal** | https://plp-admission-system.3-24-200-123.sslip.io/admin | Admin, Admission Personnel, College Deans, Clinic nurse (each sees their own screens) |
 
 ## 👤 Accounts (live server)
 
@@ -24,8 +23,8 @@
 | **College Dean**, College of Engineering (BSECE) | /admin | `dean.coe@plpasig.edu.ph` | `dean1234` |
 | **College Dean**, College of Education (BEED, BSED-ENG, BSED-FIL) | /admin | `dean.coed@plpasig.edu.ph` | `dean1234` |
 | **College Dean**, College of Nursing (BSN) | /admin | `dean.con@plpasig.edu.ph` | `dean1234` |
-| **Clinic** | /nurse | `ignacio_keane@plpasig.edu.ph` | `clinic123` |
-| **Clinic** | /nurse | `clinic@plpasig.edu.ph` | `ffn8Psp7taheBy0s` |
+| **Clinic** | /admin | `ignacio_keane@plpasig.edu.ph` | `clinic123` |
+| **Clinic** | /admin | `clinic@plpasig.edu.ph` | `ffn8Psp7taheBy0s` |
 | **Applicant** (any of the 60 samples, e.g. `andrea.manalo0@example.com`; list in the admin portal's Applicants) | / | sample email | `B3m0KhRvwNQ68wao` |
 | **System administrator** (server commands, `/pulse`, `/log-viewer`; no portal) | — | `sysadmin@plpasig.edu.ph` | `(d}6b,30k.^S&~<*vUel` |
 
@@ -39,9 +38,10 @@ The portal reads the role from the sign-in; the server enforces the same limits 
 |---|---|---|
 | **Admin**: the whole system | Dashboard · Applicants (student module) · Document review · Entrance exams · Results (also **releases** them) · Interviews · Medical (clinic module, read-only) · Evaluation results (every college's, and can record an evaluation) · Reports · Programs & requirements (also **sets the dates of admission**) · Audit log | Open medical files (clinic only) |
 | **Admission Personnel**: the admissions work | Applicants (registration) · Document review (verification) · Entrance exams · Results (record) · Interviews (schedule, assign) · Medical (read-only) · Programs & requirements (admission slot setup, which programs need an interview) | Release results, set admission dates, see the dashboard, reports or audit log |
+| **Clinic nurse**: medical files only | To check · Sent back · Approved (open an applicant's medical files, send one back with a remark, or approve) | See anything but medical files (no profile, exam, score or documents) |
 | **College Dean**: own college only | Applicant list (only applicants who chose one of the college's programs, e.g. the CCS dean sees BSIT/BSCS applicants) · Applicant evaluation (grade + Passed / Failed / Refer) · Evaluation results / referral | Anything outside their college; any office screen |
 
-The **Nurse portal** (clinic) has Document verification and Medical approval; the **Applicant portal** has Application, Documents, Exam, Interview, Results and Medical.
+The old Nurse portal (`/nurse`) is gone (2026-10-27): the clinic nurse is a role in the Admin portal and `/nurse` no longer exists. The **Applicant portal** has Application, Documents, Exam, Interview, Results and Medical.
 
 Which programs need a dean's evaluation is set per program in Programs & requirements → **Interview** (on now: BSN only). A dean whose programs have it off still sees the applicant list, but has nobody to evaluate.
 
@@ -54,7 +54,7 @@ cd D:\Admission_System
 php artisan app:start
 ```
 
-Open **http://127.0.0.1:8000/admin** (Admin, Admission Personnel, College Deans), **http://127.0.0.1:8000/nurse** (clinic) or **http://127.0.0.1:8000/** (applicants). Press `Ctrl+C` in the terminal to stop. Accounts: see **Accounts** at the top.
+Open **http://127.0.0.1:8000/admin** (Admin, Admission Personnel, College Deans, Clinic) or **http://127.0.0.1:8000/** (applicants). Press `Ctrl+C` in the terminal to stop. Accounts: see **Accounts** at the top.
 
 **On a new computer (one time):** install [Laravel Herd](https://herd.laravel.com) (it gives you PHP and Composer), then:
 
@@ -106,7 +106,7 @@ Legend: ✅ in the system · 🆕 added on 2026-10-24 · 🔌 built, switched of
 | FR-19 | Record results one by one **or by CSV**; scores never shown to applicants | ✅ · 🆕 CSV import (Results → Import CSV) |
 | FR-20 | Hidden until the **Admission Head** releases; logged; notifies | 🆕 `admission_head` role, release limited to it · 🆕 fixed: the portal's `status` showed "passed/failed" before release |
 | FR-21 | Place each pass in one of the 3 choices within slots; PDF letter | 🆕 highest choice with a free slot; staff can move them (`POST /api/admin/applicants/{no}/placement`) · ✅ letter |
-| FR-22 | Medical submission, cleared by authorised staff | ✅ (Clinic portal) |
+| FR-22 | Medical submission, cleared by authorised staff | ✅ (Clinic module in `/admin`) |
 | FR-23 | Review queues, counts, search/filter | ✅ |
 | FR-24 | Applicant record with change history | ✅ |
 | FR-25 | Flag possible duplicates | ✅ (LRN unique; same name + birthday flagged) · 🆕 report |
@@ -145,7 +145,7 @@ Legend: ✅ in the system · 🆕 added on 2026-10-24 · 🔌 built, switched of
 
 **UI team (the backend is ready; the screens can't show it yet)**
 7. 2FA code screen · "new password" screen for the reset link · notification list · "Did not pass" result screen (failed applicants currently stay on the exam step) · district/barangay fields in the applicant form · the unreachable profile view.
-8. ~~Hide admin screens by role~~ Done: the clinic has its own portal (`/nurse`, `/api/clinic`) and can't sign in to `/admin`; admission staff can't sign in to `/nurse`.
+8. ~~Hide admin screens by role~~ Done: every staff role signs in at `/admin` and sees only its own screens; the clinic role gets the Clinic module (`/api/clinic`) only.
 9. Remove the hard-coded "Passed · 89th percentile" from the result screen (the backend never sends a score or percentile, NFR-02).
 10. "Saved on this device" autosave label: the form is now saved on the server.
 
@@ -155,7 +155,7 @@ Legend: ✅ in the system · 🆕 added on 2026-10-24 · 🔌 built, switched of
 13. What should "Reset demo data" in the panel do on a real server? It currently just reloads.
 14. Still on defaults from the plan: D6 file types (PDF/JPG/PNG), D8 status set, D9 freshmen only, D10 retention (soft deletes).
 
-Tracks the backend build on the `backend` branch. Guide: [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md). Architecture: the system architecture diagram (Nginx communication layer → Laravel on EC2 → RDS MySQL; DMS and Enrollment as external systems). UI audit: [docs/UI_BACKEND_MATRIX.md](docs/UI_BACKEND_MATRIX.md).
+Tracks the backend build on the `backend` branch. Architecture: the system architecture diagram (Nginx communication layer → Laravel on EC2 → RDS MySQL; DMS and Enrollment as external systems). UI audit: [docs/UI_BACKEND_MATRIX.md](docs/UI_BACKEND_MATRIX.md).
 
 The system is one module of the university ERP. Other systems (Document Mgmt, Enrollment) connect through REST + API key, so integrations go behind interfaces and are switched on through `.env`.
 
@@ -201,7 +201,7 @@ This starts the web server, the queue worker (emails, notifications) and the sch
 |---|---|---|
 | Applicant portal | http://127.0.0.1:8000/ | **Create account**, or a sample applicant (any email in the admin panel's Applicants list) / `password123` |
 | Admission office | http://127.0.0.1:8000/admin | `admissions@plpasig.edu.ph` / `password123` |
-| Clinic (medical) | http://127.0.0.1:8000/nurse | `clinic@plpasig.edu.ph` / `password123` |
+| Clinic (medical) | http://127.0.0.1:8000/admin | `clinic@plpasig.edu.ph` / `password123` |
 | Monitoring (Pulse) | http://127.0.0.1:8000/pulse | local only |
 
 ### After pulling new code
@@ -237,7 +237,7 @@ Nginx in front ([docs/deploy/nginx.conf](docs/deploy/nginx.conf): TLS, gzip, rat
 
 ## Decisions made with the team (2026-10-17)
 
-These override DEVELOPMENT_PLAN.md where the two disagree.
+These override the original development plan where the two disagree.
 
 | # | Topic | Decision | Overrides |
 |---|---|---|---|
@@ -321,7 +321,7 @@ Legend: ✅ done · 🔄 in progress · ⬜ to do · ⏸ deferred
   - Setup: `composer setup` → `php artisan app:install` (keys, database check with clear messages, MySQL trigger-setting check, migrations, seeding only when empty). `php artisan app:start` runs the web server, queue worker and scheduler together. Verified from a fresh clone (SQLite and MySQL error paths).
   - Tests: 58 passing.
 
-- **Updated plan (2026-10-20)**, from the updated Solution Design Document; see "What changed" at the top of [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md). One migration (`2026_10_20_000100_create_updated_plan_tables`) adds colleges, interview schedules/assignments, trusted devices, API clients and the DMS outbox, and the new columns (QR token, offer deadline, falsification flag, student number, privacy acceptance, …).
+- **Updated plan (2026-10-20)**, from the updated Solution Design Document; One migration (`2026_10_20_000100_create_updated_plan_tables`) adds colleges, interview schedules/assignments, trusted devices, API clients and the DMS outbox, and the new columns (QR token, offer deadline, falsification flag, student number, privacy acceptance, …).
   - **Roles:** five (applicant, admission, college_dean, clinic, sysadmin). Colleges own programs; a dean sees only their college.
   - **DMS (INT-01):** every record change goes into `dms_outbox` and is sent by a queued job with an Idempotency-Key; a DMS outage never blocks staff work. `fake` and `http` drivers (`DMS_DRIVER`). `dms:outbox` shows/retries/resyncs; retries hourly.
   - **Enrollment (D12):** the direct handoff (`SendToEnrollment`, `enrollment_handoffs`, `enrollment:retry`) is removed; the Admitted flag goes to the DMS. The student-number callback stays, off.
@@ -381,7 +381,7 @@ If the system ever goes past demo size, the fix is paging the office screens (R3
 
 ## Health check (2026-10-20, `health-check` branch)
 
-A separate review session checked the system for performance, optimization and gaps, while another session kept developing on `backend`. Full report with file references and fixes: [docs/HEALTH_CHECK.md](docs/HEALTH_CHECK.md). Everything is on the `health-check` branch (pushed); nothing was changed in the `backend` working tree.
+A separate review session checked the system for performance, optimization and gaps, while another session kept developing on `backend`. The `health-check` branch is merged into `backend`.
 
 **Done**
 - The report: 14 findings ranked by severity.
@@ -399,5 +399,4 @@ A separate review session checked the system for performance, optimization and g
 7. Low: N+1s, the duplicate check's `LOWER()`, retention/pruning, config validation, login timing.
 
 **Next steps**
-- Merge `health-check` into `backend` once the developing session has committed its work (the branch changes only a new migration, `config/queue.php`, `docs/HEALTH_CHECK.md` and this section at the end of PROGRESS.md; if PROGRESS.md conflicts, keep both sides). Then run `php artisan migrate`.
-- Then work through the to-do list above, top first, with a test for each.
+- Work through the to-do list above, top first, with a test for each.

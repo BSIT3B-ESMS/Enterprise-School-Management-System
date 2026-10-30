@@ -41,7 +41,7 @@ API client name: **`employment`**.
 | `admission` | Admission Staff (evaluators) | All office work except releasing results |
 | `admission_head` | Admission Head / Director | Everything Admission Staff do, plus release results (FR-20) |
 | `proctor` | Exam proctors / venue staff | Rosters, QR check-in, attendance, envelope receipt |
-| `clinic` | University clinic (Medical) | Medical requirements only (clinic portal) |
+| `clinic` | University clinic (Medical) | Medical requirements only (Clinic module in `/admin`) |
 | `read_only` | Deans, Registrar, DPO / auditors | View the office panel and reports; change nothing |
 | `college_dean` | College deans (needs `college`) | Interviews for their college; their college's reports |
 

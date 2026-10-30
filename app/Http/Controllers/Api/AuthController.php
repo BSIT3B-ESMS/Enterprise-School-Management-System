@@ -248,12 +248,10 @@ class AuthController extends Controller
 
     private function allowedOnPortal(User $user, string $portal): bool
     {
-        // Two sign-in screens (NFR-01): applicants, and school employees ('office', every staff role;
-        // the browser sends clinic staff on to /nurse). 'clinic' stays for API callers.
+        // Two sign-in screens (NFR-01): applicants, and school employees ('office', every staff role, the clinic nurse included)
         return in_array($user->primaryRole(), match ($portal) {
             'applicant' => [Role::Applicant],
             'office' => [Role::Admission, Role::AdmissionHead, Role::CollegeDean, Role::Proctor, Role::ReadOnly, Role::SuperAdmin, Role::Clinic],
-            'clinic' => [Role::Clinic],
         }, true);
     }
 

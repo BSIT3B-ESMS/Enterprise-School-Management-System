@@ -119,4 +119,4 @@ JSON API under `/api`, used by the existing applicant portal and admission offic
 
 API keys expire after 90 days (NFR-05): run `api-client:create <name>` again to rotate. Request and response details: [INTEGRATIONS.md](INTEGRATIONS.md).
 
-The OAS's own calls **to** the DMS (`PUT /applicants/{ref}`, `POST /applicants/{ref}/events`, `POST /documents`, …) are described in DEVELOPMENT_PLAN.md Phase 11 and switch on with `DMS_DRIVER=http`.
+The OAS's own calls **to** the DMS (`PUT /applicants/{ref}`, `POST /applicants/{ref}/events`, `POST /documents`, …) are described in [INTEGRATIONS.md](INTEGRATIONS.md#4-document-management-system-dms) and switch on with `DMS_DRIVER=http`.

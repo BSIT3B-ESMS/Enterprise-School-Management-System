@@ -10,7 +10,7 @@ use DateTimeZone;
 use Illuminate\Support\Facades\DB;
 
 /**
- * The clinic portal's state (ADM.state when nurse.js loads admin-store.js).
+ * The Clinic module's state (ADM.state when a clinic account signs in to the admin portal).
  * Same shape as OfficeStatePresenter so the shared store works unchanged,
  * but only what a nurse needs: applicants at the medical step (released
  * pass), their name, sex and birthday, and their medical files. No scores,

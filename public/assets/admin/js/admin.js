@@ -11,7 +11,7 @@ $(function () {
   var ADM = window.ADM;
 
   // Hash → view name; the second segment is passed to render() as param
-  var ROUTES = { dashboard: "dashboard", applicants: "applicants", documents: "documents", exams: "exams", results: "results", interviews: "interviews", medical: "medical", reports: "reports", settings: "settings", audit: "audit", college: "college", evaluation: "evaluation", evaluated: "evaluated", questions: "questions", accounts: "accounts" };
+  var ROUTES = { dashboard: "dashboard", applicants: "applicants", documents: "documents", exams: "exams", results: "results", interviews: "interviews", medical: "medical", reports: "reports", settings: "settings", audit: "audit", college: "college", evaluation: "evaluation", evaluated: "evaluated", questions: "questions", accounts: "accounts", check: "check", returned: "returned", approved: "approved" };
 
   /* Role-based access (use-case diagrams). One portal, three main roles;
      the server enforces the same limits on every request.
@@ -19,12 +19,14 @@ $(function () {
        Clinic and College Dean modules, admission dates, audit log, reports)
      - Admission Personnel: slot setup, applicants, documents, entrance exam,
        results, interviews, medical
-     - College Dean: applicant list, evaluation, results/referral (own college) */
+     - College Dean: applicant list, evaluation, results/referral (own college)
+     - Clinic nurse: medical files to check, sent back, approved */
   var ACCESS = {
     admission_head: ["dashboard", "applicants", "documents", "exams", "results", "interviews", "evaluated", "medical", "reports", "settings", "audit"],
     super_admin: ["dashboard", "applicants", "documents", "exams", "results", "interviews", "evaluated", "medical", "reports", "settings", "audit", "accounts"],
     admission: ["applicants", "documents", "exams", "results", "interviews", "medical", "settings"],
     college_dean: ["college", "evaluation", "questions", "evaluated"],
+    clinic: ["check", "returned", "approved"],
     proctor: ["exams"],
     read_only: ["dashboard", "applicants", "reports"]
   };
@@ -52,11 +54,11 @@ $(function () {
     return ACCESS[ADM.STAFF.roleKey] || ["dashboard"];
   }
   function home() { return "#/" + allowed()[0]; }
-  var DETAIL = { applicants: "applicant", exams: "session", documents: "docreview" };   // #/applicants/:id → view "applicant"
+  var DETAIL = { applicants: "applicant", exams: "session", documents: "docreview", check: "medreview", returned: "medreview", approved: "medreview" };   // #/applicants/:id → view "applicant"
   var current = { view: null, param: null };
 
   /* ==========================================================================
-     SIGN IN (Laravel API, JWT with the admission or clinic role)
+     SIGN IN (Laravel API, JWT with a staff role)
      ========================================================================== */
   function enterApp() {
     $("#auth-screen").prop("hidden", true);
@@ -64,10 +66,10 @@ $(function () {
     $("#sidebar-name").text(ADM.STAFF.name);
     $("#sidebar-avatar").text(ADM.STAFF.initials);
     $("#sidebar-role").text(ADM.STAFF.role);
-    var dean = ADM.STAFF.roleKey === "college_dean";
-    $("#sidebar-section").text(dean ? "College dean" + (ADM.dean.college ? " · " + ADM.dean.college.code : "") : ADM.STAFF.roleKey === "super_admin" ? "Super admin" : ADM.STAFF.roleKey === "admission_head" ? "Admin" : "Admission office");
+    var dean = ADM.STAFF.roleKey === "college_dean", clinic = ADM.STAFF.roleKey === "clinic";
+    $("#sidebar-section").text(dean ? "College dean" + (ADM.dean.college ? " · " + ADM.dean.college.code : "") : clinic ? "University clinic" : ADM.STAFF.roleKey === "super_admin" ? "Super admin" : ADM.STAFF.roleKey === "admission_head" ? "Admin" : "Admission office");
     $("#super-chip").prop("hidden", ADM.STAFF.roleKey !== "super_admin");
-    $(".crumb-root").text(dean ? "College dean" : ADM.STAFF.roleKey === "super_admin" ? "Super admin" : "Admission office");
+    $(".crumb-root").text(dean ? "College dean" : clinic ? "University clinic" : ADM.STAFF.roleKey === "super_admin" ? "Super admin" : "Admission office");
     applyAccess();
     if (picksTask() && !task()) { askTask(); return; }
     if (!location.hash) location.replace(home());

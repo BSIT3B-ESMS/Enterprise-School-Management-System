@@ -352,7 +352,7 @@
     search: function (q) { f.q = q; f.status = "all"; f.page = 1; },
     filterStatus: function (st) { f.status = st; f.page = 1; }
   };
-  /* Medical tab: read-only. The clinic nurse checks and approves in the clinic portal (/nurse). */
+  /* Medical tab: read-only. The clinic nurse checks and approves in the Clinic module (views/clinic.js). */
 
   ADM.views.applicant = {
     title: function (id) { var a = ADM.applicant(id); return a ? ADM.fullName(a) : "Applicant"; },

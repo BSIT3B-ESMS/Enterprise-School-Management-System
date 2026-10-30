@@ -86,8 +86,8 @@ Route::prefix('applicant')->middleware(['auth:api', 'active', 'role:applicant'])
 // Admission office panel. Admission Staff and the Admission Head do the
 // office work; only the Head releases results (FR-20). Proctors handle exam
 // day (FR-16, FR-17); Read-only users (deans, registrar, DPO) only look.
-// Medical clearance shows there read-only; the clinic has its own portal
-// below. There are no routes here for accounts, backups or security
+// Medical clearance shows there read-only; the clinic nurse has its own
+// module below. There are no routes here for accounts, backups or security
 // settings (§4 role boundaries).
 Route::prefix('admin')->middleware(['auth:api', 'active', 'two_factor'])->group(function () {
     Route::get('state', [Office\StateController::class, 'show'])->middleware('role:admission|admission_head|proctor|read_only');
@@ -149,8 +149,8 @@ Route::prefix('admin')->middleware(['auth:api', 'active', 'two_factor', 'role:ad
     Route::put('barangays/{district}', [Office\SetupController::class, 'saveBarangays'])->whereNumber('district');
 });
 
-// Clinic portal (nurse/): the clinic nurse sees medical files only, sends a
-// file back or approves. Medical files are confidential to the clinic.
+// Clinic module (admin portal, clinic role): the nurse sees medical files only,
+// sends a file back or approves. Medical files are confidential to the clinic.
 Route::prefix('clinic')->middleware(['auth:api', 'active', 'two_factor', 'role:clinic'])->group(function () {
     Route::get('state', [Clinic\MedicalController::class, 'state']);
 
