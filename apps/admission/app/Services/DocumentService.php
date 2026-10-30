@@ -138,7 +138,7 @@ class DocumentService
        Staff side
        ------------------------------------------------------------------ */
 
-    /** Verify, or send back with a remark (required). */
+    /** FR-09: verify, send back for resubmission, or reject; a remark is required unless verified. */
     public function review(Application $application, Requirement $requirement, string $decision, ?string $remark, User $staff): ApplicationDocument
     {
         $this->assertReviewer($staff, $requirement);
@@ -147,14 +147,17 @@ class DocumentService
             throw new BusinessRuleException('Nothing has been uploaded for this requirement yet.');
         }
         $this->assertReviewable($application, $requirement);
-        if ($decision === ApplicationDocument::RESUBMIT && blank($remark)) {
-            throw new BusinessRuleException('Add a remark so the applicant knows what to fix.');
+        if ($decision === ApplicationDocument::REJECTED && $requirement->stage === Requirement::STAGE_MEDICAL) {
+            throw new BusinessRuleException('Medical files are verified or sent back for a new copy.');
+        }
+        if ($decision !== ApplicationDocument::VERIFIED && blank($remark)) {
+            throw new BusinessRuleException('Add a remark so the applicant knows why.');
         }
 
         DB::transaction(function () use ($application, $requirement, $document, $decision, $remark, $staff) {
             $document->update([
                 'status' => $decision,
-                'remark' => $decision === ApplicationDocument::RESUBMIT ? $remark : null,
+                'remark' => $decision === ApplicationDocument::VERIFIED ? null : $remark,
                 'reviewed_by' => $staff->id,
                 'reviewed_at' => now(),
             ]);
@@ -165,6 +168,7 @@ class DocumentService
                 $medical && $decision === ApplicationDocument::VERIFIED => "Verified medical requirement \"{$title}\"",
                 $medical => "Asked to resubmit medical requirement \"{$title}\": {$remark}",
                 $decision === ApplicationDocument::VERIFIED => "Verified \"{$title}\"",
+                $decision === ApplicationDocument::REJECTED => "Rejected \"{$title}\": {$remark}",
                 default => "Marked \"{$title}\" as requires resubmission: {$remark}",
             };
             $this->audit->record($medical ? 'medical.reviewed' : 'document.reviewed', $text, $document, $application, ['decision' => $decision]);
@@ -179,7 +183,7 @@ class DocumentService
     }
 
     /**
-     * The clinic nurse's "Approve" (clinic portal): every medical file is in,
+     * The clinic nurse's "Approve" (Clinic module): every medical file is in,
      * sent by the applicant and none is waiting on a replacement. Verifies
      * them all; the office then sees the applicant as Approved.
      */
@@ -381,7 +385,7 @@ class DocumentService
     private function assertReviewer(User $staff, Requirement $requirement): void
     {
         $role = $requirement->stage === Requirement::STAGE_MEDICAL ? 'clinic' : 'admission';
-        if (! $staff->hasRole($role)) {
+        if (! $staff->hasAnyRole([$role, $role === 'admission' ? 'super_admin' : $role])) {
             throw new AuthorizationException($role === 'clinic'
                 ? 'Only the university clinic can review medical requirements.'
                 : 'Only admission personnel can review admission documents.');

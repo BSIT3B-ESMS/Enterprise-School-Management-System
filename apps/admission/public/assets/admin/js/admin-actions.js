@@ -65,6 +65,18 @@
       return true;
     },
 
+    // FR-09: not acceptable and not replaceable (remark required)
+    rejectDoc: function (a, key, remark) {
+      var doc = a.docs[key];
+      if (!doc || doc.status === "missing") return false;
+      doc.status = "rejected";
+      doc.remark = remark;
+      stamp(doc);
+      ADM.logApplicant(a, "Rejected \"" + docTitle(key) + "\": " + remark);
+      send("PATCH", applicantPath(a, "documents/" + key), { status: "rejected", remark: remark }, a);
+      return true;
+    },
+
     // Verify every document that is waiting for review
     verifyAllPending: function (a) {
       var n = 0;
@@ -150,8 +162,8 @@
       return n;
     },
 
-    // Medical requirements are checked and approved in the clinic portal
-    // (assets/nurse/js/nurse.js, /api/clinic). The office sees them read-only.
+    // Medical requirements are checked and approved in the Clinic module
+    // (views/clinic.js, /api/clinic). The office sees them read-only.
 
     createSession: function (date, batch, venue, capacity) {
       var dup = ADM.state.sessions.filter(function (s) { return s.date === date && s.batch === batch && s.venue.toLowerCase() === venue.toLowerCase(); })[0];

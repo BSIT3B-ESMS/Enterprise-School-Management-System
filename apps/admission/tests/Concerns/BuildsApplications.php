@@ -26,6 +26,14 @@ trait BuildsApplications
         return $this->officer ??= $this->makeUser(Role::Admission, ['name' => 'Maria Santos']);
     }
 
+    protected ?User $admissionHead = null;
+
+    /** FR-20: only the Admission Head releases results. */
+    protected function admissionHead(): User
+    {
+        return $this->admissionHead ??= $this->makeUser(Role::AdmissionHead, ['name' => 'Director Reyes']);
+    }
+
     protected function uploadDoc(User $user, string $key, string $stage = 'documents')
     {
         $file = $key === 'photo' ? $this->fakePhoto() : UploadedFile::fake()->create("{$key}.pdf", 200, 'application/pdf');
@@ -77,7 +85,7 @@ trait BuildsApplications
     protected function released(string $decision = 'passed', string $email = 'jordan@example.com'): User
     {
         $user = $this->examined($decision, $decision === 'passed' ? 82 : 41, $email);
-        $this->asUser($this->officer())->postJson('/api/admin/results/release', ['ids' => [$this->number($user)]])->assertOk();
+        $this->asUser($this->admissionHead())->postJson('/api/admin/results/release', ['ids' => [$this->number($user)]])->assertOk();
 
         return $user;
     }

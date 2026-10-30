@@ -18,10 +18,12 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Interviews (FR-17). Admission personnel create schedules per program and
- * assign applicants who passed the exam and whose program requires an
- * interview. The College Dean of that program's college records the grade
- * (Restricted) and Passed/Failed. Passed → offer; Failed → final.
- * Applicants see their schedule and outcome, never the grade.
+ * assign applicants who passed the exam to the schedule of their first
+ * choice that requires an interview; the next choice is scheduled only after
+ * the earlier dean rejects them. The College Dean of each program's
+ * college accepts (passed) or rejects (failed) the applicant, with an
+ * optional grade (Restricted). Applicants see their schedules and outcomes,
+ * never the grade.
  */
 class InterviewService
 {
@@ -47,28 +49,32 @@ class InterviewService
         return $schedule;
     }
 
-    /** Assign (or move) an applicant to an interview schedule. Capacity is enforced under a lock. */
+    /** Assign (or move) an applicant to an interview schedule of one of their choices. Capacity is enforced under a lock. */
     public function assign(Application $application, InterviewSchedule $schedule, User $staff): InterviewAssignment
     {
         if ($application->status !== ApplicationStatus::ForInterview) {
             throw new BusinessRuleException('Only applicants waiting for an interview can be scheduled.');
         }
-        if ($application->interview?->outcome) {
+        if (! $application->choices()->where('program_id', $schedule->program_id)->exists()) {
+            throw new BusinessRuleException("{$schedule->program->code} is not one of this applicant's three choices.");
+        }
+        $pending = $this->offers->pendingInterview($application);
+        if ($pending?->id !== $schedule->program_id && ! $this->assignmentFor($application, $schedule->program_id)) {
+            throw new BusinessRuleException("Interview {$pending?->code} first. {$schedule->program->code} is scheduled only if its dean rejects the earlier choice.");
+        }
+        $existing = $this->assignmentFor($application, $schedule->program_id);
+        if ($existing?->outcome) {
             throw new BusinessRuleException('The interview outcome is already recorded.');
         }
-        if ($application->firstChoice()?->id !== $schedule->program_id) {
-            throw new BusinessRuleException("This schedule is for {$schedule->program->code}, not the applicant's first choice.");
-        }
 
-        $assignment = DB::transaction(function () use ($application, $schedule, $staff) {
+        $assignment = DB::transaction(function () use ($application, $schedule, $staff, $existing) {
             $locked = InterviewSchedule::lockForUpdate()->findOrFail($schedule->id);
             $booked = $locked->assignments()->where('application_id', '!=', $application->id)->count();
             if ($booked >= $locked->capacity) {
                 throw new BusinessRuleException('That interview schedule is full. Pick another one.');
             }
-            $assignment = InterviewAssignment::updateOrCreate(['application_id' => $application->id], [
-                'interview_schedule_id' => $schedule->id, 'assigned_by' => $staff->id,
-            ]);
+            $assignment = $existing ?? new InterviewAssignment(['application_id' => $application->id]);
+            $assignment->fill(['interview_schedule_id' => $schedule->id, 'assigned_by' => $staff->id])->save();
             $this->audit->record('interview.assigned', "Scheduled the interview · {$schedule->label()}", $assignment, $application);
             $this->dms->record('interview.scheduled', $application, ['program' => $schedule->program->code, 'date' => $schedule->date->toDateString(), 'time' => $schedule->time, 'venue' => $schedule->venue]);
 
@@ -82,38 +88,46 @@ class InterviewService
         return $assignment;
     }
 
-    /** The dean records the grade and outcome (own college only). Final once recorded. */
-    public function record(Application $application, int $grade, string $outcome, User $dean): InterviewAssignment
+    /**
+     * The dean accepts (passed) or rejects (failed) the applicant for the
+     * dean's own program. Final once recorded. The offer follows the highest
+     * accepting choice, once every higher choice is decided.
+     */
+    public function record(Application $application, Program $program, string $outcome, User $dean, ?int $grade = null, ?string $remark = null): InterviewAssignment
     {
-        $assignment = $application->interview?->load('schedule.program')
-            ?? throw new BusinessRuleException('This applicant has no interview scheduled.');
-        $this->assertDeanOf($dean, $assignment->schedule->program);
+        $assignment = $this->assignmentFor($application, $program->id)?->load('schedule.program')
+            ?? throw new BusinessRuleException("This applicant has no {$program->code} interview scheduled.");
+        $this->assertDeanOf($dean, $program);
         if ($assignment->outcome) {
             throw new BusinessRuleException('The interview outcome is already recorded.');
         }
 
-        DB::transaction(function () use ($application, $assignment, $grade, $outcome, $dean) {
-            $assignment->update(['grade' => $grade, 'outcome' => $outcome, 'recorded_by' => $dean->id, 'recorded_at' => now()]);
-            $label = $outcome === InterviewAssignment::PASSED ? 'Passed' : 'Failed';
-            $this->audit->record('interview.recorded', "Recorded the interview outcome: {$label}", $assignment, $application);
-            $this->dms->record('interview.recorded', $application, [
-                'program' => $assignment->schedule->program->code,
-                'outcome' => $outcome,
-                'grade' => ['value' => $grade, 'classification' => 'restricted'],
+        DB::transaction(function () use ($application, $assignment, $program, $grade, $outcome, $dean, $remark) {
+            $assignment->update([
+                'grade' => $grade, 'outcome' => $outcome, 'recorded_by' => $dean->id, 'recorded_at' => now(),
+                'remark' => $remark ? mb_substr(trim($remark), 0, 500) : null,
             ]);
-
-            $outcome === InterviewAssignment::PASSED
-                ? $this->offers->offer($application, $dean)
-                : $this->status->transition($application, ApplicationStatus::InterviewFailed, $dean);
+            $this->audit->record('interview.recorded', 'Recorded the evaluation: '.($outcome === InterviewAssignment::PASSED ? "Accepted into {$program->code}" : "Rejected from {$program->code}"), $assignment, $application);
+            $this->dms->record('interview.recorded', $application, array_filter([
+                'program' => $program->code,
+                'outcome' => $outcome,
+                'grade' => $grade === null ? null : ['value' => $grade, 'classification' => 'restricted'],
+            ]));
+            $this->offers->resolveChoices($application, $dean);
         });
 
         return $assignment->fresh();
     }
 
+    private function assignmentFor(Application $application, int $programId): ?InterviewAssignment
+    {
+        return $application->interviews()->whereHas('schedule', fn ($q) => $q->where('program_id', $programId))->first();
+    }
+
     /** Programs whose interviews the user may see: the dean's college, or all for admission personnel. */
     public function visiblePrograms(User $user)
     {
-        if ($user->hasRole(Role::Admission->value)) {
+        if ($user->isAdmissionOffice() || $user->hasRole(Role::ReadOnly->value)) {
             return Program::orderBy('code')->get();
         }
         $college = $user->deanOf;
@@ -123,6 +137,10 @@ class InterviewService
 
     private function assertDeanOf(User $dean, Program $program): void
     {
+        // The Admin runs the whole system, the College Dean module included
+        if ($dean->hasAnyRole([Role::AdmissionHead->value, Role::SuperAdmin->value])) {
+            return;
+        }
         if (! $dean->hasRole(Role::CollegeDean->value) || ! $program->college_id || $dean->deanOf?->id !== $program->college_id) {
             throw new AuthorizationException("Only the dean of {$program->code}'s college can record this interview.");
         }

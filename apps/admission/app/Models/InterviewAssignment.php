@@ -8,10 +8,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * An applicant's interview (FR-17). The grade is Restricted (§8.3): hidden
+ * One of an applicant's interviews (FR-17): passed = accepted by the
+ * program's dean, failed = rejected. The grade is Restricted (§8.3): hidden
  * from serialization and never in an applicant payload.
  */
-#[Fillable(['application_id', 'interview_schedule_id', 'assigned_by', 'grade', 'outcome', 'recorded_by', 'recorded_at'])]
+#[Fillable(['application_id', 'interview_schedule_id', 'assigned_by', 'grade', 'outcome', 'remark', 'recorded_by', 'recorded_at'])]
 #[Hidden(['grade'])]
 class InterviewAssignment extends Model
 {

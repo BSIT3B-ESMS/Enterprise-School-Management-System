@@ -26,6 +26,10 @@ class VerifyIntegrationKey
         if (! $caller || $caller->name !== $client || ! $caller->is_active || ! $caller->allowsIp($request->ip())) {
             return response()->json(['message' => 'Unauthorized.'], 401);
         }
+        // NFR-05: keys are rotated every 90 days (api-client:create again)
+        if ($caller->expires_at?->isPast()) {
+            return response()->json(['message' => 'This API key has expired. Ask the system administrator for a new one.'], 401);
+        }
 
         $caller->forceFill(['last_used_at' => now()])->save();
         $response = $next($request);

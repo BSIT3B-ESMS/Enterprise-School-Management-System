@@ -1,14 +1,13 @@
 /* ==========================================================================
-   PLP Online Admission — University Clinic (nurse) portal
-   The nurse only sees applicants' medical requirements: the server sends a
-   medical-only state (GET /api/clinic/state): no profile, exam, score or
-   document data. They send a file back with a remark, or approve the
-   applicant. The approval shows on the admission office's Medical page as
-   "Approved".
-   Needs core.js, admin-store.js (state shape, medStatus) and admin-ui.js
-   (modals, preview). Routes: #/check, #/returned, #/approved and #/review/:id.
+   Clinic module (clinic role): the university clinic nurse only sees
+   applicants' medical requirements: the server sends a medical-only state
+   (GET /api/clinic/state): no profile, exam, score or document data. They
+   send a file back with a remark, or approve the applicant. The approval
+   shows on the office's Medical page as "Approved".
+     #/check, #/returned, #/approved   the three lists
+     #/<list>/:id                       one applicant's medical files
    ========================================================================== */
-$(function () {
+(function ($) {
   "use strict";
 
   var ADM = window.ADM;
@@ -19,8 +18,8 @@ $(function () {
     returned: { title: "Sent back", lede: "Applicants you asked to replace a file. They come back to To check once they send their files again.", status: "resubmit", empty: ["flag", "Nothing sent back", ""] },
     approved: { title: "Approved", lede: "Applicants you approved. The admission office sees these as Approved, and the applicant's admission is complete.", status: "cleared", empty: ["shield", "No approvals yet", ""] }
   };
-  var current = { view: null, param: null };
-  var f = { q: "", page: 1 };
+  var f = { list: null, q: "", page: 1 };
+  var reviewing = null;   // id on #/<list>/:id
 
   /* ==========================================================================
      ACTIONS (the nurse's only changes). The server saves them and writes the
@@ -64,12 +63,14 @@ $(function () {
       return '<span class="med-chip st-' + st + '" title="' + esc(m.title + ": " + ADM.DOC_STATUS[st].label) + '">' + (st === "verified" ? icon("check") : st === "resubmit" ? icon("flag") : "") + esc(m.title.split(" (")[0]) + "</span>";
     }).join("");
   }
+  function listOf(a) { var st = ADM.medStatus(a); return st === "cleared" ? "approved" : st === "resubmit" ? "returned" : "check"; }
 
   /* ==========================================================================
      VIEWS
      ========================================================================== */
   function renderList($el, name) {
     var ui = ADM.ui, L = LISTS[name];
+    if (f.list !== name) f = { list: name, q: "", page: 1 };
     var when = name === "check" ? sentAt : decidedAt;
     var list = inList(name).sort(function (x, y) {
       return name === "check" ? (when(x) < when(y) ? -1 : 1)   // oldest first, so no one waits too long
@@ -82,7 +83,7 @@ $(function () {
       : '<div class="table-responsive"><table class="table data-table"><thead><tr><th>Applicant</th><th>Medical files</th><th>' + (name === "check" ? "Sent" : name === "approved" ? "Approved" : "Sent back") + '</th><th><span class="visually-hidden">Open</span></th></tr></thead><tbody>' +
         rows.map(function (a) {
           var at = when(a);
-          return '<tr class="row-link" data-href="#/review/' + esc(a.id) + '" tabindex="0"><td>' + ui.applicantCell(a) + "</td>" +
+          return '<tr class="row-link" data-href="#/' + name + "/" + esc(a.id) + '" tabindex="0"><td>' + ui.applicantCell(a) + "</td>" +
             '<td><div class="med-chips">' + fileChips(a) + "</div></td>" +
             "<td>" + (at ? AO.fmt(at) + '<small class="d-block text-muted">' + ui.relDays(at) + "</small>" : "—") + "</td>" +
             '<td class="text-end">' + (name === "check" ? '<span class="btn btn-ghost btn-sm">' + icon("eye") + "Check</span>" : icon("arrowR")) + "</td></tr>";
@@ -97,12 +98,11 @@ $(function () {
     );
   }
 
-  function listOf(a) { var st = ADM.medStatus(a); return st === "cleared" ? "approved" : st === "resubmit" ? "returned" : "check"; }
-
   function renderReview($el, id) {
     var ui = ADM.ui;
     var a = ADM.applicant(id);
     var st = a && ADM.medStatus(a);
+    reviewing = id;
     if (!a || st === null || st === "none") {
       $el.html('<section class="card-soft">' + ui.empty("search", "No medical files for this ID", "The applicant hasn't sent medical requirements yet.") + '<div class="text-center pb-2"><a class="btn btn-ghost" href="#/check">Back to the list</a></div></section>');
       return;
@@ -146,111 +146,11 @@ $(function () {
   }
 
   /* ==========================================================================
-     SIGN IN (Laravel API, JWT with the clinic role)
+     EVENTS (rows open through the shared .row-link handler in applicants.js)
      ========================================================================== */
-  function enterApp() {
-    $("#auth-screen").prop("hidden", true);
-    $("#app").prop("hidden", false);
-    $("#sidebar-name").text(ADM.STAFF.name);
-    $("#sidebar-avatar").text(ADM.STAFF.initials);
-    $("#period-chip").text(ADM.state.settings.period || "");
-    if (!location.hash) location.replace("#/check");
-    current = { view: null, param: null };
-    route();
-  }
-  function leaveApp() {
-    AO.setToken(null);
-    $(".tooltip").remove();
-    $("#app").prop("hidden", true);
-    $("#auth-screen").prop("hidden", false);
-    $("#nurse-password").val("");
-    window.scrollTo(0, 0);
-  }
-  $("#nurse-signin-form").on("submit", function (e) {
-    e.preventDefault();
-    if (!AO.validateFields($(this))) return;
-    var login = AO.api("POST", "/api/auth/login", { email: $("#nurse-email").val().trim(), password: $("#nurse-password").val(), portal: "clinic" })
-      .then(function (res) {
-        // UI pending: there is no 2FA code screen yet (see PROGRESS.md)
-        if (res.data.two_factor_required) return $.Deferred().reject({ responseJSON: { message: "Two-factor sign-in is on for this account, but this screen can't ask for the code yet." } });
-        AO.setToken(res.data.token);
-        return ADM.load();
-      });
-    AO.busy($("#nurse-signin-submit"), login)
-      .done(enterApp)
-      .fail(function (xhr) { AO.setToken(null); AO.setError($("#nurse-email"), AO.apiError(xhr)); });
-  });
-  $(".logout-button").on("click", function () {
-    AO.api("POST", "/api/auth/logout");
-    leaveApp();
-    AO.showToast("You've been signed out.");
-  });
-  // Token expired or revoked
-  $(document).on("ao:signedout", function () { if (!$("#app").prop("hidden")) { leaveApp(); AO.showToast("Your session ended. Sign in again."); } });
+  function reviewed() { return ADM.applicant(reviewing); }
 
-  /* ==========================================================================
-     ROUTER
-     ========================================================================== */
-  function parseHash() {
-    var parts = location.hash.replace(/^#\/?/, "").split("/").map(decodeURIComponent);
-    if (parts[0] === "review" && parts[1]) return { view: "review", param: parts[1] };
-    return { view: "list", param: LISTS[parts[0]] ? parts[0] : "check" };
-  }
-
-  function draw() {
-    var $section = $("#view-" + current.view);
-    $(".tooltip").remove();
-    if (current.view === "review") renderReview($section, current.param); else renderList($section, current.param);
-    AO.paintIcons($section);
-    AO.initTooltips($section);
-    refreshCounts();
-    var a = current.view === "review" && ADM.applicant(current.param);
-    var nav = current.view === "list" ? current.param : a ? listOf(a) : "check";
-    $(".sidebar-nav .nav-link").removeClass("active").filter('[data-nav="' + nav + '"]').addClass("active");
-    AO.moveNavIndicator();
-  }
-
-  function route() {
-    if ($("#app").prop("hidden")) return;
-    var r = parseHash();
-    var changed = current.view !== r.view || current.param !== r.param;
-    if (changed && r.view === "list") { f.q = ""; f.page = 1; }
-    current = r;
-
-    var $section = $("#view-" + r.view);
-    $(".view-section").removeClass("active");
-    $section.addClass("active");
-    AO.closeSidebar();
-    draw();
-
-    var a = r.view === "review" && ADM.applicant(r.param);
-    $("#page-breadcrumb").text(r.view === "review" ? (a ? ADM.fullName(a) : "Applicant") : LISTS[r.param].title);
-    document.title = $("#page-breadcrumb").text() + " · PLP University Clinic";
-    if (changed) { AO.revealView($section); window.scrollTo({ top: 0, behavior: "auto" }); }
-  }
-
-  /* Redraw after a change, keeping scroll position */
-  ADM.refresh = function () { var y = window.scrollY; draw(); window.scrollTo(0, y); };
-
-  function refreshCounts() {
-    var n = { pending: 0, resubmit: 0, cleared: 0 };
-    ADM.state.applicants.forEach(function (a) { var st = ADM.medStatus(a); if (st in n) n[st]++; });
-    $("#nav-count-check").text(n.pending).toggleClass("full", n.pending === 0);
-    $("#nav-count-returned").text(n.resubmit).toggleClass("full", n.resubmit === 0);
-    $("#nav-count-approved").text(n.cleared).toggleClass("full", n.cleared === 0);
-  }
-
-  $(window).on("hashchange", route);
-
-  /* ==========================================================================
-     EVENTS
-     ========================================================================== */
-  function go(hash) { if (location.hash === hash) route(); else location.hash = hash; }
-  function reviewed() { return ADM.applicant(current.param); }
-
-  $(document).on("click", "#view-list .row-link", function () { go($(this).data("href")); });
-  $(document).on("keydown", "#view-list .row-link", function (e) { if (e.key === "Enter") go($(this).data("href")); });
-  $(document).on("click", "#view-list [data-page]", function () { f.page = +$(this).data("page"); ADM.refresh(); });
+  $(document).on("click", "#view-check [data-page], #view-returned [data-page], #view-approved [data-page]", function () { f.page = +$(this).data("page"); ADM.refresh(); });
 
   var t;
   $(document).on("input", "#nurse-q", function () {
@@ -278,11 +178,8 @@ $(function () {
     });
   });
 
-  /* ==========================================================================
-     BOOT
-     ========================================================================== */
-  AO.paintIcons();
-  AO.initTooltips(document);
-  // Still signed in in this tab: reload the state and go straight in
-  if (AO.getToken()) ADM.load().done(enterApp).fail(function () { AO.setToken(null); });
-});
+  Object.keys(LISTS).forEach(function (name) {
+    ADM.views[name] = { title: LISTS[name].title, render: function ($el) { renderList($el, name); } };
+  });
+  ADM.views.medreview = { title: function (id) { var a = ADM.applicant(id); return a ? ADM.fullName(a) : "Applicant"; }, render: renderReview };
+})(jQuery);

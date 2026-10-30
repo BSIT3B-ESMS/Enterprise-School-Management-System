@@ -119,4 +119,42 @@ return [
     'applicant_acceptance_2fa' => (bool) env('APPLICANT_ACCEPTANCE_2FA', false),
     'staff_2fa_required' => (bool) env('STAFF_2FA_REQUIRED', false),
     'trusted_device_days' => (int) env('TRUSTED_DEVICE_DAYS', 30),
+
+    // FR-02: lock an account for 15 minutes after 5 failed sign-ins in a row
+    'lockout' => [
+        'attempts' => (int) env('LOCKOUT_ATTEMPTS', 5),
+        'minutes' => (int) env('LOCKOUT_MINUTES', 15),
+    ],
+
+    /*
+    | CAPTCHA on the applicant's sign-up, sign-in and forgot password (NFR-06). Off ('none') until a site key is set.
+    | 'turnstile' = Cloudflare Turnstile, 'recaptcha' = Google reCAPTCHA v2 checkbox.
+    | The applicant portal shows the widget only when a driver is on.
+    */
+    'captcha' => [
+        'driver' => env('CAPTCHA_DRIVER', 'none'),
+        'site_key' => env('CAPTCHA_SITE_KEY'),
+        'secret' => env('CAPTCHA_SECRET'),
+    ],
+
+    // FR-13: SMS for the exam schedule and result release (App\Notifications\SmsChannel)
+    'sms' => [
+        'driver' => env('SMS_DRIVER', 'none'),   // none | log | http
+        'url' => env('SMS_URL'),
+        'key' => env('SMS_API_KEY'),
+        'sender' => env('SMS_SENDER', 'PLP'),
+    ],
+
+    // NFR-05: system-to-system API keys expire and must be rotated
+    'api_key_days' => (int) env('API_KEY_DAYS', 90),
+
+    /*
+    | NFR-08: documents of applicants who were not admitted (or withdrew)
+    | are deleted this many months after their admission period closes.
+    | Admitted records go to the Registrar. Audit logs are never deleted
+    | by the app (kept 5 years; the DB user can't delete them anyway).
+    */
+    'retention_months' => (int) env('RETENTION_MONTHS', 12),
+    // Off until the DPO approves the schedule; `php artisan app:retention` reports what is due either way
+    'retention_enabled' => (bool) env('RETENTION_ENABLED', false),
 ];

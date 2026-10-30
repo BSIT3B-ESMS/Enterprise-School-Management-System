@@ -17,7 +17,7 @@ use Symfony\Component\HttpFoundation\StreamedJsonResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * Clinic portal (nurse/): medical requirements only (FR-13). The nurse sends
+ * Clinic module (admin portal, clinic role): medical requirements only (FR-13). The nurse sends
  * a file back with a remark, or approves the applicant; the admission office
  * sees the approval, read-only. Applications are addressed by number.
  */

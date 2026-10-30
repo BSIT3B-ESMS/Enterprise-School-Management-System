@@ -571,12 +571,32 @@ h1 {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 16px;
   padding: 16px;
-  /* Keep the form side clean; the photo lives in the art panel. Same faded
-     green at the top and bottom as the rest of the UI (body::before/after). */
+  /* The campus photo is the whole page background, under a green fade that is
+     deepest behind the text on the left; the sign-in form sits in a card on top. */
+  background: #0d5f33;
+  position: relative;
+  isolation: isolate;
+}
+
+/* The photo is mirrored so the PLP building sits in the middle, clear of the text on the left */
+.auth::before,
+.auth::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+}
+
+.auth::before {
+  background: var(--campus) center / cover no-repeat;
+  transform: scaleX(-1);
+}
+
+.auth::after {
+  /* Dark green fade: deepest on the left behind the text, still strong across the photo */
   background:
-    linear-gradient(180deg, rgba(11, 122, 62, .30) 0%, rgba(11, 122, 62, .12) 80px, rgba(11, 122, 62, 0) 180px),
-    linear-gradient(0deg, rgba(11, 122, 62, .30) 0%, rgba(11, 122, 62, .12) 80px, rgba(11, 122, 62, 0) 180px),
-    linear-gradient(165deg, #ffffff 0%, #f4faf6 60%, #eef7f0 100%);
+    linear-gradient(100deg, rgba(3, 38, 19, .94) 0%, rgba(5, 52, 27, .82) 45%, rgba(6, 60, 32, .60) 100%),
+    linear-gradient(180deg, rgba(3, 38, 19, .35) 0%, rgba(3, 38, 19, 0) 40%);
 }
 
 .auth-art {
@@ -584,16 +604,9 @@ h1 {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  gap: 40px;
+  justify-content: flex-start;   /* the pitch sits right under the brand */
+  gap: 44px;
   padding: 36px clamp(24px, 4vw, 56px);
-  border-radius: 26px;
-  /* Campus photo under green fades: lighter at the top, deep green behind the text */
-  background:
-    linear-gradient(180deg, rgba(6, 52, 27, .30) 0%, rgba(8, 66, 34, .55) 42%, rgba(7, 56, 30, .93) 100%),
-    linear-gradient(100deg, rgba(10, 84, 42, .60) 0%, rgba(10, 84, 42, 0) 65%),
-    var(--campus) center / cover no-repeat,
-    #0d5f33;
   color: #fff;
   animation: rise .7s var(--ease) both;
 }
@@ -601,12 +614,20 @@ h1 {
 .auth-art .brand-name,
 .auth-art .auth-pitch h1 {
   color: #fff;
-  text-shadow: 0 2px 18px rgba(0, 0, 0, .35);
+  font-weight: 800;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, .45), 0 4px 24px rgba(0, 0, 0, .55);
 }
 
 .auth-art .brand-sub,
 .auth-art .eyebrow {
-  color: #f3d77e;
+  color: #ffd95e;
+  font-weight: 700;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, .6);
+}
+
+.auth-art .eyebrow {
+  font-size: 13px;
+  letter-spacing: .16em;
 }
 
 .auth-art .float-star.s1,
@@ -696,12 +717,16 @@ h1 {
 }
 
 .auth-pitch h1 {
-  font-size: clamp(30px, 3.6vw, 44px);
+  font-size: clamp(34px, 4.2vw, 54px);
+  line-height: 1.08;
 }
 
 .auth-pitch p:last-child {
-  color: rgba(255, 255, 255, .9);
-  font-size: 16px;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1.55;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, .55), 0 2px 14px rgba(0, 0, 0, .45);
 }
 
 .journey-preview {
@@ -870,10 +895,14 @@ h1 {
 
 .auth-card {
   width: 100%;
-  max-width: 420px;
+  max-width: 460px;
   display: flex;
   flex-direction: column;
   gap: 28px;
+  padding: 34px 32px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, .97);
+  box-shadow: 0 24px 60px rgba(0, 30, 15, .35);
   animation: rise .7s var(--ease) .12s both;
 }
 
@@ -1020,6 +1049,12 @@ h1 {
   -webkit-backdrop-filter: blur(18px);
   border-right: 1px solid var(--line);
   overflow-y: auto;
+  scrollbar-width: none;      /* still scrolls, no bar */
+  -ms-overflow-style: none;
+}
+
+.sidebar::-webkit-scrollbar {
+  display: none;
 }
 
 .sidebar .brand {
@@ -1912,3 +1947,83 @@ h1 {
   width: 22px;
   height: 22px;
 }
+
+/* ---------- jQuery UI autocomplete (no jQuery UI theme is loaded) ---------- */
+/* Screen-reader-only "N results are available" message */
+.ui-helper-hidden-accessible {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.ui-autocomplete {
+  position: absolute;
+  z-index: 1090;
+  max-height: 280px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
+  animation: fade-in .15s ease;
+}
+
+.ui-autocomplete .ui-menu-item-wrapper {
+  display: block;
+  padding: 8px 10px;
+  border-radius: 7px;
+  color: var(--ink);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.ui-autocomplete .ui-state-active {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.ui-autocomplete .ui-state-disabled .ui-menu-item-wrapper {
+  cursor: default;
+}
+
+/* Top-bar applicant search results */
+.ac-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 10px;
+  align-items: center;
+}
+
+.ac-main {
+  font-weight: 600;
+}
+
+.ac-sub {
+  grid-column: 1;
+  font-size: 12.5px;
+  color: var(--ink-2);
+}
+
+.ac-item .status-pill {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
+.ac-empty {
+  color: var(--ink-2);
+  font-size: 13.5px;
+}
+
+/* Barangay search box: red like the (hidden) select it stands for */
+.is-invalid + .combo-input {
+  border-color: var(--danger);
+}
+
+/* Applicant Overview before admissions approves the application (clicking it explains why) */
+.sidebar-nav .nav-link.nav-locked { opacity: .5; }

@@ -34,7 +34,7 @@ class NotificationTest extends TestCase
         // Submitted and scheduled, but nothing about the recorded result yet
         $this->assertSame(['submitted', 'exam_scheduled'], $this->kinds($user));
 
-        $this->asUser($this->officer())->postJson('/api/admin/results/release', ['ids' => [$number]]);
+        $this->asUser($this->admissionHead())->postJson('/api/admin/results/release', ['ids' => [$number]]);
         $this->assertSame(['submitted', 'exam_scheduled', 'result_released'], $this->kinds($user));
 
         Notification::assertSentTo($user, AdmissionNotice::class, fn (AdmissionNotice $n) => ! str_contains(strtolower($n->message), 'score') && ! str_contains($n->message, '90'));

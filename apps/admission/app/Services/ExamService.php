@@ -77,16 +77,17 @@ class ExamService
 
         $registration = DB::transaction(function () use ($application, $session, $by) {
             $this->assertSeat($session);
+            $application->update(['applicant_no' => $application->applicant_no ?? $this->nextApplicantNo()]);
             $permit = $this->permitNumber($application);
             $registration = ExamRegistration::create([
                 'application_id' => $application->id,
                 'exam_session_id' => $session->id,
                 'permit_no' => $permit,
                 'qr_token' => $this->qrToken($permit, $application),
-                'approved_by' => $by->hasRole('admission') ? $by->id : null,
+                'approved_by' => $by->isAdmissionOffice() ? $by->id : null,
             ]);
             $this->status->transition($application, ApplicationStatus::ForExam, $by);
-            $this->audit->record('exam.approved', ($by->hasRole('admission') ? 'Approved for the entrance exam' : 'Chose an entrance exam session')." · {$session->label()}", $registration, $application);
+            $this->audit->record('exam.approved', ($by->isAdmissionOffice() ? 'Approved for the entrance exam' : 'Chose an entrance exam session')." · {$session->label()}", $registration, $application);
             $this->dms->record('exam.scheduled', $application, $this->sessionData($session, $permit));
 
             return $registration;
@@ -94,6 +95,148 @@ class ExamService
         ExamScheduled::dispatch($application, $session);
 
         return $registration;
+    }
+
+    /**
+     * FR-14: give every applicant who is ready for the exam (all documents
+     * verified) a seat in the earliest upcoming session that still has
+     * room, Batch A before Batch B, oldest submission first. Never goes over
+     * a session's capacity. Returns the numbers assigned and left waiting.
+     *
+     * @param  list<string>|null  $numbers  limit to these applications
+     * @return array{assigned: list<string>, waiting: list<string>}
+     */
+    public function autoAssign(?array $numbers, User $staff): array
+    {
+        $query = Application::where('admission_period_id', AdmissionPeriod::current()->id)
+            ->where('status', ApplicationStatus::Submitted->value)
+            ->whereDoesntHave('examRegistration')
+            ->orderBy('submitted_at')->orderBy('id');
+        if ($numbers !== null) {
+            $query->whereIn('number', $numbers);
+        }
+
+        $assigned = [];
+        $waiting = [];
+        foreach ($query->get() as $application) {
+            if (! $this->canApprove($application)) {
+                continue;
+            }
+            $session = $this->nextOpenSession();
+            if (! $session) {
+                $waiting[] = $application->number;
+
+                continue;
+            }
+            $this->approve($application, $session, $staff);
+            $assigned[] = $application->number;
+        }
+        if ($assigned) {
+            $this->audit->record('exam.auto_assigned', 'Assigned '.count($assigned).' applicant'.(count($assigned) === 1 ? '' : 's').' to exam sessions automatically', meta: ['applications' => $assigned]);
+        }
+
+        return ['assigned' => $assigned, 'waiting' => $waiting];
+    }
+
+    /** The earliest upcoming session of the current period with a free seat. */
+    public function nextOpenSession(): ?ExamSession
+    {
+        return $this->openSessions()->first();
+    }
+
+    /** FR-16: one session's examinees, in permit order, for the printed roster. */
+    public function roster(ExamSession $session): array
+    {
+        $rows = ExamRegistration::where('exam_session_id', $session->id)
+            ->with('application.applicant')->orderBy('permit_no')->get()
+            ->values()->map(fn (ExamRegistration $r, int $i) => [
+                $i + 1, $r->permit_no, $r->application->number,
+                trim(mb_strtoupper($r->application->applicant->last_name).', '.$r->application->applicant->first_name.' '.($r->application->applicant->middle_name ?? '')),
+                match ($r->attendance) { 'present' => 'Present', 'absent' => 'Absent', default => '' },
+                $r->envelope_received_at ? 'Received' : '',
+                '',
+            ])->all();
+
+        return [
+            'title' => 'Exam roster · '.ExamSession::BATCHES[$session->batch]['label'].' · '.$session->date->format('l, F j, Y').' · '.$session->venue,
+            'period' => AdmissionPeriod::find($session->admission_period_id)?->label ?? '',
+            'columns' => ['#', 'Permit', 'Application no.', 'Name', 'Attendance', 'Envelope', 'Signature'],
+            'rows' => $rows,
+        ];
+    }
+
+    /**
+     * FR-19: results from a CSV file. Columns (header row required):
+     * application number, score, and optionally decision (passed / failed;
+     * when left out, the passing score decides). Each line is recorded like
+     * a single result; a bad line is reported and the rest still go in.
+     *
+     * @return array{recorded: int, errors: array<int, string>}
+     */
+    public function importResults(string $csv, User $staff): array
+    {
+        $lines = preg_split('/\r\n|\r|\n/', trim(preg_replace('/^\xEF\xBB\xBF/', '', $csv)));
+        $header = array_map(fn ($h) => strtolower(preg_replace('/[^a-z]/i', '', $h)), str_getcsv(array_shift($lines) ?? ''));
+        $col = function (array $names) use ($header) {
+            foreach ($names as $name) {
+                $i = array_search($name, $header, true);
+                if ($i !== false) {
+                    return $i;
+                }
+            }
+
+            return null;
+        };
+        $numberCol = $col(['applicationnumber', 'applicationno', 'application', 'number', 'id']);
+        $scoreCol = $col(['score']);
+        $decisionCol = $col(['decision', 'outcome', 'result']);
+        if ($numberCol === null || $scoreCol === null) {
+            throw new BusinessRuleException('The CSV needs a header row with "application number" and "score" columns.');
+        }
+
+        $recorded = 0;
+        $errors = [];
+        foreach ($lines as $i => $line) {
+            if (trim($line) === '') {
+                continue;
+            }
+            $row = str_getcsv($line);
+            $lineNo = $i + 2;
+            $number = trim($row[$numberCol] ?? '');
+            $score = trim($row[$scoreCol] ?? '');
+            if (! preg_match('/^\d{1,3}$/', $score) || (int) $score > 100) {
+                $errors[$lineNo] = "{$number}: the score must be a whole number from 0 to 100.";
+
+                continue;
+            }
+            $decision = strtolower(trim($decisionCol === null ? '' : ($row[$decisionCol] ?? '')));
+            $decision = match (true) {
+                in_array($decision, ['passed', 'pass', 'p'], true) => 'passed',
+                in_array($decision, ['failed', 'fail', 'did not pass', 'f'], true) => 'failed',
+                $decision === '' => (int) $score >= (int) config('admission.passing_score') ? 'passed' : 'failed',
+                default => null,
+            };
+            if (! $decision) {
+                $errors[$lineNo] = "{$number}: the decision must be Passed or Did not pass.";
+
+                continue;
+            }
+            $application = Application::where('number', $number)->first();
+            if (! $application) {
+                $errors[$lineNo] = "{$number}: no application with this number.";
+
+                continue;
+            }
+            try {
+                $this->recordResult($application, (int) $score, $decision, $staff);
+                $recorded++;
+            } catch (BusinessRuleException $e) {
+                $errors[$lineNo] = "{$number}: {$e->getMessage()}";
+            }
+        }
+        $this->audit->record('result.imported', "Imported {$recorded} exam result".($recorded === 1 ? '' : 's').' from a CSV file'.($errors ? ' ('.count($errors).' lines skipped)' : ''), meta: ['errors' => $errors ?: null]);
+
+        return ['recorded' => $recorded, 'errors' => $errors];
     }
 
     /** Move an examinee (usually absent) to another session. */
@@ -128,6 +271,12 @@ class ExamService
             if (array_key_exists($field, $changes)) {
                 $registration->{$column} = (bool) $changes[$field];
             }
+        }
+        // FR-17: the long brown envelope handed in at the venue
+        if (array_key_exists('envelopeReceived', $changes) && (bool) $changes['envelopeReceived'] !== ($registration->envelope_received_at !== null)) {
+            $received = (bool) $changes['envelopeReceived'];
+            $registration->fill(['envelope_received_at' => $received ? now() : null, 'envelope_received_by' => $received ? $staff->id : null]);
+            $this->audit->record('exam.envelope', $received ? 'Received the long brown envelope at the exam venue' : 'Cleared the envelope receipt', $registration, $application);
         }
 
         if (array_key_exists('attendance', $changes) && $changes['attendance'] !== $registration->attendance) {
@@ -284,6 +433,15 @@ class ExamService
     }
 
     /** EX-27-00001: "27" from the academic year (2027–2028) + the application's number. */
+    /** 1.1: the Applicant ID (2026-00001), numbered in approval order; the unique index guards a race. */
+    private function nextApplicantNo(): string
+    {
+        $year = now()->year;
+        $last = Application::withTrashed()->where('applicant_no', 'like', "{$year}-%")->lockForUpdate()->max('applicant_no');
+
+        return sprintf('%d-%05d', $year, $last ? (int) substr($last, 5) + 1 : 1);
+    }
+
     private function permitNumber(Application $application): string
     {
         $year = substr($application->period->academic_year, 2, 2);

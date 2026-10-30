@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[Fillable([
-    'number', 'applicant_id', 'admission_period_id', 'status', 'campus', 'offered_program_id', 'form_progress', 'submitted_at', 'locked_at',
+    'number', 'applicant_no', 'applicant_id', 'admission_period_id', 'status', 'campus', 'offered_program_id', 'form_progress', 'submitted_at', 'locked_at',
     'offered_at', 'acceptance_deadline', 'acceptance_reminded_at', 'offer_accepted_at', 'forfeited_at', 'medical_submitted_at', 'admitted_at', 'student_number',
 ])]
 class Application extends Model
@@ -78,9 +78,10 @@ class Application extends Model
         return $this->hasOne(ExamResult::class);
     }
 
-    public function interview(): HasOne
+    /** One per choice that requires an interview, decided by that program's dean. */
+    public function interviews(): HasMany
     {
-        return $this->hasOne(InterviewAssignment::class);
+        return $this->hasMany(InterviewAssignment::class);
     }
 
     /** The program offered (the first choice at the time of the offer). */

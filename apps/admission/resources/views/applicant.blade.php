@@ -4,7 +4,7 @@
 @section('description', 'Pamantasan ng Lungsod ng Pasig online admission: applicant portal')
 
 @push('styles')
-  <link href="{{ asset('assets/applicant/css/applicant.css') }}" rel="stylesheet">
+  <link href="{{ \App\Support\Asset::v('assets/applicant/css/applicant.css') }}" rel="stylesheet">
 @endpush
 
 @section('content')
@@ -29,18 +29,6 @@
         <p>Fill in your application, upload your requirements, and follow every stage until your result comes in.</p>
       </div>
 
-      <div class="journey-preview" aria-label="Admission stages">
-        <p class="preview-title">Your journey</p>
-        <ol class="preview-steps">
-          <li><span></span>Application</li>
-          <li><span></span>Documents</li>
-          <li><span></span>Review</li>
-          <li><span></span>Exam</li>
-          <li><span></span>Result</li>
-          <li><span></span>Medical</li>
-        </ol>
-        <p class="preview-foot"><span data-icon="clock"></span>Application deadline: November 28, 2026</p>
-      </div>
     </section>
 
     <section class="auth-panel">
@@ -82,10 +70,9 @@
             </div>
             <button class="link-button" type="button" id="forgot-link">Forgot password?</button>
           </div>
+          @include('partials.captcha')
           <button class="btn btn-brand btn-lg w-100" type="submit" id="signin-submit"><span class="btn-label">Sign
               in</span></button>
-          <p class="demo-note"><span data-icon="help"></span>Demo portal: any email and a password of 8 or more
-            characters will work.</p>
         </form>
 
         <!-- Create account -->
@@ -97,22 +84,22 @@
           <div class="row g-3">
             <div class="col-sm-6">
               <label class="form-label" for="signup-first">First name</label>
-              <input class="form-control" id="signup-first" autocomplete="given-name" required>
+              <input class="form-control" id="signup-first" autocomplete="given-name" maxlength="100" pattern="^\p{L}[\p{L} .'\-]*$" data-msg-pattern="Use letters only (spaces, hyphens, periods and apostrophes are fine)." required>
               <div class="invalid-feedback" id="signup-first-error"></div>
             </div>
             <div class="col-sm-6">
               <label class="form-label" for="signup-last">Last name</label>
-              <input class="form-control" id="signup-last" autocomplete="family-name" required>
+              <input class="form-control" id="signup-last" autocomplete="family-name" maxlength="100" pattern="^\p{L}[\p{L} .'\-]*$" data-msg-pattern="Use letters only (spaces, hyphens, periods and apostrophes are fine)." required>
               <div class="invalid-feedback" id="signup-last-error"></div>
             </div>
             <div class="col-12">
               <label class="form-label" for="signup-email">Email address</label>
-              <input class="form-control" id="signup-email" type="email" autocomplete="email" required>
+              <input class="form-control" id="signup-email" type="email" autocomplete="email" maxlength="255" required>
               <div class="invalid-feedback" id="signup-email-error"></div>
             </div>
             <div class="col-12">
               <label class="form-label" for="signup-phone">Mobile number</label>
-              <input class="form-control" id="signup-phone" type="tel" autocomplete="tel" placeholder="+63 9XX XXX XXXX"
+              <input class="form-control" id="signup-phone" type="tel" autocomplete="tel" maxlength="16" placeholder="+63 9XX XXX XXXX"
                 pattern="^(\+63|0)\s?9\d{2}\s?\d{3}\s?\d{4}$"
                 data-msg-pattern="Use a PH mobile number, like +63 917 123 4567." required>
               <div class="invalid-feedback" id="signup-phone-error"></div>
@@ -121,7 +108,7 @@
               <label class="form-label" for="signup-password">Password</label>
               <div class="input-wrap">
                 <input class="form-control" id="signup-password" type="password" autocomplete="new-password"
-                  minlength="8" required>
+                  minlength="8" pattern="(?=.*\p{L})(?=.*\d).*" data-msg-pattern="Use at least one letter and one number." required>
                 <button class="pw-toggle" type="button" aria-label="Show password" aria-pressed="false"
                   data-target="signup-password"><span data-icon="eye"></span></button>
               </div>
@@ -135,12 +122,14 @@
             <div class="col-12">
               <div class="form-check">
                 <input class="form-check-input" type="checkbox" id="signup-terms" required>
-                <label class="form-check-label" for="signup-terms">I agree to the admission terms and the data privacy
-                  notice (RA 10173).</label>
+                <label class="form-check-label" for="signup-terms">I have read and agree to the <button class="link-button"
+                    type="button" data-bs-toggle="modal" data-bs-target="#termsModal">terms and conditions and the data
+                    privacy notice</button> (RA 10173).</label>
               </div>
               <div class="invalid-feedback" id="signup-terms-error"></div>
             </div>
           </div>
+          @include('partials.captcha')
           <button class="btn btn-brand btn-lg w-100" type="submit" id="signup-submit"><span class="btn-label">Create
               account</span></button>
         </form>
@@ -153,10 +142,11 @@
           </div>
           <div>
             <label class="form-label" for="forgot-email">Email address</label>
-            <input class="form-control" id="forgot-email" type="email" autocomplete="email" required>
+            <input class="form-control" id="forgot-email" type="email" autocomplete="email" maxlength="255" required>
             <div class="invalid-feedback" id="forgot-email-error"></div>
           </div>
           <p class="form-note" id="forgot-note" role="status"></p>
+          @include('partials.captcha')
           <button class="btn btn-brand btn-lg w-100" type="submit">Send reset link</button>
           <button class="link-button align-self-center back-to-signin" type="button"><span
               data-icon="arrowL"></span>Back to sign in</button>
@@ -201,8 +191,8 @@
       <p class="sidebar-label">Applicant space</p>
       <nav class="sidebar-nav" aria-label="Applicant navigation">
         <span class="nav-indicator" aria-hidden="true"></span>
-        <a class="nav-link active" href="#" data-view="overview"><span data-icon="home"></span>Overview</a>
-        <a class="nav-link" href="#" data-view="application"><span data-icon="file"></span>My application<span
+        <a class="nav-link" href="#" data-view="overview"><span data-icon="home"></span>Overview</a>
+        <a class="nav-link active" href="#" data-view="application"><span data-icon="file"></span>My application<span
             class="nav-count" id="nav-app-count">0/3</span></a>
         <a class="nav-link" href="#" data-view="documents"><span data-icon="folder"></span>Documents<span
             class="nav-count" id="nav-doc-count">0</span></a>
@@ -229,7 +219,7 @@
         <button class="icon-button menu-toggle" type="button" aria-label="Open navigation" aria-expanded="false"><span
             data-icon="menu"></span></button>
         <div class="breadcrumb-text"><span>Applicant space</span><span class="crumb-sep">/</span><strong
-            id="page-breadcrumb">Overview</strong></div>
+            id="page-breadcrumb">My application</strong></div>
         <div class="topbar-actions">
           <span class="id-chip"><span>ID</span>AD-2026-08421</span>
           <button class="profile-button" type="button" data-view="profile" aria-label="Open my profile"><span
@@ -240,7 +230,7 @@
 
       <div class="content-wrap">
         <!-- ===================== OVERVIEW ===================== -->
-        <section class="view-section active" id="view-overview">
+        <section class="view-section" id="view-overview">
           <div class="welcome-row" data-reveal>
             <div>
               <p class="eyebrow">AY 2027–2028 admission</p>
@@ -320,6 +310,16 @@
                 </div>
                 <ul class="key-dates" id="key-dates"></ul>
               </section>
+              <!-- FR-11: dated status timeline -->
+              <section class="card-soft dates-panel" id="timeline-panel" hidden>
+                <div class="panel-heading">
+                  <div>
+                    <h2>Status history</h2>
+                    <p>Each step of your application, with its date</p>
+                  </div>
+                </div>
+                <ul class="key-dates" id="status-timeline"></ul>
+              </section>
             </div>
           </div>
 
@@ -338,7 +338,7 @@
         </section>
 
         <!-- ===================== APPLICATION ===================== -->
-        <section class="view-section" id="view-application">
+        <section class="view-section active" id="view-application">
           <div class="page-title" data-reveal>
             <p class="eyebrow">Your details</p>
             <h1>My application</h1>
@@ -372,11 +372,11 @@
                   </div>
                   <div class="col-md-4"><label class="form-label" for="first-name">Given name <span
                         class="req">*</span></label><input class="form-control" id="first-name" name="firstName"
-                      autocomplete="given-name" required>
+                      autocomplete="given-name" maxlength="100" pattern="^\p{L}[\p{L} .'\-]*$" data-msg-pattern="Use letters only (spaces, hyphens, periods and apostrophes are fine)." required>
                     <div class="invalid-feedback" id="first-name-error"></div>
                   </div>
                   <div class="col-md-4"><label class="form-label" for="middle-name">Middle name</label><input
-                      class="form-control" id="middle-name" name="middleName" autocomplete="additional-name">
+                      class="form-control" id="middle-name" name="middleName" autocomplete="additional-name" maxlength="100" pattern="^\p{L}[\p{L} .'\-]*$" data-msg-pattern="Use letters only (spaces, hyphens, periods and apostrophes are fine).">
                     <div class="invalid-feedback" id="middle-name-error"></div>
                   </div>
                   <div class="col-md-4"><label class="form-label" for="sex">Sex <span
@@ -423,7 +423,7 @@
                   </div>
                   <div class="col-md-4 resident-only"><label class="form-label" for="barangay">Barangay <span
                         class="req">*</span></label><select class="form-select" id="barangay" name="barangay"
-                      data-barangays='@json(\App\Support\ApplicantForm::BARANGAYS)' required>
+                      data-barangays='@json(\App\Models\Barangay::byDistrict())' required>
                       <option value="">Select a district first</option>
                     </select>
                     <div class="invalid-feedback" id="barangay-error"></div>
@@ -438,6 +438,23 @@
                       <option value="0">No</option>
                       <option value="1">Yes (a notarized affidavit of guardianship is required)</option>
                     </select>
+                  </div>
+                  <!-- FR-31: applicants under 18 need a parent's or guardian's consent -->
+                  <div class="col-md-6 minor-only" hidden><label class="form-label" for="guardian-consent-name">Parent or
+                      guardian giving consent <span class="req">*</span></label><input class="form-control"
+                      id="guardian-consent-name" name="guardianConsentName" autocomplete="off" placeholder="Full name"
+                      maxlength="150" required disabled>
+                    <div class="invalid-feedback" id="guardian-consent-name-error"></div>
+                  </div>
+                  <div class="col-12 minor-only" hidden><label class="form-label" for="guardian-consent">Parent or
+                      guardian consent <span class="req">*</span></label><select class="form-select" id="guardian-consent"
+                      name="guardianConsent" required disabled>
+                      <option value="">Select</option>
+                      <option value="1">Yes. My parent or guardian has read the data privacy notice (RA 10173) and agrees
+                        to the processing of my personal data for admission.</option>
+                    </select>
+                    <div class="form-text">You're under 18, so a parent or guardian must consent.</div>
+                    <div class="invalid-feedback" id="guardian-consent-error"></div>
                   </div>
                 </div>
               </section>
@@ -469,15 +486,9 @@
                   <div class="col-md-6"><label class="form-label" for="strand">SHS strand <span
                         class="req">*</span></label><select class="form-select" id="strand" name="strand" required>
                       <option value="">Select</option>
-                      <option>STEM</option>
-                      <option>ABM</option>
-                      <option>HUMSS</option>
-                      <option>GAS</option>
-                      <option>TVL – ICT</option>
-                      <option>TVL – Other</option>
-                      <option>Arts and Design</option>
-                      <option>Sports</option>
-                      <option>ALS / Not applicable</option>
+                      @foreach (\App\Models\Strand::activeNames() as $strand)
+                        <option>{{ $strand }}</option>
+                      @endforeach
                     </select>
                     <div class="invalid-feedback" id="strand-error"></div>
                   </div>
@@ -497,30 +508,49 @@
 
               <!-- Section 3 -->
               <section class="stage" data-stage="3">
-                <div class="row g-3">
-                  <div class="col-12"><label class="form-label" for="program1">First-choice program <span
-                        class="req">*</span></label><select class="form-select program-select" id="program1"
-                      name="program1" required>
-                      <option value="">Select a program</option>
-                    </select>
-                    <div class="invalid-feedback" id="program1-error"></div>
+                <div class="row g-4">
+                  <div class="col-lg-7">
+                    <div class="row g-3">
+                      <!-- Drop targets for the program list (jQuery UI Droppable); the dropdowns work as before -->
+                      <div class="col-12 choice-drop" data-choice="1"><label class="form-label" for="program1">First-choice program <span
+                            class="req">*</span></label><select class="form-select program-select" id="program1"
+                          name="program1" required>
+                          <option value="">Select a program</option>
+                        </select>
+                        <div class="invalid-feedback" id="program1-error"></div>
+                        <!-- FR-06: programs suggested for the applicant's SHS strand -->
+                        <div class="form-text" id="strand-suggestions" hidden></div>
+                      </div>
+                      <div class="col-12 choice-drop" data-choice="2"><label class="form-label" for="program2">Second-choice program <span
+                            class="req">*</span></label><select class="form-select program-select" id="program2"
+                          name="program2" required>
+                          <option value="">Select a program</option>
+                        </select>
+                        <div class="invalid-feedback" id="program2-error"></div>
+                      </div>
+                      <div class="col-12 choice-drop" data-choice="3"><label class="form-label" for="program3">Third-choice program <span
+                            class="req">*</span></label><select class="form-select program-select" id="program3"
+                          name="program3" required>
+                          <option value="">Select a program</option>
+                        </select>
+                        <div class="invalid-feedback" id="program3-error"></div>
+                      </div>
+                      <div class="col-sm-8"><label class="form-label" for="intake">Intake</label><input class="form-control"
+                          id="intake" value="AY 2027–2028 · 1st semester" readonly></div>
+                    </div>
                   </div>
-                  <div class="col-12"><label class="form-label" for="program2">Second-choice program <span
-                        class="req">*</span></label><select class="form-select program-select" id="program2"
-                      name="program2" required>
-                      <option value="">Select a program</option>
-                    </select>
-                    <div class="invalid-feedback" id="program2-error"></div>
+                  <!-- Program list: drag a program onto a choice (jQuery UI Draggable), or click it to fill the next empty one -->
+                  <div class="col-lg-5 pp-col">
+                    <aside class="program-picker" aria-labelledby="program-picker-title">
+                      <div class="pp-head">
+                        <h3 id="program-picker-title">Programs</h3>
+                        <p>Drag a program onto a choice, or click it to fill the next empty one.</p>
+                      </div>
+                      <div class="pp-search"><span data-icon="search"></span><input class="form-control" id="program-filter"
+                          type="search" placeholder="Search programs" aria-label="Search programs"></div>
+                      <div class="pp-list" id="program-list" role="list"></div>
+                    </aside>
                   </div>
-                  <div class="col-12"><label class="form-label" for="program3">Third-choice program <span
-                        class="req">*</span></label><select class="form-select program-select" id="program3"
-                      name="program3" required>
-                      <option value="">Select a program</option>
-                    </select>
-                    <div class="invalid-feedback" id="program3-error"></div>
-                  </div>
-                  <div class="col-md-6"><label class="form-label" for="intake">Intake</label><input class="form-control"
-                      id="intake" value="AY 2027–2028 · 1st semester" readonly></div>
                 </div>
               </section>
 
@@ -615,11 +645,11 @@
                 <form id="profile-form" class="mt-3" novalidate>
                   <div class="row g-3">
                     <div class="col-md-6"><label class="form-label" for="profile-first">First name</label><input
-                        class="form-control" id="profile-first" autocomplete="given-name" required>
+                        class="form-control" id="profile-first" autocomplete="given-name" maxlength="100" pattern="^\p{L}[\p{L} .'\-]*$" data-msg-pattern="Use letters only (spaces, hyphens, periods and apostrophes are fine)." required>
                       <div class="invalid-feedback" id="profile-first-error"></div>
                     </div>
                     <div class="col-md-6"><label class="form-label" for="profile-last">Last name</label><input
-                        class="form-control" id="profile-last" autocomplete="family-name" required>
+                        class="form-control" id="profile-last" autocomplete="family-name" maxlength="100" pattern="^\p{L}[\p{L} .'\-]*$" data-msg-pattern="Use letters only (spaces, hyphens, periods and apostrophes are fine)." required>
                       <div class="invalid-feedback" id="profile-last-error"></div>
                     </div>
                     <div class="col-md-6"><label class="form-label" for="profile-email">Email address</label><input
@@ -627,7 +657,7 @@
                       <div class="form-text">Your sign-in email. Ask the admission office to change it.</div>
                     </div>
                     <div class="col-md-6"><label class="form-label" for="profile-phone">Mobile number</label><input
-                        class="form-control" id="profile-phone" type="tel" autocomplete="tel" required
+                        class="form-control" id="profile-phone" type="tel" autocomplete="tel" maxlength="16" required
                         placeholder="+63 9XX XXX XXXX" pattern="^(\+63|0)\s?9\d{2}\s?\d{3}\s?\d{4}$"
                         data-msg-pattern="Use a PH mobile number, like +63 917 123 4567.">
                       <div class="invalid-feedback" id="profile-phone-error"></div>
@@ -681,6 +711,66 @@
     </main>
   </div>
 
+  <!-- User agreement (sign-up). Wording to be reviewed by the admission office and the data protection officer. -->
+  <div class="modal fade" id="termsModal" tabindex="-1" aria-labelledby="termsModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 class="modal-title-serif h5 mb-0" id="termsModalTitle">Terms and conditions</h2>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body small">
+          <p>By creating an account on the Pamantasan ng Lungsod ng Pasig (PLP) Online Admission portal, you agree to the
+            following.</p>
+          <h3 class="h6 mt-3">1. Your account</h3>
+          <ul>
+            <li>Create only one account, in your own name, with an email address and mobile number you use.</li>
+            <li>Keep your password private. You are responsible for everything done with your account.</li>
+            <li>Tell the admission office right away if you think someone else has used your account.</li>
+          </ul>
+          <h3 class="h6 mt-3">2. Truthful information</h3>
+          <ul>
+            <li>Everything you enter and every document you upload must be true, complete and your own.</li>
+            <li>False, altered or borrowed information or documents can lead to your application being rejected, or
+              your admission being cancelled even after enrollment.</li>
+          </ul>
+          <h3 class="h6 mt-3">3. The admission process</h3>
+          <ul>
+            <li>Creating an account or submitting an application does not guarantee admission. Slots are limited and
+              decided by PLP's admission rules, entrance exam results and, for some programs, a college interview.</li>
+            <li>Watch the deadlines shown in the portal. Late or incomplete applications may not be processed.</li>
+            <li>PLP may contact you by email or text message about your application.</li>
+          </ul>
+          <h3 class="h6 mt-3">4. Proper use</h3>
+          <ul>
+            <li>Use the portal only for your own application. Do not try to access other people's records, overload the
+              system, or get around its security checks.</li>
+          </ul>
+          <h3 class="h6 mt-3">5. Data privacy notice (Data Privacy Act of 2012, RA 10173)</h3>
+          <ul>
+            <li><strong>What we collect:</strong> your name, contact details, birth date, address, school records,
+              uploaded documents, exam and interview results, and medical requirements.</li>
+            <li><strong>Why:</strong> to process your application, schedule your exam and interview, release your
+              result, and, if you are admitted, pass your records on for enrollment.</li>
+            <li><strong>Who sees it:</strong> only authorized PLP admission, college and clinic staff, and PLP offices
+              that handle enrollment. We do not sell your data.</li>
+            <li><strong>How long:</strong> only as long as the admission process and PLP's records rules require; then
+              it is securely deleted.</li>
+            <li><strong>Your rights:</strong> you may ask to see, correct or delete your data, or object to its use, by
+              contacting PLP's data protection officer through the admission office.</li>
+            <li>If you are under 18, your parent or guardian must also agree to this notice in the application form.</li>
+          </ul>
+          <h3 class="h6 mt-3">6. Changes</h3>
+          <p class="mb-0">PLP may update these terms. The portal will show the current version.</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" data-bs-dismiss="modal">Close</button>
+          <button type="button" class="btn btn-brand" id="terms-agree">I agree</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Submit confirmation -->
   <div class="modal fade" id="submitModal" tabindex="-1" aria-labelledby="submitModalTitle" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -696,6 +786,19 @@
           <button type="button" class="btn btn-brand" id="confirm-submit"><span class="btn-label">Submit for
               review</span></button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Medical requirements upload -->
+  <div class="modal fade" id="medicalModal" tabindex="-1" aria-labelledby="medicalModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 class="modal-title fs-5" id="medicalModalTitle">Medical requirements</h2>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body" id="medical-form"></div>
       </div>
     </div>
   </div>
@@ -725,5 +828,8 @@
 @endsection
 
 @push('scripts')
-  <script src="{{ asset('assets/applicant/js/applicant.js') }}"></script>
+  @if (\App\Services\Security\CaptchaVerifier::enabled())
+    <script src="{{ \App\Services\Security\CaptchaVerifier::script() }}" async defer></script>
+  @endif
+  <script src="{{ \App\Support\Asset::v('assets/applicant/js/applicant.js') }}"></script>
 @endpush

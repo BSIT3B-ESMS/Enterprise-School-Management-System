@@ -25,9 +25,22 @@ class AdmissionNotice extends Notification implements ShouldQueue
         public readonly ?string $applicationNumber = null,
     ) {}
 
+    /** Notices that also go by SMS when an SMS provider is set up (FR-13). */
+    public const SMS_KINDS = ['exam_scheduled', 'exam_reminder', 'result_released'];
+
     public function via(object $notifiable): array
     {
-        return ['database', 'mail'];
+        $channels = ['database', 'mail'];
+        if (in_array($this->kind, self::SMS_KINDS, true) && SmsChannel::enabled()) {
+            $channels[] = SmsChannel::class;
+        }
+
+        return $channels;
+    }
+
+    public function toSms(object $notifiable): string
+    {
+        return mb_substr("PLP Admissions: {$this->message}", 0, 300);
     }
 
     public function toArray(object $notifiable): array

@@ -29,15 +29,20 @@ class ApplicantPortalPresenter
 
     public function present(Application $application): array
     {
-        $application->loadMissing(['applicant.user', 'period', 'examRegistration.session', 'result', 'documents.requirement', 'interview.schedule', 'offeredProgram']);
+        $application->loadMissing(['applicant.user', 'period', 'examRegistration.session', 'result', 'documents.requirement', 'choices.program.college', 'interviews.schedule', 'offeredProgram']);
         $progress = $application->form_progress ?? ['step' => 1, 'completed' => []];
         $released = $application->result?->is_released ? $application->result : null;
         $period = $application->period;
+        // FR-20: until the result is released the applicant still sees "For exam"
+        $status = in_array($application->status, [ApplicationStatus::Passed, ApplicationStatus::Failed], true) && ! $released
+            ? ApplicationStatus::ForExam : $application->status;
 
         return [
-            'applicationId' => $application->number,
-            'status' => $application->status->value,
-            'statusLabel' => $application->status->label(),
+            // The Applicant ID is issued only when admissions approves the application (null until then)
+            'applicationId' => $application->applicant_no,
+            'status' => $status->value,
+            'statusLabel' => $status->label(),
+            'timeline' => $this->timeline($application, $released),
             'phase' => $this->phase($application),
             'emailVerified' => $application->applicant->user->hasVerifiedEmail(),
             'step' => (int) $progress['step'],
@@ -46,7 +51,7 @@ class ApplicantPortalPresenter
             'submittedAt' => $application->submitted_at?->copy()->setTimezone(config('admission.display_timezone'))->toDateString(),
             'accepted' => $application->status->holdsSlot(),
             'offer' => $this->offer($application),
-            'interview' => $this->interview($application),
+            'interviews' => $this->interviews($application),
             'studentNumber' => $application->student_number,
             // The document cards this applicant must fill (H1: one card per official
             // requirement that applies to them), and what they uploaded, by key.
@@ -58,6 +63,7 @@ class ApplicantPortalPresenter
             'medical' => $this->medical($application),
             'programs' => ApplicantForm::programNames(),
             'suggestedPrograms' => $this->suggestions->suggestFor($application->applicant)->pluck('name')->all(),
+            'strandSuggestions' => $this->suggestions->namesByStrand(),
             'keyDates' => array_values(array_filter([
                 ['title' => 'Application deadline', 'date' => $period->application_deadline?->toDateString()],
                 ['title' => 'Entrance exam days', 'date' => $period->exam_starts_on?->toDateString(), 'end' => $period->exam_ends_on?->toDateString()],
@@ -78,7 +84,6 @@ class ApplicantPortalPresenter
         return match ($application->status) {
             ApplicationStatus::Draft, ApplicationStatus::Resubmit => 'draft',
             ApplicationStatus::Submitted => 'review',
-            // The portal has no "did not pass" or interview screens yet (UI pending)
             ApplicationStatus::ForExam, ApplicationStatus::Passed, ApplicationStatus::Failed,
             ApplicationStatus::ForInterview, ApplicationStatus::InterviewFailed => 'exam',
             ApplicationStatus::Offered, ApplicationStatus::SlotAccepted, ApplicationStatus::ForMedical,
@@ -100,20 +105,59 @@ class ApplicantPortalPresenter
         ];
     }
 
-    /** Schedule and outcome only: the grade is Restricted. */
-    private function interview(Application $application): ?array
+    /**
+     * One entry per choice that requires an interview, in rank order: where
+     * and when to go, and the dean's decision. The grade is Restricted.
+     */
+    private function interviews(Application $application): array
     {
-        $i = $application->interview;
-        if (! $i) {
-            return null;
+        $byProgram = $application->interviews->keyBy(fn ($i) => $i->schedule->program_id);
+        $waiting = $application->status === ApplicationStatus::ForInterview;
+
+        // Interviewed one choice at a time: the next choice only shows up once the earlier dean rejects the applicant
+        $current = false;
+
+        return $application->choices->filter(fn ($c) => $c->program->requires_interview)->map(function ($c) use ($byProgram, $waiting, &$current) {
+            $i = $byProgram->get($c->program_id);
+            if (! $i && (! $waiting || $current)) {
+                return null;   // not reached: an earlier choice accepted the applicant or is still being interviewed
+            }
+            $current = $current || ! $i?->outcome;
+
+            return [
+                'rank' => $c->rank,
+                'program' => $c->program->name,
+                'college' => $c->program->college?->name,
+                'date' => $i?->schedule->date->toDateString(),
+                'time' => $i?->schedule->time,
+                'venue' => $i?->schedule->venue,
+                'outcome' => $i?->outcome,
+            ];
+        })->filter()->values()->all();
+    }
+
+    /**
+     * FR-11: dated status timeline. Exam results appear only once released,
+     * dated on release; corrections made before release never show.
+     */
+    private function timeline(Application $application, $released): array
+    {
+        $decisions = [ApplicationStatus::Passed, ApplicationStatus::Failed];
+        $history = $application->statusHistory()->orderBy('id')->get();
+        // The last recorded decision is the one released; earlier ones were corrections
+        $lastDecision = $history->filter(fn ($h) => in_array($h->to_status, $decisions, true))->last();
+
+        $entries = [];
+        foreach ($history as $h) {
+            if (! in_array($h->to_status, $decisions, true)) {
+                $entries[] = ['status' => $h->to_status->value, 'label' => $h->to_status->label(), 'date' => $this->local($h->created_at)];
+            } elseif ($released && $h->is($lastDecision)) {
+                $decision = ApplicationStatus::from($released->decision);
+                $entries[] = ['status' => $decision->value, 'label' => $decision->label(), 'date' => $this->local($released->released_at)];
+            }
         }
 
-        return [
-            'date' => $i->schedule->date->toDateString(),
-            'time' => $i->schedule->time,
-            'venue' => $i->schedule->venue,
-            'outcome' => $i->outcome,
-        ];
+        return $entries;
     }
 
     private function local($at): ?string

@@ -12,10 +12,7 @@
      ========================================================================== */
   // Filled from the signed-in account when the state loads
   var STAFF = { name: "", initials: "", role: "", email: "" };
-  // <body data-role="nurse"> is the clinic portal (resources/views/nurse.blade.php):
-  // it loads a medical-only state from /api/clinic instead of /api/admin.
-  var ROLE = document.body.getAttribute("data-role") === "nurse" ? "nurse" : "admin";
-  var API = ROLE === "nurse" ? "/api/clinic" : "/api/admin";
+  var API = "/api/admin";
   var REVIEW_SLA_DAYS = 3;        // working days to review a new application
   var PASSING_SCORE = 60;         // internal; scores are never shown to applicants
   var PAGE_SIZE = 12;
@@ -26,15 +23,18 @@
     resubmit: { label: "Requires resubmission", pill: "resubmit" },
     for_exam: { label: "For exam", pill: "exam" },
     passed: { label: "Passed", pill: "admitted" },
-    failed: { label: "Did not pass", pill: "failed" }
+    failed: { label: "Did not pass", pill: "failed" },
+    for_interview: { label: "For interview", pill: "exam" },
+    interview_failed: { label: "Interview failed", pill: "failed" }
   };
-  var STATUS_ORDER = ["draft", "submitted", "resubmit", "for_exam", "passed", "failed"];
+  var STATUS_ORDER = ["draft", "submitted", "resubmit", "for_exam", "for_interview", "passed", "failed", "interview_failed"];
 
   var DOC_STATUS = {
     missing: { label: "Not uploaded", tag: "tag-missing" },
     pending: { label: "For review", tag: "tag-review" },
     verified: { label: "Verified", tag: "tag-verified" },
-    resubmit: { label: "Resubmit", tag: "tag-resubmit" }
+    resubmit: { label: "Resubmit", tag: "tag-resubmit" },
+    rejected: { label: "Rejected", tag: "tag-resubmit" }
   };
 
   // Freshmen documentary requirements. "when" decides who must upload it.
@@ -111,13 +111,52 @@
      ========================================================================== */
   var state = { version: 2, programs: [], sessions: [], applicants: [], settings: { deadline: AO.toISO(AO.today()), period: "", inactiveDocs: [] }, audit: [] };
 
-  /* Load everything the panel shows. The state object is updated in place,
-     so code holding ADM.state keeps working. */
+  // Interviews / dean evaluations: { programs, schedules, waiting }
+  var interviews = { programs: [], schedules: [], waiting: [] };
+  // College Dean module: { college, programs, applicants } (own college only)
+  var dean = { college: null, programs: [], applicants: [] };
+
+  /* Load everything the panel shows, for the signed-in role (use-case
+     diagrams): the Admin and Admission Personnel get the office state and
+     interviews; a College Dean only the dean module for their own college;
+     the clinic nurse a medical-only state from /api/clinic.
+     The objects are updated in place, so code holding them keeps working. */
   function load() {
-    return AO.api("GET", API + "/state").done(function (res) {
+    return AO.api("GET", "/api/auth/me").then(function (res) {
+      var me = res.data;
+      STAFF.roleKey = me.role;
+      if (me.role === "college_dean") {
+        $.extend(STAFF, { name: me.name, initials: me.initials, role: me.role_label, email: me.email });
+        return $.when(loadDean(), loadInterviews());
+      }
+      if (me.role === "clinic") return loadState("/api/clinic");
+      return $.when(loadState(API), me.role === "admission" || me.role === "admission_head" || me.role === "super_admin" ? loadInterviews() : null);
+    });
+  }
+  function loadDean() {
+    return AO.api("GET", "/api/dean/applicants").done(function (res) {
+      ["college", "programs", "applicants"].forEach(function (k) { dean[k] = res.data[k]; });
+    });
+  }
+  function loadInterviews() {
+    return AO.api("GET", (STAFF.roleKey === "college_dean" ? "/api/dean" : API) + "/interviews").done(function (res) {
+      ["programs", "schedules", "waiting"].forEach(function (k) { interviews[k] = res.data[k]; });
+    });
+  }
+  function loadState(api) {
+    return AO.api("GET", api + "/state").done(function (res) {
       var d = res.data;
       $.extend(STAFF, d.staff);
       ["version", "programs", "sessions", "applicants", "settings", "audit"].forEach(function (k) { state[k] = d[k]; });
+      // FR-26: the server's strand suggestions and barangays replace the built-in lists (in place: views hold references)
+      if (d.reference) {
+        Object.keys(STRAND_SUGGEST).forEach(function (k) { delete STRAND_SUGGEST[k]; });
+        $.extend(STRAND_SUGGEST, d.reference.strandSuggest);
+        STRANDS.length = 0;
+        Array.prototype.push.apply(STRANDS, Object.keys(STRAND_SUGGEST));
+        Object.keys(BARANGAYS).forEach(function (k) { delete BARANGAYS[k]; });
+        $.extend(BARANGAYS, d.reference.barangays);
+      }
       invalidate();
     });
   }
@@ -156,13 +195,15 @@
 
   function docSummary(a) {
     var req = requiredDocs(a);
-    var s = { total: req.length, verified: 0, pending: 0, resubmit: 0, missing: 0 };
+    var s = { total: req.length, verified: 0, pending: 0, resubmit: 0, rejected: 0, missing: 0 };
     req.forEach(function (d) { var st = (a.docs[d.key] || { status: "missing" }).status; s[st] = (s[st] || 0) + 1; });
     return s;
   }
 
   function statusOf(a) {
     if (!a.submittedAt) return "draft";
+    // Passed the exam, then a dean evaluation for programs that require one (D14)
+    if (a.status === "for_interview" || a.status === "interview_failed") return a.status;
     if (a.result) return a.result.decision;
     if (a.exam) return "for_exam";
     if (docSummary(a).resubmit) return "resubmit";
@@ -179,6 +220,8 @@
      "pending" = sent to the clinic nurse; "cleared" = the nurse approved. */
   function medStatus(a) {
     if (!a.result || a.result.decision !== "passed" || !a.result.released) return null;
+    // Medical opens once the slot is accepted, so after any required interview
+    if (["for_interview", "interview_failed", "offered", "forfeited"].indexOf(a.status) !== -1) return null;
     var med = a.medical || {};
     var files = med.files || {};
     var st = MED_TYPES.map(function (m) { return files[m.key] ? files[m.key].status : "missing"; });
@@ -207,10 +250,10 @@
   function findType(key) { return DOC_TYPES.concat(MED_TYPES).filter(function (d) { return d.key === key; })[0]; }
   function isMedical(key) { return MED_TYPES.some(function (m) { return m.key === key; }); }
   function fileOf(a, key) { return isMedical(key) ? (a.medical && a.medical.files[key]) : a.docs[key]; }
-  /* Where to fetch an uploaded file. Medical files are confidential: clinic portal only. */
+  /* Where to fetch an uploaded file. Medical files are confidential: the clinic (and the Super Admin, audited). */
   function fileUrl(a, key) {
     var id = encodeURIComponent(a.id), k = encodeURIComponent(key);
-    return isMedical(key) ? "/api/clinic/applicants/" + id + "/medical/" + k + "/file" : "/api/admin/applicants/" + id + "/documents/" + k + "/file";
+    return isMedical(key) ? (STAFF.roleKey === "clinic" ? "/api/clinic/applicants/" : "/api/admin/applicants/") + id + "/medical/" + k + "/file" : "/api/admin/applicants/" + id + "/documents/" + k + "/file";
   }
 
   function isOverdue(a) { return statusOf(a) === "submitted" && docSummary(a).pending > 0 && workingDaysSince(a.submittedAt) > REVIEW_SLA_DAYS; }
@@ -276,13 +319,13 @@
   }
 
   window.ADM = {
-    ROLE: ROLE, API: API, STAFF: STAFF, REVIEW_SLA_DAYS: REVIEW_SLA_DAYS, PASSING_SCORE: PASSING_SCORE, PAGE_SIZE: PAGE_SIZE,
+    API: API, STAFF: STAFF, REVIEW_SLA_DAYS: REVIEW_SLA_DAYS, PASSING_SCORE: PASSING_SCORE, PAGE_SIZE: PAGE_SIZE,
     STATUSES: STATUSES, STATUS_ORDER: STATUS_ORDER, DOC_STATUS: DOC_STATUS, DOC_TYPES: DOC_TYPES,
     PHYSICAL_ITEMS: PHYSICAL_ITEMS, EXAM_KIT: EXAM_KIT, REMARK_PRESETS: REMARK_PRESETS,
     MED_TYPES: MED_TYPES, MED_STATUS: MED_STATUS, MED_REMARKS: MED_REMARKS, medStatus: medStatus, canApproveMedical: canApproveMedical, medApproval: medApproval,
     findType: findType, isMedical: isMedical, fileOf: fileOf, fileUrl: fileUrl,
     STRAND_SUGGEST: STRAND_SUGGEST, STRANDS: STRANDS, BARANGAYS: BARANGAYS, BATCHES: BATCHES,
-    state: state, load: load, invalidate: invalidate, save: save, reset: reset, replaceApplicant: replaceApplicant, nowISO: nowISO, logApplicant: logApplicant, logOffice: logOffice,
+    state: state, interviews: interviews, dean: dean, load: load, loadInterviews: loadInterviews, loadDean: loadDean, invalidate: invalidate, save: save, reset: reset, replaceApplicant: replaceApplicant, nowISO: nowISO, logApplicant: logApplicant, logOffice: logOffice,
     requiredDocs: requiredDocs, docSummary: docSummary, statusOf: statusOf, workingDaysSince: workingDaysSince,
     isOverdue: isOverdue, canApprove: canApprove, fullName: fullName, initials: initials, residency: residency,
     program: program, session: session, sessionLabel: sessionLabel, sessionRoster: sessionRoster, sessionPast: sessionPast,

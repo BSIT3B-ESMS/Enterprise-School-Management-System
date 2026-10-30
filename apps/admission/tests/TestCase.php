@@ -4,6 +4,7 @@ namespace Tests;
 
 use App\Enums\Role;
 use App\Models\Application;
+use App\Models\Program;
 use App\Models\User;
 use App\Services\ApplicationService;
 use Database\Seeders\AdmissionSetupSeeder;
@@ -22,6 +23,8 @@ abstract class TestCase extends BaseTestCase
     {
         parent::setUp();
         $this->seed([RoleSeeder::class, AdmissionSetupSeeder::class]);
+        // Tests assume a direct offer except for BS Nursing; interview tests switch more programs on
+        Program::where('code', '!=', 'BSN')->update(['requires_interview' => false]);
         // Uploads and the fake DMS write to the private disk: keep them out of storage/
         Storage::fake('local');
     }
@@ -55,6 +58,7 @@ abstract class TestCase extends BaseTestCase
             'firstName' => 'Jordan', 'lastName' => 'Mendoza', 'middleName' => 'Reyes', 'phone' => '+63 917 123 4567',
             'birthDate' => '2009-03-14', 'sex' => 'Male', 'address' => '12 Mabini St.',
             'isResident' => '1', 'district' => '1', 'barangay' => 'Kapitolyo', 'hasGuardian' => '0',
+            'guardianConsentName' => 'Ana Mendoza', 'guardianConsent' => '1',
             'lastSchool' => 'Rizal High School', 'schoolType' => 'Public',
             'strand' => 'STEM', 'gradYear' => '2027 (expected)', 'lrn' => '123456789012',
             'program1' => 'BS Information Technology', 'program2' => 'BS Computer Science', 'program3' => 'AB Psychology',

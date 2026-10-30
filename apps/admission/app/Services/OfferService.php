@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\ApplicationStatus;
 use App\Exceptions\BusinessRuleException;
 use App\Models\Application;
+use App\Models\InterviewAssignment;
 use App\Models\Program;
 use App\Models\User;
 use App\Notifications\AdmissionNotice;
@@ -15,8 +16,9 @@ use Illuminate\Support\Facades\DB;
  * Acceptance letter and slot acceptance (FR-09, D14, D16).
  *
  * Final pass (exam, plus interview where the program requires one) →
- * Offered: the first-choice program is offered with a deadline from the
- * period's acceptance window. The applicant accepts before the deadline;
+ * Offered: the applicant is placed in the highest of their three choices
+ * that still has slots (FR-21; staff can move them to another of their
+ * choices), with a deadline from the period's acceptance window. The applicant accepts before the deadline;
  * the slot is taken only then, under a row lock, so a program never goes
  * over its slots. Unaccepted offers are forfeited by the scheduler.
  */
@@ -28,26 +30,123 @@ class OfferService
         private DmsSync $dms,
     ) {}
 
-    /** After a passing result is released: interview first if the program requires one (D14). */
+    /** After a passing result is released: walk the three choices (D14). */
     public function afterResultReleased(Application $application, ?User $by): void
     {
         if ($application->status !== ApplicationStatus::Passed) {
             return;
         }
-        $program = $application->firstChoice();
-        if ($program?->requires_interview) {
-            $this->status->transition($application, ApplicationStatus::ForInterview, $by, "{$program->code} requires an interview");
+        $this->resolveChoices($application, $by);
+    }
+
+    /** The choice being interviewed now: the first interviewing choice without a decision. Later ones wait for a rejection. */
+    public function pendingInterview(Application $application): ?Program
+    {
+        $decided = $application->interviews()->with('schedule')->get()->filter(fn ($i) => $i->outcome)->map(fn ($i) => $i->schedule->program_id);
+
+        return $application->choices()->with('program')->get()->pluck('program')
+            ->first(fn (Program $p) => $p->is_open && $p->requires_interview && ! $decided->contains($p->id));
+    }
+
+    /**
+     * Walk the choices in rank order. A program without an interview accepts
+     * the applicant; one with an interview waits for its dean's decision, and
+     * a rejection moves on to the next choice. The first accepting program
+     * with a free slot gets the offer. Everyone rejected → Interview failed.
+     */
+    public function resolveChoices(Application $application, ?User $by): void
+    {
+        $decided = $application->interviews()->with('schedule')->get()->keyBy(fn ($i) => $i->schedule->program_id);
+        $filled = Program::filledCounts();
+        $rejected = $full = false;
+
+        foreach ($application->choices()->with('program')->get() as $choice) {
+            $program = $choice->program;
+            if (! $program->is_open) {
+                continue;   // closed programs can't take new offers
+            }
+            if ($program->requires_interview) {
+                $outcome = $decided->get($program->id)?->outcome;
+                if (! $outcome) {
+                    if ($application->status === ApplicationStatus::Passed) {
+                        $this->status->transition($application, ApplicationStatus::ForInterview, $by, "{$program->code} requires an interview");
+                    }
+
+                    return;
+                }
+                if ($outcome === InterviewAssignment::FAILED) {
+                    $rejected = true;
+
+                    continue;
+                }
+            }
+            if (($filled[$program->id] ?? 0) >= $program->slots) {
+                $full = true;
+
+                continue;
+            }
+            $this->offer($application, $by, $program);
 
             return;
         }
-        $this->offer($application, $by);
+
+        if ($rejected && ! $full && $application->status === ApplicationStatus::ForInterview) {
+            $this->status->transition($application, ApplicationStatus::InterviewFailed, $by, 'Rejected by every interviewing college');
+
+            return;
+        }
+        $this->audit->record('offer.no_slot', 'Passed, but none of the three program choices has a free slot. Waiting for placement by admissions', $application, $application);
     }
 
-    /** Issue the offer (acceptance letter) for the first-choice program. */
-    public function offer(Application $application, ?User $by): void
+    /**
+     * FR-21: the applicant's highest-ranked choice that is open and still has
+     * a free slot (accepted offers count against slots), or null. A 2nd or
+     * 3rd choice that needs its own interview is skipped (only the first
+     * choice is interviewed).
+     */
+    public function placementFor(Application $application): ?Program
     {
-        $program = $application->firstChoice()
-            ?? throw new BusinessRuleException('The applicant has no program choice to offer.');
+        $filled = Program::filledCounts();
+
+        return $application->choices()->with('program')->get()->pluck('program')->filter()->values()
+            ->first(fn (Program $p, int $i) => ($filled[$p->id] ?? 0) < $p->slots && ($i === 0 || ! $p->requires_interview));
+    }
+
+    /**
+     * FR-21: admissions places a passer in another of their three choices
+     * (before they accept), e.g. when the offered program fills up.
+     */
+    public function place(Application $application, Program $program, User $staff): void
+    {
+        if (! $application->choices()->where('program_id', $program->id)->exists()) {
+            throw new BusinessRuleException("{$program->code} is not one of this applicant's three choices.");
+        }
+        if (! in_array($application->status, [ApplicationStatus::Passed, ApplicationStatus::Offered], true)
+            || ($application->status === ApplicationStatus::Passed && ! $application->result?->is_released)) {
+            throw new BusinessRuleException('Only a released pass that has not accepted a slot yet can be placed.');
+        }
+        if ((Program::filledCounts()[$program->id] ?? 0) >= $program->slots) {
+            throw new BusinessRuleException("All {$program->code} slots have been taken.");
+        }
+
+        if ($application->status === ApplicationStatus::Passed) {
+            $this->offer($application, $staff, $program);
+
+            return;
+        }
+        $from = $application->offeredProgram?->code;
+        $application->update(['offered_program_id' => $program->id]);
+        $this->audit->record('offer.placed', "Placed in {$program->code}".($from ? " instead of {$from}" : ''), $application, $application);
+        $this->dms->record('offer.issued', $application, ['program' => $program->code]);
+        $application->applicant->user->notify(new AdmissionNotice('offer_changed', 'Your offered program changed',
+            "Admissions placed you in {$program->name}. Sign in to the applicant portal to see your updated acceptance letter.", $application->number));
+    }
+
+    /** Issue the offer (acceptance letter) for the placed program (FR-21). */
+    public function offer(Application $application, ?User $by, ?Program $program = null): void
+    {
+        $program ??= $this->placementFor($application)
+            ?? throw new BusinessRuleException("None of the applicant's program choices has a free slot.");
         $days = $application->period->acceptance_window_days ?: config('admission.offers.default_window_days');
         $deadline = now()->setTimezone(config('admission.display_timezone'))->addDays($days)->endOfDay()->utc();
 

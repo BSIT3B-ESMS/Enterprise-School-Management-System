@@ -24,13 +24,13 @@ $(function () {
     { id: 3, title: "Program choice", short: "Program", desc: "Choose your first, second, and third choice programs." }
   ];
 
-  // Overview journey: six stages. Stage 1 covers all three form sections.
+  // Overview journey: six stages. Stage 1 covers all three form sections. Interview = the dean of each program choice that requires one, then the offer.
   var JOURNEY = [
     { id: 1, short: "Application", title: "Application form", icon: "file" },
     { id: 2, short: "Documents", title: "Required documents", icon: "folder" },
-    { id: 3, short: "Review", title: "Admissions review", icon: "search" },
-    { id: 4, short: "Exam", title: "Entrance exam", icon: "pencil" },
-    { id: 5, short: "Result", title: "Admission result", icon: "award" },
+    { id: 3, short: "Exam", title: "Entrance exam", icon: "pencil" },
+    { id: 4, short: "Result", title: "Exam result", icon: "award" },
+    { id: 5, short: "Interview", title: "College interview", icon: "users" },
     { id: 6, short: "Medical", title: "Medical requirements", icon: "shield" }
   ];
   var STAGES = JOURNEY.length;
@@ -70,6 +70,9 @@ $(function () {
   // Open programs, key dates and the exam schedule come from the server
   var PROGRAMS = [];
   var KEY_DATES = [];
+  var TIMELINE = [];   // FR-11: [{ status, label, date }]
+  var INTERVIEWS = [], OFFER = null, STATUS = "draft";
+  var STRAND_SUGGEST = {};   // FR-06: strand => suggested program names (maintained by the office)
   var EXAM = { date: AO.toISO(AO.today()), time: "", venue: "", permit: "" };
   function keyDate(title, fallback) { var k = KEY_DATES.filter(function (x) { return x.title === title; })[0]; return k ? k.date : fallback; }
 
@@ -151,10 +154,16 @@ $(function () {
 
   /* ---------- Server state ---------- */
   function applyPortal(p) {
-    APP_ID = p.applicationId;
+    APP_ID = p.applicationId || "";   // empty until the documents are approved
     PROGRAMS = p.programs;
     KEY_DATES = p.keyDates;
+    TIMELINE = p.timeline || [];
+    STRAND_SUGGEST = p.strandSuggestions || {};
     if (p.exam) EXAM = p.exam;
+    // Applicant module "Interview": the college's evaluation (outcome only, never the grade) and the offer
+    INTERVIEWS = p.interviews || [];
+    OFFER = p.offer;
+    STATUS = p.status;
     serverPhase = p.phase;
     state.step = p.step || 1;
     state.completed = p.completed || [];
@@ -198,38 +207,48 @@ $(function () {
   function hasDoc(key) { var f = state.docs[key]; return !!f && f.status !== "resubmit"; }
   function docCount() { return DOCS.filter(function (d) { return hasDoc(d.key); }).length; }
   function locked() { return state.phase !== "draft"; }
+  // The Overview (dashboard) opens once admissions has verified every required document (or the application is further along)
+  function approved() {
+    if (["draft", "submitted", "resubmit"].indexOf(STATUS) === -1) return true;
+    return STATUS === "submitted" && DOCS.length > 0 && DOCS.every(function (d) { return state.docs[d.key] && state.docs[d.key].status === "verified"; });
+  }
 
   function medCount() { return MEDICAL.filter(function (m) { return state.medical.files[m.key]; }).length; }
 
   function journeyDone(n) {
     if (n === 1) return sectionsDone();
     if (n === 2) return state.phase !== "draft";
-    if (n === 3) return state.phase === "exam" || state.phase === "result";
-    if (n === 4) return state.phase === "result";
-    if (n === 5) return state.phase === "result" && state.accepted;
+    if (n === 3) return examDone();
+    if (n === 4) return examDone() && STATUS !== "failed";
+    if (n === 5) return state.accepted;
     return state.medical.status === "cleared";
   }
+  // The exam result is released once the status has moved past "for exam"
+  function examDone() { return ["passed", "failed", "for_interview", "interview_failed", "offered", "slot_accepted", "for_medical", "admitted", "forfeited"].indexOf(STATUS) !== -1; }
   function journeyCurrent() { for (var i = 1; i <= STAGES; i++) if (!journeyDone(i)) return i; return STAGES; }
   function journeyPercent() { var n = 0; for (var i = 1; i <= STAGES; i++) if (journeyDone(i)) n++; return Math.round(n / STAGES * 100); }
 
   /* ==========================================================================
      AUTH (Laravel API, JWT)
      ========================================================================== */
+  var AUTH_FORMS = { signin: "#signin-form", signup: "#signup-form", forgot: "#forgot-form", code: "#code-form" };
+  // The open form fades out, then the new one rises in (CSS); resolves once the new one shows
   function showAuth(panel) {
-    $("#signin-form").prop("hidden", panel !== "signin");
-    $("#signup-form").prop("hidden", panel !== "signup");
-    $("#forgot-form").prop("hidden", panel !== "forgot");
-    $("#code-form").prop("hidden", panel !== "code");
     $(".auth-tabs").prop("hidden", panel === "code").toggleClass("signup", panel === "signup");
     $("#tab-signin").toggleClass("active", panel !== "signup").attr("aria-selected", panel !== "signup");
     $("#tab-signup").toggleClass("active", panel === "signup").attr("aria-selected", panel === "signup");
+    var $old = $("#auth-screen .auth-form:not([hidden])").not(AUTH_FORMS[panel]);
+    return $old.stop(true, true).fadeOut(140).promise().then(function () {
+      $old.css("display", "");   // back to [hidden] deciding what shows
+      $.each(AUTH_FORMS, function (key, sel) { $(sel).prop("hidden", key !== panel); });
+    });
   }
 
   function enterApp() {
     $("#auth-screen").prop("hidden", true);
     $("#app").prop("hidden", false);
     refreshAll();
-    openView("overview");
+    openView("application");   // everyone starts on My application; the Overview opens from the menu once approved
   }
 
   function leaveApp() {
@@ -250,12 +269,33 @@ $(function () {
   $("#forgot-link").on("click", function () { $("#forgot-email").val($("#signin-email").val()); $("#forgot-note").text(""); showAuth("forgot"); });
   $(".back-to-signin").on("click", function () { showAuth("signin"); });
 
+  /* NFR-06: CAPTCHA on sign-in, sign-up and forgot password, when the server
+     has a provider switched on. Each form has its own widget; tokens are
+     single-use, so the widget is reset after every try. */
+  function captchaToken($form) {
+    $form.find(".captcha-error").text("");
+    return $form.find('[name="cf-turnstile-response"], [name="g-recaptcha-response"]').first().val() || undefined;
+  }
+  function resetCaptcha($form) {
+    var w = $form.find(".cf-turnstile, .g-recaptcha")[0];
+    if (!w) return;
+    if (window.turnstile) window.turnstile.reset(w);
+    else if (window.grecaptcha) window.grecaptcha.reset($(".g-recaptcha").index(w));
+  }
+  // Shows the server's CAPTCHA error under the widget; true when there was one
+  function captchaError($form, xhr) {
+    var errors = (xhr.responseJSON && xhr.responseJSON.errors) || {};
+    if (errors.captcha) $form.find(".captcha-error").text(errors.captcha[0]);
+    return !!errors.captcha;
+  }
+
   $("#signin-form").on("submit", function (e) {
     e.preventDefault();
-    if (!validateFields($(this))) return;
+    var $form = $(this);
+    if (!validateFields($form)) return;
     var email = $("#signin-email").val().trim();
     if ($("#remember-me").is(":checked")) writeJSON("local", REMEMBER_KEY, email); else removeKey("local", REMEMBER_KEY);
-    var login = AO.api("POST", "/api/auth/login", { email: email, password: $("#signin-password").val(), portal: "applicant", device_token: readJSON("local", DEVICE_KEY) || undefined })
+    var login = AO.api("POST", "/api/auth/login", { email: email, password: $("#signin-password").val(), portal: "applicant", device_token: readJSON("local", DEVICE_KEY) || undefined, captcha: captchaToken($form) })
       .then(function (res) {
         if (res.data.two_factor_required) return res.data;
         AO.setToken(res.data.token);
@@ -263,10 +303,17 @@ $(function () {
       });
     AO.busy($("#signin-submit"), login)
       .done(function (res) { if (res && res.two_factor_required) askForCode(res.challenge, email, "signin"); else enterApp(); })
-      .fail(function (xhr) { AO.setToken(null); setError($("#signin-email"), AO.apiError(xhr)); });
+      .fail(function (xhr) { AO.setToken(null); if (!captchaError($form, xhr)) setError($("#signin-email"), AO.apiError(xhr)); })
+      .always(function () { resetCaptcha($form); });
   });
 
   // Server field name → the input that shows its error
+  // Terms and conditions pop-up: "I agree" ticks the sign-up checkbox
+  $("#terms-agree").on("click", function () {
+    $("#signup-terms").prop("checked", true).trigger("change");
+    bootstrap.Modal.getOrCreateInstance(document.getElementById("termsModal")).hide();
+  });
+
   var SIGNUP_FIELDS = { first_name: "#signup-first", last_name: "#signup-last", email: "#signup-email", phone: "#signup-phone", password: "#signup-password", terms: "#signup-terms" };
 
   $("#signup-form").on("submit", function (e) {
@@ -277,7 +324,8 @@ $(function () {
     var register = AO.api("POST", "/api/auth/register", {
       first_name: $("#signup-first").val().trim(), last_name: $("#signup-last").val().trim(),
       email: $("#signup-email").val().trim(), phone: $("#signup-phone").val().trim(),
-      password: $("#signup-password").val(), password_confirmation: $("#signup-confirm").val(), terms: $("#signup-terms").is(":checked")
+      password: $("#signup-password").val(), password_confirmation: $("#signup-confirm").val(), terms: $("#signup-terms").is(":checked"),
+      captcha: captchaToken($(this))
     }).then(function (res) {
       if (res.data.two_factor_required) return res.data;
       AO.setToken(res.data.token);
@@ -293,8 +341,10 @@ $(function () {
         var errors = (xhr.responseJSON && xhr.responseJSON.errors) || {};
         var shown = false;
         Object.keys(errors).forEach(function (k) { if (SIGNUP_FIELDS[k]) { setError($(SIGNUP_FIELDS[k]), errors[k][0]); shown = true; } });
+        if (captchaError($("#signup-form"), xhr)) shown = true;
         if (!shown) showToast(AO.apiError(xhr));
-      });
+      })
+      .always(function () { resetCaptcha($("#signup-form")); });
   });
 
   /* Email code: the second step of sign-in on a new device, and of sign-up
@@ -308,8 +358,7 @@ $(function () {
     $("#code-input").val("");
     clearError($("#code-input"));
     $("#code-note").text("");
-    showAuth("code");
-    $("#code-input").trigger("focus");
+    showAuth("code").then(function () { $("#code-input").trigger("focus"); });
   }
 
   // Digits only, and send as soon as all six are in
@@ -349,10 +398,12 @@ $(function () {
 
   $("#forgot-form").on("submit", function (e) {
     e.preventDefault();
-    if (!validateFields($(this))) return;
-    AO.api("POST", "/api/auth/forgot-password", { email: $("#forgot-email").val().trim() })
+    var $form = $(this);
+    if (!validateFields($form)) return;
+    AO.api("POST", "/api/auth/forgot-password", { email: $("#forgot-email").val().trim(), captcha: captchaToken($form) })
       .done(function (res) { $("#forgot-note").text(res.message); })
-      .fail(function (xhr) { $("#forgot-note").text(AO.apiError(xhr)); });
+      .fail(function (xhr) { if (!captchaError($form, xhr)) $("#forgot-note").text(AO.apiError(xhr)); })
+      .always(function () { resetCaptcha($form); });
   });
 
   $(".logout-button").on("click", function () {
@@ -369,6 +420,10 @@ $(function () {
   var PAGE_LABELS = { overview: "Overview", application: "My application", documents: "Documents", profile: "My profile" };
 
   function openView(name) {
+    if (name === "overview" && !approved()) {
+      showToast("Your dashboard opens once admissions approves your documents and application details.");
+      name = "application";
+    }
     var $target = $("#view-" + name);
     if (!$target.length) return;
     $(".view-section").removeClass("active");
@@ -447,7 +502,9 @@ $(function () {
   /* [pill class, label] for where the application is */
   function statusPill() {
     var med = state.medical.status;
-    return { draft: ["draft", "Draft"], review: ["review", "Under review"], exam: ["exam", "Exam scheduled"], result: state.accepted && med !== "cleared" ? ["review", med === "submitted" ? "Medical check" : "Medical pending"] : ["admitted", "Admitted"] }[state.phase];
+    var byStatus = { passed: ["exam", "Passed exam"], failed: ["draft", "Did not pass"], for_interview: ["exam", "For interview"], interview_failed: ["draft", "Not accepted"], offered: ["admitted", "Offer ready"], forfeited: ["draft", "Offer expired"] };
+    if (byStatus[STATUS]) return byStatus[STATUS];
+    return { draft: ["draft", "Draft"], review: ["review", "Submitted"], exam: ["exam", "Exam scheduled"], result: state.accepted && med !== "cleared" ? ["review", med === "submitted" ? "Medical check" : "Medical pending"] : ["admitted", "Admitted"] }[state.phase];
   }
 
   function renderJourney() {
@@ -456,7 +513,7 @@ $(function () {
     buildStepper($list, JOURNEY);
     if (selectedStage === null || selectedStage > current) selectedStage = current;
 
-    var subs = { 3: "Under review", 4: "Scheduled", 5: "Released", 6: state.medical.status === "submitted" ? "Checking" : "To submit" };
+    var subs = { 3: STATUS === "submitted" ? "Checking" : "Scheduled", 4: "Released", 5: STATUS === "for_interview" ? "Interviews" : STATUS === "offered" ? "Offer ready" : "Waiting", 6: state.medical.status === "submitted" ? "Checking" : "To submit" };
     updateStepper($list, {
       done: journeyDone, current: current, selected: selectedStage,
       canVisit: function (n) { return n <= current; },
@@ -471,9 +528,10 @@ $(function () {
     animateCount($("#journey-percent"), pct);
 
     var med = state.medical.status;
-    var resultTitle = !state.accepted ? "Your admission result is in" : med === "cleared" ? "Admission complete · See you in August" : med === "submitted" ? "Your medical requirements are being checked" : "Last step · Submit your medical requirements";
-    var titles = { draft: "Step " + current + " of " + STAGES + " · " + JOURNEY[current - 1].title, review: "Your application is under review", exam: "You're scheduled for the entrance exam", result: resultTitle };
-    $("#journey-title").text(titles[state.phase]);
+    var resultTitle = med === "cleared" ? "Admission complete · See you in August" : med === "submitted" ? "Your medical requirements are being checked" : "Last step · Submit your medical requirements";
+    var byStatus = { submitted: "Admissions is checking your application", for_exam: "You're scheduled for the entrance exam", passed: "You passed the entrance exam", failed: "Your entrance exam result is in",
+      for_interview: "Your college interviews", interview_failed: "Your interview results are in", offered: "Your offer of admission is ready", forfeited: "Your offer expired" };
+    $("#journey-title").text(state.accepted ? resultTitle : byStatus[STATUS] || "Step " + current + " of " + STAGES + " · " + JOURNEY[current - 1].title);
     var pill = statusPill();
     $("#status-pill").attr("class", "status-pill " + pill[0]).text(pill[1]);
 
@@ -531,20 +589,14 @@ $(function () {
         '<div class="sp-actions"><button class="btn ' + (done ? "btn-ghost" : "btn-brand") + '" type="button" data-view="documents">' + (done ? "View documents" : "Upload documents") + icon("arrowR") + "</button></div></div>";
     }
 
-    // Review
-    if (n === 3) {
-      if (done) {
-        return '<div class="sp-row"><span class="sp-icon">' + icon("shield") + '</span><div class="sp-body"><h3>Application approved for the entrance exam</h3><p>Your form and all your documents were verified by the admissions team.</p></div></div>';
-      }
-      return '<div class="sp-row"><span class="scan-doc" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><div class="sp-body">' +
-        "<h3>Admissions is reviewing your application</h3><p>This usually takes 3 to 5 working days. We'll email you once it's done.</p>" +
-        '<ul class="review-steps"><li><span class="rs-mark">' + icon("check") + '</span>Application form received</li>' +
-        '<li class="working"><span class="rs-mark"></span>Verifying your documents</li>' +
-        '<li class="waiting"><span class="rs-mark"></span>Exam eligibility</li></ul></div></div>';
-    }
-
     // Exam
-    if (n === 4) {
+    if (n === 3) {
+      if (STATUS === "submitted") {
+        // approved() here means every document is verified; only the exam schedule is left
+        return '<div class="sp-row"><span class="scan-doc" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><div class="sp-body">' +
+          (approved() ? "<h3>Your documents are verified</h3><p>Admissions is scheduling your entrance exam. Your schedule and permit appear here once it's set. We'll email you.</p>"
+            : "<h3>Admissions is checking your application</h3><p>Your exam schedule appears here once your documents are verified. We'll email you.</p>") + "</div></div>";
+      }
       var ed = parseDate(EXAM.date);
       // Clicking the ticket downloads the exam permit (PDF, see EXAM PERMIT below)
       var ticket = '<button class="exam-ticket ticket-download" type="button" id="download-permit" aria-label="Download your exam permit as a PDF">' +
@@ -559,15 +611,20 @@ $(function () {
         "<p>Arrive 30 minutes early. Click the ticket to download your exam permit, then print it and bring it with the valid ID you uploaded.</p>" + ticket + "</div></div>";
     }
 
-    // Medical requirements (last step)
+    if (n === 4) return examResultHTML();
     if (n === 6) return medicalPanelHTML();
+    return interviewPanelHTML();
+  }
 
-    // Result
+  /* The offer card: accept the slot, view the letter */
+  function offerCardHTML() {
+    var d = state.data;
     var first = esc(d.firstName || "applicant");
     var facts = '<div class="result-facts">' +
-      '<div class="fact"><span>Program</span><strong>' + esc(d.program1 || PROGRAMS[0]) + "</strong></div>" +
+      '<div class="fact"><span>Program</span><strong>' + esc((OFFER && OFFER.program) || d.program1 || PROGRAMS[0]) + "</strong></div>" +
       '<div class="fact"><span>Campus</span><strong>' + esc(d.campus || "Main Campus") + " · AY 2027–2028</strong></div>" +
-      '<div class="fact"><span>Entrance exam</span><strong>Passed · 89th percentile</strong></div></div>';
+      '<div class="fact"><span>Entrance exam</span><strong>Passed</strong></div>' +
+      "</div>";
     var steps = '<ol class="next-steps">' +
       '<li><span>1</span><strong>Accept your offer</strong><time>in this portal</time></li>' +
       '<li><span>2</span><strong>Submit your medical requirements</strong><time>after accepting</time></li>' +
@@ -578,7 +635,7 @@ $(function () {
     return '<div class="result-card"><div class="result-seal">' + STAR + "</div>" +
       '<p class="eyebrow">Admission result · AY 2027–2028</p>' +
       '<h3>Congratulations, <span class="shine">' + first + "!</span></h3>" +
-      "<p>You've been admitted to the " + esc(d.program1 || PROGRAMS[0]) + " program. We're excited to welcome you to Pamantasan ng Lungsod ng Pasig this August.</p>" +
+      "<p>You've been admitted to the " + esc((OFFER && OFFER.program) || d.program1 || PROGRAMS[0]) + " program. We're excited to welcome you to Pamantasan ng Lungsod ng Pasig this August.</p>" +
       facts + steps + actions + "</div>";
   }
 
@@ -594,17 +651,29 @@ $(function () {
         '<div class="sp-chips">' + MEDICAL.map(function (m) { return '<span class="chip-doc ok">' + icon("check") + esc(m.title) + "</span>"; }).join("") + "</div></div></div>";
     }
     var count = medCount();
-    return '<div class="sp-row sp-row-top"><span class="sp-icon">' + icon("shield") + '</span><div class="sp-body">' +
-      "<h3>Submit your medical requirements</h3><p>This is the last step of your admission. Upload a clear PDF, JPG, or PNG of each one, up to 5 MB.</p>" +
+    return '<div class="sp-row"><span class="sp-icon">' + icon("shield") + '</span><div class="sp-body">' +
+      "<h3>Submit your medical requirements</h3><p>This is the last step of your admission. " + count + " of " + MEDICAL.length + " files uploaded so far.</p></div>" +
+      '<div class="sp-actions"><button class="btn btn-brand" type="button" id="open-medical">' + icon("upload") + "Submit medical</button></div></div>";
+  }
+
+  /* The upload list lives in a pop-up (#medicalModal) */
+  function medicalModalHTML() {
+    var med = state.medical, count = medCount();
+    return "<p>Upload a clear PDF, JPG, or PNG of each one, up to 5 MB.</p>" +
       '<ul class="med-list">' + MEDICAL.map(function (m) {
         var f = med.files[m.key];
         return '<li class="' + (f ? "ok" : "") + '"><span class="mini-check">' + (f ? icon("check") : "") + "</span><div><strong>" + esc(m.title) + "</strong><small>" + esc(f ? f.name + " · " + fileSize(f.size) : m.desc) + "</small></div>" +
           '<label class="upload-btn" for="med-' + m.key + '">' + icon(f ? "refresh" : "upload") + (f ? "Replace" : "Upload") + "</label>" +
           '<input class="file-input med-input" type="file" id="med-' + m.key + '" data-key="' + m.key + '" accept=".pdf,.jpg,.jpeg,.png"></li>';
       }).join("") + "</ul>" +
-      '<p class="upload-error" id="med-error" role="alert"></p></div>' +
-      '<div class="sp-actions"><button class="btn btn-brand" type="button" id="submit-medical"' + (count < MEDICAL.length ? " disabled" : "") + ">" + icon("send") + "Submit " + count + "/" + MEDICAL.length + "</button></div></div>";
+      '<p class="upload-error" id="med-error" role="alert"></p>' +
+      '<div class="text-end mt-3"><button class="btn btn-brand" type="button" id="submit-medical"' + (count < MEDICAL.length ? " disabled" : "") + ">" + icon("send") + "Submit " + count + "/" + MEDICAL.length + "</button></div>";
   }
+  function renderMedicalModal() { $("#medical-form").html(medicalModalHTML()); }
+  $(document).on("click", "#open-medical", function () {
+    renderMedicalModal();
+    bootstrap.Modal.getOrCreateInstance(document.getElementById("medicalModal")).show();
+  });
 
   $(document).on("change", ".med-input", function () {
     var file = this.files[0], key = $(this).data("key");
@@ -618,6 +687,7 @@ $(function () {
       .done(function (res) {
         applyPortal(res.data);
         renderJourney();
+        renderMedicalModal();
         showToast(MEDICAL.filter(function (m) { return m.key === key; })[0].title + " uploaded.");
       })
       .fail(function (xhr) { $("#med-error").text(AO.apiError(xhr)); });
@@ -626,6 +696,7 @@ $(function () {
     AO.busy($(this), AO.api("POST", "/api/applicant/medical/submit"))
       .done(function (res) {
         applyPortal(res.data);
+        bootstrap.Modal.getOrCreateInstance(document.getElementById("medicalModal")).hide();
         renderJourney();
         showToast("Medical requirements sent to the university clinic.");
       })
@@ -690,6 +761,11 @@ $(function () {
       var note = left > 1 ? "In " + left + " days" : left === 1 ? "Tomorrow" : left === 0 ? "Today" : "Passed";
       return "<li><span>" + esc(k.title) + "<small>" + note + '</small></span><time datetime="' + k.date + '">' + when + "</time></li>";
     }).join(""));
+    // FR-11: dated status timeline from the server
+    $("#timeline-panel").prop("hidden", !TIMELINE.length);
+    $("#status-timeline").html(TIMELINE.map(function (t) {
+      return "<li><span>" + esc(t.label) + '</span><time datetime="' + esc(t.date) + '">' + esc(fmt(t.date, { month: "short", day: "numeric", year: "numeric" })) + "</time></li>";
+    }).join(""));
   }
 
   /* ==========================================================================
@@ -709,7 +785,76 @@ $(function () {
     });
     syncResidency();
     $("#barangay").val(state.data.barangay || "");
+    syncBarangayBox();
+    syncMinor();
+    syncSuggestions();
   }
+  // FR-31: a parent's or guardian's consent only for applicants under 18
+  function syncMinor() {
+    var b = $("#birth-date").val(), minor = !!b && (today() - parseDate(b)) / 31557600000 < 18;
+    $(".minor-only").prop("hidden", !minor).find("input, select").prop("disabled", !minor);
+  }
+  $("#birth-date").on("change input", syncMinor);
+  // FR-06: suggestions follow the strand chosen in section 2
+  function suggestedPrograms() {
+    return (STRAND_SUGGEST[$("#strand").val() || state.data.strand] || []).filter(function (n) { return PROGRAMS.indexOf(n) !== -1; });
+  }
+  function syncSuggestions() {
+    var list = suggestedPrograms();
+    $("#strand-suggestions").prop("hidden", !list.length).text(list.length ? "Suggested for your strand: " + list.join(", ") + "." : "");
+    renderProgramList();
+  }
+  $("#strand").on("change", syncSuggestions);
+
+  /* Program list beside the choices: drag a program onto a choice (jQuery UI
+     Draggable + Droppable) or click it to fill the next empty choice. A
+     program already chosen elsewhere swaps places. The dropdowns still work. */
+  var ORDINAL = ["1st", "2nd", "3rd"];
+  function choiceValues() { return [1, 2, 3].map(function (n) { return $("#program" + n).val() || ""; }); }
+  function renderProgramList() {
+    var chosen = choiceValues(), sugg = suggestedPrograms(), q = ($("#program-filter").val() || "").trim().toLowerCase();
+    var list = PROGRAMS.filter(function (p) { return p.toLowerCase().indexOf(q) !== -1; })
+      .sort(function (a, b) { return (sugg.indexOf(b) !== -1) - (sugg.indexOf(a) !== -1); });   // suggested first
+    $("#program-list").html(list.length ? list.map(function (p) {
+      var n = chosen.indexOf(p) + 1;
+      return '<button class="program-chip' + (n ? " is-chosen" : "") + '" type="button" role="listitem" data-program="' + esc(p) + '"' +
+        ' aria-label="' + esc(p) + (n ? ", your " + ORDINAL[n - 1] + " choice" : ", add as the next choice") + '">' +
+        '<span class="pc-grip">' + icon("grip") + '</span><span class="pc-name">' + esc(p) +
+        (sugg.indexOf(p) !== -1 ? '<small class="pc-suggested">Suggested for your strand</small>' : "") + "</span>" +
+        (n ? '<span class="pc-badge">' + ORDINAL[n - 1] + "</span>" : "") + "</button>";
+    }).join("") : '<p class="pp-empty">No program matches “' + esc(q) + '”.</p>');
+    $("#program-list .program-chip").draggable({
+      helper: function () { return $('<div class="program-drag">' + icon("file") + esc($(this).data("program")) + "</div>"); },
+      appendTo: "body", cursorAt: { left: 18, top: 18 }, cancel: "", distance: 4, scroll: false, revert: "invalid", revertDuration: 150, zIndex: 2000,
+      start: function () { $(this).addClass("is-dragging"); },
+      stop: function () { $(this).removeClass("is-dragging"); }
+    });
+  }
+  function placeProgram(p, n) {
+    var values = choiceValues(), was = values.indexOf(p);
+    if (was === n - 1) return;
+    if (was !== -1) values[was] = values[n - 1];   // already another choice: swap
+    values[n - 1] = p;
+    values.forEach(function (v, i) { $("#program" + (i + 1)).val(v); clearError($("#program" + (i + 1))); });
+    $("#program1").trigger("change");   // the form's save handler (and the list's badges)
+    $('.choice-drop[data-choice="' + n + '"]').effect("highlight", { color: "#ebf6ee" }, 700);
+  }
+  $(".choice-drop").droppable({
+    accept: ".program-chip", tolerance: "pointer", classes: { "ui-droppable-active": "is-ready", "ui-droppable-hover": "is-over" },
+    drop: function (e, ui) { placeProgram(ui.draggable.data("program"), +$(this).data("choice")); }
+  });
+  $("#program-list").on("click", ".program-chip", function () {
+    var p = $(this).data("program"), values = choiceValues(), n = values.indexOf(p);
+    if (n !== -1) { showToast("Already your " + ORDINAL[n] + " choice. Drag it onto another choice to swap."); return; }
+    n = values.indexOf("");
+    if (n === -1) { showToast("All three choices are set. Drag a program onto a choice to replace it."); return; }
+    placeProgram(p, n + 1);
+  });
+  // Re-drawn after the drop finishes (removing a dragged chip mid-drop upsets jQuery UI)
+  $(document).on("change", ".program-select", function () { setTimeout(renderProgramList, 0); });
+  $("#program-filter").on("input", renderProgramList)
+    .on("keydown", function (e) { if (e.key === "Enter") e.preventDefault(); });   // not the form's "Save and continue"
+
   // District and barangay only for Pasig residents; barangay list follows the district
   function syncResidency() {
     var resident = $("#is-resident").val() === "1", district = $("#district").val();
@@ -721,8 +866,42 @@ $(function () {
     $("#district").prop("disabled", !resident);
     $b.prop("disabled", !resident || !district);
     $(".resident-only").toggleClass("opacity-50", !resident);
+    syncBarangayBox();
   }
   $("#is-resident, #district").on("change", syncResidency);
+
+  /* Barangay: a type-to-search box (jQuery UI autocomplete) over the hidden
+     <select>, which stays the real field for autosave and validation. */
+  var $barangayBox = $('<input class="form-control combo-input" id="barangay-search" type="text" autocomplete="off" aria-describedby="barangay-error">')
+    .insertAfter($("#barangay").addClass("visually-hidden").attr({ tabindex: -1, "aria-hidden": "true" }));
+  $('label[for="barangay"]').attr("for", "barangay-search");
+  function barangayNames() { return $("#barangay option").slice(1).map(function () { return this.value; }).get(); }
+  function syncBarangayBox() {
+    var $b = $("#barangay");
+    $barangayBox.val($b.val() || "").prop("disabled", $b.prop("disabled"))
+      .attr("placeholder", $b.prop("disabled") ? "Select a district first" : "Type to search your barangay");
+  }
+  $barangayBox.autocomplete({
+    minLength: 0, delay: 0,
+    source: function (req, res) {
+      var term = req.term.toLowerCase();
+      res(barangayNames().filter(function (n) { return n.toLowerCase().indexOf(term) !== -1; }));
+    },
+    select: function (e, ui) { $("#barangay").val(ui.item.value).trigger("change"); clearError($("#barangay")); },
+    // Typed text that isn't a barangay on the list: back to the saved choice
+    change: function () { if (barangayNames().indexOf($barangayBox.val()) === -1) syncBarangayBox(); }
+  }).on("focus click", function () { if (!this.disabled) $barangayBox.autocomplete("search", ""); });
+  // Validation focuses the hidden select: send the cursor to the search box instead
+  $("#barangay").on("focus", function () { $barangayBox.trigger("focus"); });
+
+  /* Last school attended: suggestions from the server as the applicant types (AJAX) */
+  $("#last-school").autocomplete({
+    minLength: 2, delay: 250,
+    source: function (req, res) {
+      AO.api("GET", "/api/applicant/schools?q=" + encodeURIComponent(req.term)).done(function (r) { res(r.data); }).fail(function () { res([]); });
+    },
+    select: function (e, ui) { $(this).val(ui.item.value).trigger("change"); }
+  });
   function collectForm() {
     $("#application-form").find("[name]").each(function () { state.data[this.name] = $(this).val(); });
   }
@@ -735,7 +914,8 @@ $(function () {
       collectForm();
       save();
       refreshIdentity();
-      $("#save-state").removeClass("saving").html(icon("check") + "Saved on this device");
+      // jQuery UI color effect: a brief green glow so the applicant notices the save
+      $("#save-state").removeClass("saving").html(icon("check") + "Saved on this device").stop(true, true).effect("highlight", { color: "#d6efdd" }, 900);
     }, 500);
   });
 
@@ -772,9 +952,10 @@ $(function () {
       $("#complete-name").text(state.data.firstName || "applicant");
       $("#edit-answers").prop("hidden", locked());
       $("#complete-card .lede").text(locked()
-        ? "Your application has been sent to admissions. Follow its progress on the Overview."
+        ? (approved() ? "Your application has been approved. Follow its progress on the Overview." : "Your application has been sent to admissions. Your dashboard opens once they approve your documents and details.")
         : "Your personal, academic, and program details are saved. Next, upload your required documents so admissions can review your application.");
-      $("#complete-card [data-view]").html(locked() ? "Go to overview" + icon("arrowR") : "Upload documents" + icon("arrowR")).attr("data-view", locked() ? "overview" : "documents").data("view", locked() ? "overview" : "documents");
+      var next = locked() && approved() ? "overview" : "documents";
+      $("#complete-card [data-view]").html((next === "overview" ? "Go to overview" : locked() ? "View documents" : "Upload documents") + icon("arrowR")).attr("data-view", next).data("view", next);
       // replay the check animation
       var $svg = $("#complete-card .check-draw");
       $svg.replaceWith($svg.clone());
@@ -837,15 +1018,52 @@ $(function () {
   /* ==========================================================================
      DOCUMENTS
      ========================================================================== */
+  /* Exam result stage */
+  function examResultHTML() {
+    if (STATUS === "failed") {
+      return '<div class="sp-row"><span class="sp-icon">' + icon("award") + '</span><div class="sp-body"><h3>Your entrance exam result</h3>' +
+        "<p>You did not pass the entrance exam this time. Thank you for applying. Contact the admission office if you have questions.</p></div></div>";
+    }
+    var next = STATUS === "for_interview" ? "Next, the dean of your first choice that needs an interview will meet you. If not accepted, you interview for your next choice. See the Interview step for the date, time and venue."
+      : INTERVIEWS.length ? "Your interview results are in. See the Interview step." : "None of your program choices needs an interview. Your offer is in the Interview step.";
+    return '<div class="sp-row"><span class="sp-icon">' + icon("award") + '</span><div class="sp-body"><h3>You passed the entrance exam</h3><p>' + esc(next) + "</p></div>" +
+      '<div class="sp-actions"><button class="btn btn-brand" type="button" data-stage-go="5">Interview' + icon("arrowR") + "</button></div></div>";
+  }
+
+  /* Interview stage: one card per choice that requires an interview (where, when, dean's decision), then the offer */
+  function interviewCardHTML(i) {
+    var tag = i.outcome === "passed" ? ["tag-verified", icon("check") + "Accepted"] : i.outcome === "failed" ? ["tag-resubmit", "Not accepted"] : ["tag-review", i.date ? "Awaiting decision" : "To be scheduled"];
+    var where = i.date
+      ? '<dl class="iv-where"><div><dt>Date</dt><dd>' + esc(fmt(i.date, { weekday: "long", month: "long", day: "numeric", year: "numeric" })) + "</dd></div>" +
+        "<div><dt>Time</dt><dd>" + esc(i.time || "To be announced") + "</dd></div><div><dt>Venue</dt><dd>" + esc(i.venue) + "</dd></div></dl>"
+      : '<p class="iv-pending">' + "Admissions will email you the date, time and venue." + "</p>";
+    return '<li class="iv-card"><div class="iv-head"><span class="iv-rank">' + i.rank + "</span><div><strong>" + esc(i.program) + "</strong>" +
+      (i.college ? "<small>" + esc(i.college) + " · Office of the Dean</small>" : "") + '</div><span class="tag ' + tag[0] + '">' + tag[1] + "</span></div>" + where + "</li>";
+  }
+  function interviewPanelHTML() {
+    var cards = INTERVIEWS.length ? '<ul class="iv-list">' + INTERVIEWS.map(interviewCardHTML).join("") + "</ul>" : "";
+    var head = {
+      for_interview: ["Your college interviews", "You are interviewed by the dean of your first choice. If that dean does not accept you, your next choice's interview appears here. Arrive 15 minutes early at the venue below and bring your exam permit and a valid ID."],
+      interview_failed: ["Your interview results", "No college accepted you into the programs you chose. Contact the admission office if you have questions."],
+      passed: ["Placement in progress", "You passed, but none of your program choices can take you right now (closed or full). Admissions will place you in another program and email you."],
+      forfeited: ["Your offer expired", "The acceptance deadline passed. Contact the admission office."]
+    }[STATUS];
+    if (head) {
+      return '<div class="sp-row"><span class="sp-icon">' + icon("users") + '</span><div class="sp-body"><h3>' + head[0] + "</h3><p>" + head[1] + "</p></div></div>" + cards;
+    }
+    return offerCardHTML() + (cards ? '<h3 class="iv-title">Your interviews</h3>' + cards : "");
+  }
+
   function docTag(doc) {
     var f = state.docs[doc.key];
     if (f && f.status === "verified") return '<span class="tag tag-verified">' + icon("check") + "Verified</span>";
     if (f && f.status === "resubmit") return '<span class="tag tag-required">Replace this file</span>';
+    if (f && f.status === "rejected") return '<span class="tag tag-required">Not accepted</span>';
     if (state.phase === "review") return '<span class="tag tag-review">In review</span>';
     return f ? '<span class="tag tag-uploaded">' + icon("check") + "Uploaded</span>" : '<span class="tag tag-required">Required</span>';
   }
   // Admissions verified it: it can't be replaced or removed any more
-  function docFixed(key) { var f = state.docs[key]; return locked() || (f && f.status === "verified"); }
+  function docFixed(key) { var f = state.docs[key]; return locked() || (f && (f.status === "verified" || f.status === "rejected")); }
 
   function docExtra(doc) {
     if (doc.extra === "photo") {
@@ -857,7 +1075,7 @@ $(function () {
 
   function docCardHTML(doc, uploading) {
     var f = hasDoc(doc.key) || uploading ? state.docs[doc.key] : null;
-    var sentBack = state.docs[doc.key] && state.docs[doc.key].status === "resubmit" ? state.docs[doc.key] : null;
+    var sentBack = state.docs[doc.key] && (state.docs[doc.key].status === "resubmit" || state.docs[doc.key].status === "rejected") ? state.docs[doc.key] : null;
     var body;
     if (f) {
       var thumb = previews[doc.key] ? '<img src="' + previews[doc.key] + '" alt="">' : icon(f.type === "application/pdf" ? "file" : doc.icon);
@@ -1019,7 +1237,7 @@ $(function () {
   // An image as a data URL for jsPDF (null if it can't be loaded)
   function imageData(url, auth) {
     var d = $.Deferred();
-    fetch(url, auth ? { headers: { Authorization: "Bearer " + AO.getToken() } } : {})
+    (auth ? AO.fetchFile(url) : fetch(url))
       .then(function (r) { if (!r.ok) throw r; return r.blob(); })
       .then(function (blob) {
         if (blob.type.indexOf("image/") !== 0) throw blob;
@@ -1214,7 +1432,8 @@ $(function () {
     var ini = ((d.firstName || "").charAt(0) + (d.lastName || "").charAt(0)).toUpperCase() || "A";
     $("#sidebar-name, #topbar-name").text(name);
     $("#sidebar-avatar, #topbar-avatar").text(ini);
-    // The application number from the server (the markup holds a sample one)
+    // The application number from the server (the markup holds a sample one), hidden until the documents are approved
+    $(".id-chip, .application-id").toggle(!!APP_ID);
     if (APP_ID) {
       $(".id-chip").contents().last()[0].textContent = APP_ID;
       $(".application-id strong").text(APP_ID);
@@ -1238,6 +1457,7 @@ $(function () {
     renderJourney();
     renderApplication(false);
     renderDocs();
+    $(".sidebar-nav [data-view=\"overview\"]").toggleClass("nav-locked", !approved()).attr("aria-disabled", !approved());
     setTimeout(moveNavIndicator, 0);
   }
 
@@ -1263,11 +1483,14 @@ $(function () {
         if (!state.docs[doc.key]) state.docs[doc.key] = { name: doc.key + (doc.imageOnly ? ".jpg" : ".pdf"), size: 400000 + Math.round(Math.random() * 900000), type: doc.imageOnly ? "image/jpeg" : "application/pdf" };
       });
       state.phase = "review";
+      STATUS = "submitted";
       state.submittedAt = toISO(today());
     } else if (n === 3) {
       state.phase = "exam";
+      STATUS = "passed";
     } else if (n === 4) {
       state.phase = "result";
+      STATUS = "offered";
     } else if (n === 5) {
       state.accepted = true;
     } else if (state.medical.status === "none") {

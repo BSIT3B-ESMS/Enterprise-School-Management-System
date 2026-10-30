@@ -19,7 +19,8 @@ use Spatie\Permission\Traits\HasRoles;
 class User extends Authenticatable implements JWTSubject
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, HasRoles, Notifiable, SoftDeletes;
+    use HasFactory, HasRoles { hasRole as private spatieHasRole; }
+    use Notifiable, SoftDeletes;
 
     protected string $guard_name = 'api';
 
@@ -33,6 +34,7 @@ class User extends Authenticatable implements JWTSubject
             'two_factor_secret' => 'encrypted',
             'two_factor_confirmed_at' => 'datetime',
             'last_login_at' => 'datetime',
+            'locked_until' => 'datetime',
         ];
     }
 
@@ -45,6 +47,24 @@ class User extends Authenticatable implements JWTSubject
     public function deanOf(): HasOne
     {
         return $this->hasOne(College::class, 'dean_user_id');
+    }
+
+    /** Super admin passes every office role check (not clinic, dean or applicant ones). */
+    public function hasRole($roles, ?string $guard = null): bool
+    {
+        if ($this->spatieHasRole($roles, $guard)) {
+            return true;
+        }
+        $asked = is_string($roles) ? explode('|', $roles) : ($roles instanceof \BackedEnum ? [$roles->value] : (array) $roles);
+
+        return $this->spatieHasRole('super_admin', $guard)
+            && array_intersect($asked, ['admission', 'admission_head', 'proctor', 'read_only']) !== [];
+    }
+
+    /** Admission Staff, Admission Head or Super Admin. */
+    public function isAdmissionOffice(): bool
+    {
+        return (bool) $this->primaryRole()?->isAdmissionOffice();
     }
 
     /** The user's single role (each account has exactly one). */

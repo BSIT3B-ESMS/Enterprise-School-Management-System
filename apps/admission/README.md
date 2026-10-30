@@ -4,7 +4,7 @@ Responsive frontend for the PLP online admission system. It has three separate s
 
 - **Applicant portal** (`/`, view `resources/views/applicant.blade.php`): a 6-step admission journey (application form, documents, review, exam, result, medical requirements), plus the application form, document uploads, and profile.
 - **Admission office panel** (`/admin`, view `resources/views/admin/index.blade.php`): for admission personnel. It covers review queues, document verification with remarks, exam sessions (Batch A morning, Batch B afternoon) with rosters and attendance, recording and releasing results, a read-only view of medical approvals from the clinic, reports with CSV export, programs/slots/requirements, and a read-only audit log.
-- **Clinic portal** (`/nurse`, view `resources/views/nurse.blade.php`): for the university clinic nurse. The nurse only sees the medical files applicants send after passing (API `/api/clinic`). They send a file back with a remark, or approve the applicant. The approval shows on the admission office's Medical page as **Approved**.
+- **Clinic module** (a role in the admin portal, `/admin`): for the university clinic nurse. The nurse only sees the medical files applicants send after passing (API `/api/clinic`). They send a file back with a remark, or approve the applicant. The approval shows on the admission office's Medical page as **Approved**.
 
 ## Run locally
 
@@ -15,17 +15,16 @@ composer setup              # first time only: packages, keys, tables, demo data
 php artisan app:start       # every time: web server + queue worker + scheduler
 ```
 
-Then open `http://127.0.0.1:8000/` for the applicant portal `http://127.0.0.1:8000/admin` for the admission office, and `http://127.0.0.1:8000/nurse` for the clinic. Bootstrap, jQuery, and the fonts load from CDNs, so the browser needs an internet connection for those assets.
+Then open `http://127.0.0.1:8000/` for the applicant portal `http://127.0.0.1:8000/admin` for the admission office, (also the clinic). Bootstrap, jQuery, and the fonts load from CDNs, so the browser needs an internet connection for those assets.
 
 ## Project structure
 
 ```
-routes/web.php                 Routes: / (applicant portal), /admin (admission office), /nurse (clinic)
+routes/web.php                 Routes: / (applicant portal), /admin (admission office, clinic, deans)
 resources/views/
   layouts/app.blade.php        Shared page shell: head, fonts, Bootstrap, jQuery, core.css/core.js
   applicant.blade.php          Applicant portal
   admin/index.blade.php        Admission office panel
-  nurse.blade.php              Clinic portal (medical files only)
 public/assets/
   shared/                      Used by both sides
     css/core.css               Tokens, base, buttons, forms, sign-in, sidebar shell, modals, toasts
@@ -39,11 +38,8 @@ public/assets/
     js/admin-actions.js        Every admin change; each one writes to the audit trail
     js/admin-ui.js             Shared admin UI: pills, charts, pager, modals, printing
     js/views/*.js              One file per screen (dashboard, applicants, documents, exams,
-                               results, medical, reports, settings, audit)
+                               results, medical, clinic, dean, reports, settings, audit)
     js/admin.js                Sign-in, hash router, boot (loaded last)
-  nurse/
-    js/nurse.js                Clinic portal: sign-in, router, medical file review and approval
-                               (reuses admin-store.js and admin-ui.js, not admin-actions.js)
 ```
 
 Load order matters: the layout loads `core.js` first, then each page pushes its own scripts onto the `scripts` stack. In the admission office, views register on `ADM.views` and `admin.js` boots last.

@@ -75,6 +75,20 @@ class ApplicantApplicationTest extends TestCase
         $this->assertNull($user->applicant->fresh()->district);
     }
 
+    /** FR-01: letters in phone/ZIP, digits in names and places, and over-precise averages are refused */
+    public function test_autosave_refuses_wrong_formats(): void
+    {
+        $user = $this->makeApplicant();
+
+        $res = $this->asUser($user)->putJson('/api/applicant/application', [
+            'phone' => '0917 abc 4567', 'guardianPhone' => 'call me', 'zip' => '16a0', 'firstName' => 'J0rdan',
+            'guardianName' => 'Teresa 2', 'city' => 'Pasig 1', 'gwa' => '91.255', 'province' => 'Metro Manila',
+        ])->assertOk();
+
+        $res->assertJsonStructure(['skipped' => ['phone', 'guardianPhone', 'zip', 'firstName', 'guardianName', 'city', 'gwa']])
+            ->assertJsonPath('data.data.province', 'Metro Manila');
+    }
+
     public function test_marking_a_section_complete_validates_it(): void
     {
         $user = $this->makeApplicant();

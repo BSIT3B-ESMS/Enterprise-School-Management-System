@@ -6,6 +6,7 @@ use App\Enums\ApplicationStatus;
 use App\Exceptions\BusinessRuleException;
 use App\Models\AdmissionPeriod;
 use App\Models\Applicant;
+use App\Models\Barangay;
 use App\Models\ApplicantChange;
 use App\Models\Application;
 use App\Models\Program;
@@ -246,6 +247,7 @@ class ApplicationService
         foreach ([1, 2, 3] as $rank) {
             $values['program'.$rank] = $choices[$rank]->program->name ?? null;
         }
+        $values['guardianConsent'] = $applicant->guardian_consent_at ? '1' : null;
         $values['campus'] = $application->campus;
         $values['email'] = $applicant->user->email;
 
@@ -263,7 +265,12 @@ class ApplicationService
         }
         if (in_array(1, $sections) && ($values['isResident'] ?? null) === '1') {
             $check['district'] = ['required', Rule::in([1, 2])];
-            $check['barangay'] = ['required', Rule::in(ApplicantForm::BARANGAYS[(int) ($values['district'] ?? 0)] ?? [])];
+            $check['barangay'] = ['required', Rule::in(Barangay::byDistrict()[(int) ($values['district'] ?? 0)] ?? [])];
+        }
+        // FR-31: parent or guardian consent for applicants under 18
+        if (in_array(1, $sections) && ApplicantForm::isMinor($values['birthDate'] ?? null)) {
+            $check['guardianConsentName'] = ['required', 'string', 'max:150'];
+            $check['guardianConsent'] = ['required', Rule::in(['1'])];
         }
         if ($check) {
             Validator::make($values, $check, ApplicantForm::MESSAGES)->validate();
@@ -279,6 +286,9 @@ class ApplicationService
         }
         if (array_key_exists('gradYear', $valid)) {
             $applicant->applicant_type = ApplicantForm::applicantType($valid['gradYear']);
+        }
+        if (array_key_exists('guardianConsent', $valid)) {
+            $applicant->guardian_consent_at = $valid['guardianConsent'] === '1' ? ($applicant->guardian_consent_at ?? now()) : null;
         }
         if ($applicant->is_resident === false) {
             $applicant->district = null;

@@ -1,6 +1,6 @@
 # UI → Backend Matrix (Phase 0 deliverable)
 
-Audit of the existing UI on 2026-10-17, as required by DEVELOPMENT_PLAN.md §2.
+Audit of the existing UI on 2026-10-17, as required by the original development plan.
 
 ## Integration style (step 0.1)
 

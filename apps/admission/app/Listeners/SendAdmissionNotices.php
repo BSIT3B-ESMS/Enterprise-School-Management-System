@@ -56,6 +56,9 @@ class SendAdmissionNotices
             $who = $medical ? 'The university clinic' : 'Admissions';
             $this->notify($application, $medical ? 'medical_resubmit' : 'document_resubmit', "Please replace your {$requirement->title}",
                 "{$who} asked you to upload a new \"{$requirement->title}\": {$document->remark}");
+        } elseif ($document->status === ApplicationDocument::REJECTED) {
+            $this->notify($application, 'document_rejected', "Your {$requirement->title} was not accepted",
+                "Admissions did not accept your \"{$requirement->title}\": {$document->remark}. Contact the admission office about what to do next.");
         }
     }
 

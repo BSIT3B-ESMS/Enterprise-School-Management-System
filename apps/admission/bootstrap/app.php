@@ -1,6 +1,7 @@
 <?php
 
 use App\Exceptions\BusinessRuleException;
+use App\Http\Middleware\EnsureStaffTask;
 use App\Http\Middleware\EnsureTwoFactor;
 use App\Http\Middleware\EnsureUserIsActive;
 use App\Http\Middleware\SecurityHeaders;
@@ -9,6 +10,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Spatie\Permission\Exceptions\UnauthorizedException;
 use Spatie\Permission\Middleware\RoleMiddleware;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -23,6 +25,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => RoleMiddleware::class,
             'active' => EnsureUserIsActive::class,
             'two_factor' => EnsureTwoFactor::class,
+            'task' => EnsureStaffTask::class,
             'integration' => VerifyIntegrationKey::class,
         ]);
         $middleware->throttleApi('api');
@@ -35,4 +38,8 @@ return Application::configure(basePath: dirname(__DIR__))
         );
 
         $exceptions->render(fn (BusinessRuleException $e) => response()->json(['message' => $e->getMessage()], 422));
+        // RBAC (NFR-05): a plain sentence instead of the package's wording
+        $exceptions->render(fn (UnauthorizedException $e, Request $request) => $request->is('api/*')
+            ? response()->json(['message' => "Your role can't do this. Ask the Admission Head or the system administrator."], 403)
+            : null);
     })->create();

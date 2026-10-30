@@ -11,24 +11,78 @@ $(function () {
   var ADM = window.ADM;
 
   // Hash → view name; the second segment is passed to render() as param
-  var ROUTES = { dashboard: "dashboard", applicants: "applicants", documents: "documents", exams: "exams", results: "results", medical: "medical", reports: "reports", settings: "settings", audit: "audit" };
-  var DETAIL = { applicants: "applicant", exams: "session", documents: "docreview" };   // #/applicants/:id → view "applicant"
+  var ROUTES = { dashboard: "dashboard", applicants: "applicants", documents: "documents", exams: "exams", results: "results", interviews: "interviews", medical: "medical", reports: "reports", settings: "settings", audit: "audit", college: "college", evaluation: "evaluation", evaluated: "evaluated", questions: "questions", accounts: "accounts", check: "check", returned: "returned", approved: "approved" };
+
+  /* Role-based access (use-case diagrams). One portal, three main roles;
+     the server enforces the same limits on every request.
+     - Admin: the whole system (dashboard, every admissions screen, the
+       Clinic and College Dean modules, admission dates, audit log, reports)
+     - Admission Personnel: slot setup, applicants, documents, entrance exam,
+       results, interviews, medical
+     - College Dean: applicant list, evaluation, results/referral (own college)
+     - Clinic nurse: medical files to check, sent back, approved */
+  var ACCESS = {
+    admission_head: ["dashboard", "applicants", "documents", "exams", "results", "interviews", "evaluated", "medical", "reports", "settings", "audit"],
+    super_admin: ["dashboard", "applicants", "documents", "exams", "results", "interviews", "evaluated", "medical", "reports", "settings", "audit", "accounts"],
+    admission: ["applicants", "documents", "exams", "results", "interviews", "medical", "settings"],
+    college_dean: ["college", "evaluation", "questions", "evaluated"],
+    clinic: ["check", "returned", "approved"],
+    proctor: ["exams"],
+    read_only: ["dashboard", "applicants", "reports"]
+  };
+  /* Task: the Super Admin assigns each Admission Personnel account a task
+     (Accounts), and the menu shows only its screens. No task: every screen of
+     the role. A UI filter only: the server still enforces the role. */
+  var TASKS = {
+    personnel: { label: "Admission Personnel", screens: ["applicants", "documents"] },
+    proctor: { label: "Exam Proctor", screens: ["exams", "reports"] },
+    exam_office: { label: "Exam Office", screens: ["results"] }
+  };
+  function task() {
+    var t = ADM.STAFF.task;
+    return ADM.STAFF.roleKey === "admission" && TASKS[t] ? t : null;
+  }
+  function allowed() {
+    var t = task();
+    if (t && TASKS[t].screens) return TASKS[t].screens;
+    return ACCESS[ADM.STAFF.roleKey] || ["dashboard"];
+  }
+  function home() { return "#/" + allowed()[0]; }
+  var DETAIL = { applicants: "applicant", exams: "session", documents: "docreview", check: "medreview", returned: "medreview", approved: "medreview" };   // #/applicants/:id → view "applicant"
   var current = { view: null, param: null };
 
   /* ==========================================================================
-     SIGN IN (Laravel API, JWT with the admission or clinic role)
+     SIGN IN (Laravel API, JWT with a staff role)
      ========================================================================== */
   function enterApp() {
     $("#auth-screen").prop("hidden", true);
     $("#app").prop("hidden", false);
     $("#sidebar-name").text(ADM.STAFF.name);
     $("#sidebar-avatar").text(ADM.STAFF.initials);
-    if (!location.hash) location.replace("#/dashboard");
+    $("#sidebar-role").text(ADM.STAFF.role);
+    var dean = ADM.STAFF.roleKey === "college_dean", clinic = ADM.STAFF.roleKey === "clinic";
+    $("#sidebar-section").text(dean ? "College dean" + (ADM.dean.college ? " · " + ADM.dean.college.code : "") : clinic ? "University clinic" : ADM.STAFF.roleKey === "super_admin" ? "Super admin" : ADM.STAFF.roleKey === "admission_head" ? "Admin" : "Admission office");
+    $("#super-chip").prop("hidden", ADM.STAFF.roleKey !== "super_admin");
+    $(".crumb-root").text(dean ? "College dean" : clinic ? "University clinic" : ADM.STAFF.roleKey === "super_admin" ? "Super admin" : "Admission office");
+    applyAccess();
+    if (!location.hash) location.replace(home());
     route();
+  }
+
+  // Only this role's (or task's) screens in the menu; "More" only if it has any
+  function applyAccess() {
+    $(".sidebar .nav-link[data-nav]").each(function () { $(this).prop("hidden", allowed().indexOf($(this).data("nav")) === -1); });
+    $("#sidebar-more").prop("hidden", !$("#sidebar-more .nav-link:not([hidden])").length);
+    $("#quick-search").prop("hidden", allowed().indexOf("applicants") === -1);
+    $(".sidebar .brand").attr("href", home());
+    var t = task();
+    $("#task-chip").prop("hidden", !t);
+    $("#task-chip-label").text(t ? "Task: " + TASKS[t].label : "");
   }
 
   function leaveApp() {
     AO.setToken(null);
+    $(".modal.show").each(function () { bootstrap.Modal.getInstance(this).hide(); });   // e.g. a floating document window
     $(".tooltip").remove();
     $("#app").prop("hidden", true);
     $("#auth-screen").prop("hidden", false);
@@ -65,7 +119,7 @@ $(function () {
      ========================================================================== */
   function parseHash() {
     var parts = location.hash.replace(/^#\/?/, "").split("/").map(decodeURIComponent);
-    var base = ROUTES[parts[0]] ? parts[0] : "dashboard";
+    var base = ROUTES[parts[0]] && allowed().indexOf(parts[0]) !== -1 ? parts[0] : allowed()[0];
     var param = parts[1] || null;
     return { view: param && DETAIL[base] ? DETAIL[base] : ROUTES[base], nav: base, param: param };
   }
@@ -122,6 +176,28 @@ $(function () {
     ADM.views.applicants.search(q);
     ADM.go("#/applicants");
   });
+
+  // Live results while typing (AJAX, jQuery UI autocomplete); Enter without picking one still runs the search above
+  $("#quick-search-input").autocomplete({
+    minLength: 2, delay: 250, position: { my: "left top+6", at: "left bottom" },
+    source: function (req, res) {
+      AO.api("GET", "/api/admin/applicants/search?q=" + encodeURIComponent(req.term))
+        .done(function (r) { res(r.data.length ? r.data : [{ empty: true }]); })
+        .fail(function () { res([]); });
+    },
+    focus: function (e) { e.preventDefault(); },   // keep what was typed while arrowing through results
+    select: function (e, ui) {
+      e.preventDefault();
+      if (ui.item.empty) return;
+      $(this).val("").trigger("blur");
+      ADM.go("#/applicants/" + ui.item.id);
+    }
+  }).autocomplete("instance")._renderItem = function ($ul, item) {
+    if (item.empty) return $('<li class="ui-state-disabled">').append('<div class="ac-empty">No applicant matches</div>').appendTo($ul);
+    var st = ADM.STATUSES[item.status];
+    return $("<li>").append('<div class="ac-item"><span class="ac-main">' + AO.esc(item.name) + '</span><span class="ac-sub">' + AO.esc(item.id) + (item.lrn ? " · LRN " + AO.esc(item.lrn) : "") + "</span>" +
+      (st ? '<span class="status-pill ' + st.pill + '">' + AO.esc(st.label) + "</span>" : "") + "</div>").appendTo($ul);
+  };
 
   /* ==========================================================================
      BOOT

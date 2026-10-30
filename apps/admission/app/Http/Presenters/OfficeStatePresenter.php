@@ -4,10 +4,12 @@ namespace App\Http\Presenters;
 
 use App\Models\AdmissionPeriod;
 use App\Models\Application;
+use App\Models\Barangay;
 use App\Models\ExamSession;
 use App\Models\Program;
 use App\Models\Requirement;
 use App\Models\User;
+use App\Services\ProgramSuggestionService;
 use DateTimeImmutable;
 use DateTimeZone;
 use Illuminate\Support\Facades\DB;
@@ -51,10 +53,16 @@ class OfficeStatePresenter
                 'role' => $staff->primaryRole()?->label(),
                 'roleKey' => $staff->primaryRole()?->value,
                 'email' => $staff->email,
+                'task' => $staff->task,
             ],
-            'programs' => Program::orderBy('id')->get()->map(fn (Program $p) => [
-                'code' => $p->code, 'name' => $p->name, 'slots' => $p->slots,
+            'programs' => Program::with('college')->orderBy('id')->get()->map(fn (Program $p) => [
+                'code' => $p->code, 'name' => $p->name, 'slots' => $p->slots, 'open' => $p->is_open, 'requiresInterview' => $p->requires_interview, 'college' => $p->college?->code,
             ])->all(),
+            // FR-06, FR-26: lists the office maintains (strand suggestions, barangays)
+            'reference' => [
+                'strandSuggest' => app(ProgramSuggestionService::class)->table(),
+                'barangays' => Barangay::byDistrict(),
+            ],
             'sessions' => ExamSession::where('admission_period_id', $period->id)->orderBy('date')->orderBy('batch')->get()
                 ->map(fn (ExamSession $s) => $this->session($s))->all(),
             'applicants' => $this->allApplicants($staff, $period->id),
@@ -62,10 +70,17 @@ class OfficeStatePresenter
                 'deadline' => $period->application_deadline->toDateString(),
                 'period' => $period->label,
                 'inactiveDocs' => Requirement::admission()->where('is_active', false)->pluck('key')->all(),
+                // "Set Dates of Admission" (Admin)
+                'opensOn' => $period->opens_on?->toDateString(),
+                'examStartsOn' => $period->exam_starts_on?->toDateString(),
+                'examEndsOn' => $period->exam_ends_on?->toDateString(),
+                'resultsReleaseOn' => $period->results_release_on?->toDateString(),
+                'acceptanceWindowDays' => $period->acceptance_window_days,
             ],
-            // Applicant sign-ins are audited too, but they are not office activity
-            'audit' => DB::table('audit_logs')->whereNull('application_id')->where('action', '!=', 'applicant.login')->orderBy('id')
-                ->get(['actor_name', 'description', 'created_at'])
+            // Applicant sign-ins are audited too, but they are not office activity.
+            // The office-wide audit log is the Admin's (use-case diagram "Admin Module").
+            'audit' => ! $staff->hasRole('admission_head') ? [] : DB::table('audit_logs')->whereNull('application_id')->where('action', '!=', 'applicant.login')->orderBy('id')
+                ->get(['actor_name', 'action', 'description', 'created_at'])
                 ->map(fn ($l) => $this->entry($l))->all(),
         ];
     }
@@ -99,7 +114,7 @@ class OfficeStatePresenter
     /** The given applications, in id order. */
     private function applicants(User $staff, array $ids): array
     {
-        $withScore = $staff->hasRole('admission');
+        $withScore = $staff->isAdmissionOffice();
 
         $rows = DB::table('applications as a')
             ->join('applicants as p', 'p.id', '=', 'a.applicant_id')
@@ -112,7 +127,7 @@ class OfficeStatePresenter
             ->whereNull('a.deleted_at')
             ->orderBy('a.id')
             ->get([
-                'a.id', 'a.number', 'a.status', 'a.created_at', 'a.submitted_at', 'a.medical_submitted_at',
+                'a.id', 'a.number', 'a.applicant_no', 'a.status', 'a.created_at', 'a.submitted_at', 'a.medical_submitted_at',
                 'a.acceptance_deadline', 'a.offer_accepted_at', 'a.admitted_at', 'a.student_number',
                 'p.possible_duplicate_of', 'op.code as offered_program',
                 'p.lrn', 'p.last_name', 'p.first_name', 'p.middle_name', 'p.sex', 'p.phone', 'p.is_resident', 'p.district',
@@ -140,9 +155,9 @@ class OfficeStatePresenter
                 'd.scan_status', 'd.photocopy_received_at', 'd.falsification_flag', 'd.falsification_note'])
             ->groupBy('application_id');
 
-        $interviews = $scope(DB::table('interview_assignments as i')->join('interview_schedules as s', 's.id', '=', 'i.interview_schedule_id'), 'i.application_id')
-            ->get(['i.application_id', 's.id as schedule_id', 's.date', 's.time', 's.venue', 'i.outcome', 'i.grade'])
-            ->keyBy('application_id');
+        $interviews = $scope(DB::table('interview_assignments as i')->join('interview_schedules as s', 's.id', '=', 'i.interview_schedule_id')->join('programs as p', 'p.id', '=', 's.program_id'), 'i.application_id')
+            ->get(['i.application_id', 's.id as schedule_id', 'p.code as program', 's.date', 's.time', 's.venue', 'i.outcome', 'i.grade'])
+            ->groupBy('application_id');
 
         // Possible duplicates (FR-01): the other applicant's application number
         $dupIds = $rows->pluck('possible_duplicate_of')->filter()->unique()->all();
@@ -174,6 +189,7 @@ class OfficeStatePresenter
 
             $item = [
                 'id' => $a->number,
+                'applicantNo' => $a->applicant_no,
                 'lrn' => $a->lrn,
                 'lastName' => $a->last_name,
                 'firstName' => $a->first_name,
@@ -220,14 +236,15 @@ class OfficeStatePresenter
                     'deadline' => $this->at($a->acceptance_deadline),
                     'acceptedAt' => $this->at($a->offer_accepted_at),
                 ] : null,
-                'interview' => isset($interviews[$a->id]) ? array_filter([
-                    'scheduleId' => (int) $interviews[$a->id]->schedule_id,
-                    'date' => substr($interviews[$a->id]->date, 0, 10),
-                    'time' => $interviews[$a->id]->time,
-                    'venue' => $interviews[$a->id]->venue,
-                    'outcome' => $interviews[$a->id]->outcome,
-                    'grade' => $withScore && $interviews[$a->id]->grade !== null ? (int) $interviews[$a->id]->grade : null,
-                ], fn ($v) => $v !== null) : null,
+                'interviews' => ($interviews[$a->id] ?? collect())->map(fn ($i) => array_filter([
+                    'scheduleId' => (int) $i->schedule_id,
+                    'program' => $i->program,
+                    'date' => substr($i->date, 0, 10),
+                    'time' => $i->time,
+                    'venue' => $i->venue,
+                    'outcome' => $i->outcome,
+                    'grade' => $withScore && $i->grade !== null ? (int) $i->grade : null,
+                ], fn ($v) => $v !== null))->values()->all(),
                 'admittedAt' => $this->at($a->admitted_at),
                 'studentNumber' => $a->student_number,
             ];
@@ -243,7 +260,7 @@ class OfficeStatePresenter
 
     private function entry(object $log): array
     {
-        return ['at' => $this->at($log->created_at), 'by' => $log->actor_name, 'text' => $log->description];
+        return ['at' => $this->at($log->created_at), 'by' => $log->actor_name, 'text' => $log->description, 'action' => $log->action ?? null];
     }
 
     /** "2026-10-17T09:05" in Philippine time, the format the panel uses. Stored values are UTC. */
