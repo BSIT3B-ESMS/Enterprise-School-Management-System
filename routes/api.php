@@ -93,8 +93,6 @@ Route::prefix('admin')->middleware(['auth:api', 'active', 'two_factor'])->group(
     Route::get('state', [Office\StateController::class, 'show'])->middleware('role:admission|admission_head|proctor|read_only');
     // Top-bar live search (the screens that show the applicant list)
     Route::get('applicants/search', [Office\StateController::class, 'search'])->middleware(['role:admission|admission_head|super_admin|read_only', 'throttle:api']);
-    // "What's your task?" picker (Admission Personnel and the Admin; the controller refuses the Super Admin): each choice goes in the audit log
-    Route::post('task', [Office\StateController::class, 'chooseTask'])->middleware(['role:admission|admission_head', 'throttle:api']);
     Route::get('reference', [Office\SetupController::class, 'reference'])->middleware('role:admission|admission_head|proctor|read_only');
 
     Route::middleware('role:admission|admission_head|proctor')->group(function () {
@@ -141,6 +139,7 @@ Route::prefix('admin')->middleware(['auth:api', 'active', 'two_factor', 'role:ad
         Route::get('/', [Office\AccountController::class, 'index']);
         Route::post('/', [Office\AccountController::class, 'store']);
         Route::patch('{user}/active', [Office\AccountController::class, 'setActive']);
+        Route::patch('{user}/task', [Office\AccountController::class, 'setTask']);
     });
 
     // Super admin oversight: open an applicant's medical files (read-only, every opening is audited)

@@ -53,6 +53,7 @@ class OfficeStatePresenter
                 'role' => $staff->primaryRole()?->label(),
                 'roleKey' => $staff->primaryRole()?->value,
                 'email' => $staff->email,
+                'task' => $staff->task,
             ],
             'programs' => Program::with('college')->orderBy('id')->get()->map(fn (Program $p) => [
                 'code' => $p->code, 'name' => $p->name, 'slots' => $p->slots, 'open' => $p->is_open, 'requiresInterview' => $p->requires_interview, 'college' => $p->college?->code,
