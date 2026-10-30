@@ -94,7 +94,7 @@
         <section class="panel">
             <div class="panel-header"><h2>School staff</h2></div>
             <div class="table-responsive">
-                <table class="table table-striped table-zebra" data-filter-table id="staff-table">
+                <table class="table table-zebra" data-filter-table id="staff-table">
                     <thead>
                         <tr>
                             <th>Staff member</th>
@@ -106,7 +106,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach ($accounts as $person)
+                        @forelse ($accounts as $person)
                             <tr data-staff-status="{{ $person->active?'active':'inactive' }}">
                                 <td><strong>{{ $person->name }}</strong></td>
                                 <td>{{ $person->email }}</td>
@@ -119,7 +119,17 @@
                                     <button type="button" class="text-button" data-bs-toggle="modal" data-bs-target="#account-{{ $person->id }}">Edit →</button>
                                 </td>
                             </tr>
-                        @endforeach
+                        @empty
+                            <tr>
+                                <td colspan="6">
+                                    <div class="empty-state">
+                                        <x-figma-icon name="users" :size="48" />
+                                        <h3>No staff accounts yet</h3>
+                                        <p>Invite your first staff member to get started.</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        @endforelse
                     </tbody>
                 </table>
             </div>
@@ -131,6 +141,9 @@
                 <p>Recipients choose their own password. Scoped Admin proposals require Super Admin approval before dispatch.</p>
             </div>
         </div>
+        @if (isset($invitations))
+            @include ('partials.invitations')
+        @endif
     @elseif ($section==='connectors')
         @if (session('connector_token'))
             <div class="alert alert-warning" role="status">
@@ -153,7 +166,7 @@
         <section class="panel">
             <div class="panel-header"><h2>Connector identities</h2></div>
             <div class="table-responsive">
-                <table class="table table-striped table-zebra">
+                <table class="table table-zebra">
                     <thead>
                         <tr>
                             <th>Connection</th>
@@ -225,20 +238,20 @@
             ><label class="visually-hidden" for="repository-class">Classification</label
             ><select id="repository-class" name="classification" class="form-select filter-select">
                 <option value="">All classifications</option>
-                <option>Internal</option>
-                <option>Confidential</option>
-                <option>Restricted</option></select
+                <option value="Internal" @selected (request('classification')==='Internal')>Internal</option>
+                <option value="Confidential" @selected (request('classification')==='Confidential')>Confidential</option>
+                <option value="Restricted" @selected (request('classification')==='Restricted')>Restricted</option></select
             ><label class="visually-hidden" for="repository-status">Status</label
             ><select id="repository-status" name="status" class="form-select filter-select">
                 <option value="">All statuses</option>
-                <option value="Active">Active</option>
-                <option value="Trashed">Trashed</option>
+                <option value="Active" @selected (request('status')==='Active')>Active</option>
+                <option value="Trashed" @selected (request('status')==='Trashed')>Trashed</option>
             </select>
         </form>
         <section class="panel">
             <div class="panel-header"><h2>School documents</h2></div>
             <div class="table-responsive">
-                <table class="table table-zebra table-sticky table-striped" data-filter-table>
+                <table class="table table-zebra table-sticky" data-filter-table>
                     <thead>
                         <tr>
                             <th scope="col" class="sort-header" data-sort-table="0" role="columnheader" tabindex="0" aria-sort="none">
@@ -295,7 +308,7 @@
         <section class="panel">
             <div class="panel-header"><h2>Versions awaiting attention</h2></div>
             <div class="table-responsive">
-                <table class="table table-striped table-zebra">
+                <table class="table table-zebra">
                     <thead>
                         <tr>
                             <th>Document</th>
@@ -347,14 +360,14 @@
             ><select class="form-select filter-select" id="audit-source" name="source">
                 <option value="">All sources</option>
                 @foreach (($workspaceLabels ?? App\Services\WorkspaceRegistry::labels($viewer)) as $code=>$name)
-                    <option>{{ $code }}</option>
+                    <option value="{{ $code }}" @selected (request('source')===$code)>{{ $code }}</option>
                 @endforeach
             </select>
         </form>
         <section class="panel">
             <div class="panel-header"><h2>Repository activity</h2></div>
             <div class="table-responsive table-scroll-y">
-                <table class="table table-zebra table-sticky table-striped" data-filter-table>
+                <table class="table table-zebra table-sticky" data-filter-table>
                     <thead>
                         <tr>
                             <th>Action</th>

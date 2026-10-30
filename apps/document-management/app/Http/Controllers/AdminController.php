@@ -6,12 +6,16 @@ use App\Enums\Role;
 use App\Enums\Source;
 use App\Http\Requests\ActionRequest;
 use App\Http\Requests\ReadRequest;
-use App\Models\AuditLegalHold;
+use App\Models\Request as RequestModel;
 use App\Services\Access;
 use App\Services\AccountChangeService;
-use App\Services\InvitationService;
+use App\Services\HierarchicalInvitationService as InvitationService;
 use App\Services\WorkspaceRegistry;
+use App\Models\AuditLegalHold;
 use Illuminate\Http\Request;
+use App\Models\EmployeeInvitation;
+use App\Models\User;
+use App\Services\InvitationDeliveryService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
@@ -22,8 +26,12 @@ class AdminController extends Controller
     public function index(ReadRequest $request, string $section = 'overview')
     {
         $user = $request->user();
-        abort_unless(in_array($section, ['overview', 'repository', 'accounts', 'connectors', 'audit', 'scans']), 404);
+        abort_unless(in_array($section, ['overview', 'repository', 'accounts', 'connectors', 'audit', 'scans', 'requests']), 404);
         Gate::forUser($user)->authorize('admin.section', $section);
+        if ($section === 'requests') {
+            $requests = RequestModel::with('user')->latest()->paginate(20);
+            return view('admin.requests', compact('requests'));
+        }
         // Application area marker for the shared layout; it is not a document source.
         $source = 'ALL';
         $stats = ['documents' => Access::visibleTo(DB::table('documents'), $user)->whereNull('trashed_at')->count(),
@@ -83,7 +91,17 @@ class AdminController extends Controller
             ]);
         }
 
-        return view('admin', compact('workspaceCounts', 'source', 'section', 'stats', 'accounts', 'connectors', 'audits', 'documents', 'scans'));
+$invitations = null;
+        $invitationUnavailableReason = null;
+        if ($section === 'accounts') {
+            $query = EmployeeInvitation::query();
+            Access::administrationScope($query->getQuery(), $user);
+            $invitations = $query->select(['id', 'email', 'role', 'source', 'school_id', 'campus', 'invited_by', 'created_at', 'expires_at', 'accepted_at', 'revoked_at', 'delivery_status', 'delivery_attempted_at', 'sent_at'])
+                ->with('inviter:id,name')->orderByDesc('created_at')->orderByDesc('id')->paginate(15, ['*'], 'invitations_page')->withQueryString();
+            $invitationUnavailableReason = app(InvitationDeliveryService::class)->unavailableReason();
+        }
+
+        return view('admin', compact('workspaceCounts', 'source', 'section', 'stats', 'accounts', 'connectors', 'audits', 'documents', 'scans', 'invitations', 'invitationUnavailableReason'));
     }
 
     public function account(ActionRequest $request, ?string $account = null)
