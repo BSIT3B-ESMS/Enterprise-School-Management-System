@@ -2,16 +2,12 @@
 
 namespace App\Http\Controllers\Api\Office;
 
-use App\Enums\Role;
 use App\Http\Controllers\Controller;
 use App\Http\Presenters\OfficeStatePresenter;
 use App\Models\AdmissionPeriod;
-use App\Services\AuditLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\StreamedJsonResponse;
 
 class StateController extends Controller
@@ -24,21 +20,6 @@ class StateController extends Controller
     public function show(Request $request, OfficeStatePresenter $presenter): StreamedJsonResponse
     {
         return response()->streamJson(['data' => $presenter->state($request->user())]);
-    }
-
-    /** The "What's your task?" picker: record which task this account chose, in the audit log. */
-    public function chooseTask(Request $request, AuditLogger $audit): Response
-    {
-        // The Super Admin passes office role checks (User::hasRole) but has no picker: every screen, always
-        abort_if($request->user()->primaryRole() === Role::SuperAdmin, 403);
-        $tasks = ['personnel' => 'Admission Personnel', 'proctor' => 'Exam Proctor', 'exam_office' => 'Exam Office'];
-        if ($request->user()->hasRole('admission_head')) {
-            $tasks['all'] = 'All tasks (Admin)';
-        }
-        $task = $request->validate(['task' => ['required', Rule::in(array_keys($tasks))]])['task'];
-        $audit->record('staff.task', "Chose the task: {$tasks[$task]}", meta: ['task' => $task]);
-
-        return response()->noContent();
     }
 
     /**
