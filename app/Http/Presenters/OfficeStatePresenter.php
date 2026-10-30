@@ -127,7 +127,7 @@ class OfficeStatePresenter
             ->whereNull('a.deleted_at')
             ->orderBy('a.id')
             ->get([
-                'a.id', 'a.number', 'a.status', 'a.created_at', 'a.submitted_at', 'a.medical_submitted_at',
+                'a.id', 'a.number', 'a.applicant_no', 'a.status', 'a.created_at', 'a.submitted_at', 'a.medical_submitted_at',
                 'a.acceptance_deadline', 'a.offer_accepted_at', 'a.admitted_at', 'a.student_number',
                 'p.possible_duplicate_of', 'op.code as offered_program',
                 'p.lrn', 'p.last_name', 'p.first_name', 'p.middle_name', 'p.sex', 'p.phone', 'p.is_resident', 'p.district',
@@ -189,6 +189,7 @@ class OfficeStatePresenter
 
             $item = [
                 'id' => $a->number,
+                'applicantNo' => $a->applicant_no,
                 'lrn' => $a->lrn,
                 'lastName' => $a->last_name,
                 'firstName' => $a->first_name,

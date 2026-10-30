@@ -1,6 +1,7 @@
 <?php
 
 use App\Exceptions\BusinessRuleException;
+use App\Http\Middleware\EnsureStaffTask;
 use App\Http\Middleware\EnsureTwoFactor;
 use App\Http\Middleware\EnsureUserIsActive;
 use App\Http\Middleware\SecurityHeaders;
@@ -24,6 +25,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => RoleMiddleware::class,
             'active' => EnsureUserIsActive::class,
             'two_factor' => EnsureTwoFactor::class,
+            'task' => EnsureStaffTask::class,
             'integration' => VerifyIntegrationKey::class,
         ]);
         $middleware->throttleApi('api');

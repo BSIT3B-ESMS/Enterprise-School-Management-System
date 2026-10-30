@@ -25,7 +25,7 @@ class TaskAssignmentTest extends TestCase
         $this->assertNull($officer->fresh()->task);
         $this->asUser($super)->patchJson("/api/admin/accounts/{$officer->id}/task", ['task' => 'all'])->assertUnprocessable();
         $this->asUser($super)->patchJson('/api/admin/accounts/'.$this->makeUser(Role::Clinic)->id.'/task', ['task' => 'proctor'])->assertUnprocessable();
-        $this->asUser($this->makeUser(Role::AdmissionHead))->patchJson("/api/admin/accounts/{$officer->id}/task", ['task' => 'proctor'])->assertForbidden();
+        $this->asUser($this->makeUser(Role::Clinic))->patchJson("/api/admin/accounts/{$officer->id}/task", ['task' => 'proctor'])->assertForbidden();
         $this->asUser($officer)->patchJson("/api/admin/accounts/{$officer->id}/task", ['task' => 'proctor'])->assertForbidden();
     }
 }

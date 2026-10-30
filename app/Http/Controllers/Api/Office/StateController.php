@@ -36,7 +36,7 @@ class StateController extends Controller
             ->whereNull('a.deleted_at');
         foreach (preg_split('/\s+/', trim($data['q'])) as $word) {
             $like = '%'.addcslashes($word, '%_\\').'%';
-            $query->where(fn ($q) => $q->where('a.number', 'like', $like)->orWhere('p.lrn', 'like', $like)
+            $query->where(fn ($q) => $q->where('a.number', 'like', $like)->orWhere('a.applicant_no', 'like', $like)->orWhere('p.lrn', 'like', $like)
                 ->orWhere('p.first_name', 'like', $like)->orWhere('p.last_name', 'like', $like)->orWhere('u.email', 'like', $like));
         }
 
