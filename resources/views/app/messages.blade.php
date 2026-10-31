@@ -1,0 +1,4 @@
+@if(session('success'))<div class="alert alert-success" role="status">{{ session('success') }}</div>@endif
+@if($errors->any())<div class="alert alert-danger" role="alert"><strong>Please review:</strong><ul class="mb-0">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
+@if(session('device_token'))<div class="alert alert-warning"><strong>Kiosk token — shown once</strong><p>Copy this privately to the kiosk pairing screen.</p><code class="text-break user-select-all">{{ session('device_token') }}</code></div>@endif
+@if(session('recovery_codes'))<div class="alert alert-warning"><strong>Save your recovery codes privately.</strong><p>Each code can replace one authenticator code. These codes are shown once.</p><div class="recovery-grid">@foreach(session('recovery_codes') as $code)<code class="user-select-all">{{ $code }}</code>@endforeach</div></div>@endif

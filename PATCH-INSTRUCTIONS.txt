@@ -1,0 +1,25 @@
+TAP-PMS ORIGINAL WORKFLOW PATCH — Windows update
+
+Baseline: previous Laravel 13 Original-UI Integrated build WITH the Employee-ID Login Patch already installed (ADMIN-00001 etc).
+
+DO NOT REPLACE THE WORKING DATABASE, `.env`, APP_KEY, or private storage.
+
+1. Stop the terminal running `php artisan serve`.
+2. Back up the whole existing MySQL `tap_pms` database using phpMyAdmin Export. Back up the project's `storage` and `.env` files separately.
+3. Open the existing project at:
+   C:\Users\Frenchie\Downloads\TAP-PMS-Laravel13-Original-UI-Integrated\tap-pms-laravel
+4. Extract this PATCH ZIP elsewhere and copy its app/, public/, routes/, resources/, database/, config/, docs/, tests/, README.md, and RUN-ON-WINDOWS.md INTO that existing `tap-pms-laravel` folder, allowing replacement of matching source files. NEVER overwrite .env.
+5. VS Code > Terminal > New Terminal. In that same project folder run:
+   $env:Path = "$env:USERPROFILE\Downloads\php84;$env:LOCALAPPDATA\ComposerSetup\bin;$env:Path"
+   php artisan migrate
+   php artisan optimize:clear
+   php artisan serve
+6. Open http://127.0.0.1:8000/login and sign in using your EXISTING Admin ID and password (not a fake default).
+7. Admin dashboard navigation: Overview, Workforce & RFID, Approvals, Payroll, Appraisals & Leaves.
+8. To activate the original kiosk UI: after Admin login + MFA, open http://127.0.0.1:8000/kiosk; click Activate this browser. Admin signs out automatically and the scan page remains authorized. Then card scan auto-chooses AM IN/OUT, PM IN/OUT based on effective employee schedule.
+
+Composer: do NOT run composer install again if the previous vendor/autoload.php exists; no Composer requirements changed in this patch.
+Do not run php artisan key:generate, php artisan migrate:fresh, db:wipe, or seed over your real database.
+One new ADDITIVE migration adds users.ems_suspended to safely distinguish EMS-initiated deactivation.
+
+IMPORTANT: New kiosk + source changes are statically checked, but the full MySQL/Pest test suite and live EMS contract are NOT verified in this environment. Read docs/ORIGINAL-WORKFLOW-VALIDATION.md and docs/EMS-ACTUAL-CONTRACT-GAPS.md. Keep the previous source/database backup until you test successfully.

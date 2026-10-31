@@ -1,0 +1,5 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="csrf-token" content="{{ csrf_token() }}"><title>@yield('title','Payroll Management System')</title>
+<link rel="stylesheet" href="{{ asset('tap-pms-ui/vendor/bootstrap.min.css') }}"><link rel="stylesheet" href="{{ asset('tap-pms-ui/vendor/bootstrap-icons.min.css') }}"><link rel="stylesheet" href="{{ asset('tap-pms-ui/vendor/jquery-ui.min.css') }}"><link rel="stylesheet" href="{{ asset('tap-pms-ui/css/style.css') }}"><link rel="stylesheet" href="{{ asset('tap-pms-ui/css/tap-theme.css') }}"><link rel="stylesheet" href="{{ asset('tap-pms-ui/css/server-app.css') }}"><link rel="stylesheet" href="{{ asset('tap-pms-ui/css/bridge.css') }}"></head>
+<body>@yield('body')
+<script src="{{ asset('tap-pms-ui/vendor/jquery.min.js') }}"></script><script src="{{ asset('tap-pms-ui/vendor/jquery-ui.min.js') }}"></script><script src="{{ asset('tap-pms-ui/vendor/bootstrap.bundle.min.js') }}"></script><script src="{{ asset('tap-pms-ui/js/server-app.js') }}"></script>@stack('scripts')</body></html>
