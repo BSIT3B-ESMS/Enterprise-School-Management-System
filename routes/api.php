@@ -11,9 +11,9 @@ Route::prefix('v1')->group(function(){
  Route::middleware(['auth:sanctum','account.active','throttle:60,1'])->group(function(){
   Route::post('/auth/logout',[ApiController::class,'logout']);
   Route::post('/auth/change-password',[ApiController::class,'password'])->middleware('abilities:portal');
-  Route::post('/integrations/admission',fn(\Illuminate\Http\Request $r,\App\Services\ImportService $s)=>(new ApiController)->integration($r,'admission',$s))->middleware(['role:registrar','ability:portal,import:admission']);
-  Route::post('/integrations/ems',fn(\Illuminate\Http\Request $r,\App\Services\ImportService $s)=>(new ApiController)->integration($r,'ems',$s))->middleware(['role:registrar','ability:portal,import:ems']);
-  Route::middleware(['abilities:portal','password.changed'])->group(function(){
+  Route::post('/integrations/admission',fn(\Illuminate\Http\Request $r,\App\Services\ImportService $s)=>(new ApiController)->integration($r,'admission',$s))->middleware(['role:registrar','password.changed','ability:portal,import:admission']);
+  Route::post('/integrations/ems',fn(\Illuminate\Http\Request $r,\App\Services\ImportService $s)=>(new ApiController)->integration($r,'ems',$s))->middleware(['role:registrar','password.changed','ability:portal,import:ems']);
+  Route::middleware(['abilities:portal','password.changed','role:registrar,department_head,student'])->group(function(){
    Route::get('/students',[ApiController::class,'students']);
    Route::get('/students/{id}',[ApiController::class,'student']);
    Route::get('/students/{id}/{part}',[ApiController::class,'academic'])->whereIn('part',['academic-records','curriculum','back-subjects']);
@@ -40,5 +40,22 @@ Route::prefix('v1')->group(function(){
     Route::put('/academic/{resource}/{id}',[AcademicController::class,'update']);
    });
   });
+ });
+});
+Route::prefix('v1')->middleware(['auth:sanctum','account.active','throttle:60,1','abilities:portal','password.changed','role:registrar,department_head,student'])->group(function(){
+ Route::get('/special-cases/{id}',[SpecialCaseController::class,'show']);
+ Route::post('/special-cases/{id}/approve',[SpecialCaseController::class,'evaluate'])->defaults('decision','approved')->middleware('role:department_head');
+ Route::post('/special-cases/{id}/reject',[SpecialCaseController::class,'evaluate'])->defaults('decision','rejected')->middleware('role:department_head');
+ Route::post('/special-cases/{id}/forward-to-registrar',[SpecialCaseController::class,'forward'])->middleware('role:department_head');
+ Route::get('/subjects/{id}/prerequisites',[\App\Http\Controllers\AvailabilityController::class,'prerequisites']);
+ Route::middleware('role:registrar')->group(function(){
+  Route::put('/subjects/{id}',fn(\Illuminate\Http\Request $r,int $id,\App\Services\AcademicService $s)=>app(AcademicController::class)->update($r,'subjects',$id,$s));
+  Route::delete('/subjects/{id}',fn(int $id,\App\Services\AcademicService $s)=>app(AcademicController::class)->deactivate('subjects',$id,$s));
+  Route::post('/subjects/{id}/prerequisites',[\App\Http\Controllers\AvailabilityController::class,'addPrerequisite']);
+  Route::put('/sections/{id}',fn(\Illuminate\Http\Request $r,int $id,\App\Services\AcademicService $s)=>app(AcademicController::class)->update($r,'sections',$id,$s));
+  Route::put('/class-schedules/{id}',fn(\Illuminate\Http\Request $r,int $id,\App\Services\AcademicService $s)=>app(AcademicController::class)->update($r,'schedules',$id,$s));
+  Route::get('/rooms/{id}/availability',[\App\Http\Controllers\AvailabilityController::class,'room']);
+  Route::get('/professors/{id}/availability',[\App\Http\Controllers\AvailabilityController::class,'professor']);
+  Route::post('/students/{id}/curriculum',[\App\Http\Controllers\RecordsController::class,'assign']);
  });
 });

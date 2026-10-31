@@ -3,9 +3,44 @@ use App\Http\Controllers\AuthController;
 use Illuminate\Support\Facades\Route;
 Route::pattern('resource','[a-z_]+');
 Route::pattern('id','[0-9]+');
+Route::middleware(['auth','password.changed','role:registrar'])->group(function(){
+ Route::get('/term-calendar',[\App\Http\Controllers\ReferenceWorkspaceController::class,'calendar']);
+ Route::post('/term-calendar',[\App\Http\Controllers\ReferenceWorkspaceController::class,'createTerm']);
+ Route::post('/term-calendar/{id}',[\App\Http\Controllers\ReferenceWorkspaceController::class,'term']);
+ Route::get('/students',[\App\Http\Controllers\ReferenceWorkspaceController::class,'students']);
+ Route::get('/admission-years',[\App\Http\Controllers\ReferenceWorkspaceController::class,'students']);
+ Route::get('/academic-years',[\App\Http\Controllers\ReferenceWorkspaceController::class,'academicYears']);
+ Route::post('/sections/send',[\App\Http\Controllers\ReferenceWorkspaceController::class,'sendSections']);
+ Route::post('/sections/promote',[\App\Http\Controllers\ReferenceWorkspaceController::class,'promoteSections']);
+ Route::post('/students/actions',[\App\Http\Controllers\ReferenceWorkspaceController::class,'studentAction']);
+ Route::get('/sections',[\App\Http\Controllers\ReferenceWorkspaceController::class,'sections']);
+ Route::post('/sections',[\App\Http\Controllers\ReferenceWorkspaceController::class,'section']);
+ Route::post('/sections/{id}',[\App\Http\Controllers\ReferenceWorkspaceController::class,'section']);
+ Route::get('/colleges',[\App\Http\Controllers\ReferenceWorkspaceController::class,'colleges']);
+ Route::get('/special-enrollment',[\App\Http\Controllers\ReferenceWorkspaceController::class,'specialEnrollment']);
+ Route::post('/special-enrollment',[\App\Http\Controllers\ReferenceWorkspaceController::class,'sendSpecial']);
+ Route::get('/scheduler/rooms',[\App\Http\Controllers\SchedulerController::class,'rooms']);
+ Route::post('/scheduler/book',[\App\Http\Controllers\SchedulerController::class,'book']);
+});
+Route::get('/special-students',[\App\Http\Controllers\ReferenceWorkspaceController::class,'students'])->middleware(['auth','password.changed','role:department_head']);
+Route::middleware(['auth','password.changed','role:student'])->group(function(){
+ Route::get('/waiting-list',[\App\Http\Controllers\ReferenceWorkspaceController::class,'waiting']);
+ Route::post('/waiting-list',[\App\Http\Controllers\ReferenceWorkspaceController::class,'requestSubjects']);
+});
+Route::middleware(['auth','password.changed','role:professor'])->group(function(){
+ Route::get('/professor',[\App\Http\Controllers\ProfessorPortalController::class,'index']);
+ Route::post('/professor/classes/{id}/grades',[\App\Http\Controllers\ProfessorPortalController::class,'submit']);
+});
+Route::get('/grades',[\App\Http\Controllers\ProfessorPortalController::class,'grades'])->middleware(['auth','password.changed','role:student']);
+Route::middleware(['auth','password.changed','role:registrar'])->group(function(){
+ Route::get('/settings',[\App\Http\Controllers\SettingsController::class,'index']);
+ Route::post('/settings',[\App\Http\Controllers\SettingsController::class,'update']);
+ Route::post('/imports/reference',function(){app(\App\Services\ReferenceCatalogService::class)->import();return back()->with('status','Supplied 2022–2023 BSIT/BSCS catalog imported. Existing students and curriculum assignments were preserved. Verify room types and permitted teaching days before scheduling.');});
+ Route::post('/scheduler/preview',[\App\Http\Controllers\SchedulerController::class,'preview']);
+});
 Route::redirect('/', '/dashboard');
 Route::middleware('guest')->group(function () {
-    Route::view('/login', 'auth.login')->name('login');
+    Route::view('/login','auth.login')->name('login');
     Route::post('/login', [AuthController::class,'login'])->middleware('throttle:6,1');
 });
 Route::middleware(['auth','password.changed'])->group(function () {
@@ -15,7 +50,7 @@ Route::middleware(['auth','password.changed'])->group(function () {
     Route::get('/registrar',[\App\Http\Controllers\DashboardController::class,'index'])->middleware('role:registrar')->name('registrar.dashboard');
     Route::get('/department-head',[\App\Http\Controllers\DashboardController::class,'index'])->middleware('role:department_head')->name('department-head.dashboard');
     Route::get('/student',[\App\Http\Controllers\DashboardController::class,'index'])->middleware('role:student')->name('student.dashboard');
-    Route::view('/account/password','auth.password')->name('password.edit');
+    Route::get('/account/password',[\App\Http\Controllers\AccountController::class,'show'])->name('password.edit');
     Route::post('/account/password',[AuthController::class,'password'])->middleware('throttle:6,1')->name('password.update');
     Route::post('/logout',[AuthController::class,'logout'])->name('logout');
 });
@@ -75,3 +110,9 @@ Route::middleware(['auth','password.changed'])->group(function(){
 Route::get('/reports',[\App\Http\Controllers\EnrollmentController::class,'index'])->middleware(['auth','password.changed','role:registrar'])->name('reports');
 
 Route::post('/academic/{resource}/{id}/activate',[\App\Http\Controllers\AcademicController::class,'activate'])->middleware(['auth','password.changed','role:registrar']);
+
+Route::get('/special-cases/{id}',[\App\Http\Controllers\SpecialCaseController::class,'show'])->middleware(['auth','password.changed']);
+Route::post('/special-cases/{id}/defer',[\App\Http\Controllers\SpecialCaseController::class,'defer'])->middleware(['auth','password.changed','role:department_head']);
+Route::post('/special-cases/{id}/forward-to-registrar',[\App\Http\Controllers\SpecialCaseController::class,'forward'])->middleware(['auth','password.changed','role:department_head']);
+Route::post('/records/{id}/curriculum',[\App\Http\Controllers\RecordsController::class,'assign'])->middleware(['auth','password.changed','role:registrar']);
+Route::get('/curriculums/{id}',[\App\Http\Controllers\CurriculumController::class,'show'])->middleware(['auth','password.changed','role:registrar']);

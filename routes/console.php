@@ -3,6 +3,15 @@ use App\Models\User;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
+Artisan::command('enrollment:backup',function(\App\Services\BackupService $service){$this->info('Encrypted backup created and verified: '.$service->create());})->purpose('Create an encrypted database backup and verify a separate restore');
+Artisan::command('enrollment:verify-backup {file}',function(\App\Services\BackupService $service){$result=$service->verify($this->argument('file'));$this->info('Restore verified in '.$result['target'].' ('.$result['tables'].' tables). Application database untouched.');})->purpose('Verify an encrypted backup in an isolated database or archived file');
+Artisan::command('enrollment:import-reference',function(\App\Services\ReferenceCatalogService $service){$result=$service->import();$this->info('Imported supplied 2022–2023 reference: '.$result['curriculums'].' curricula. Existing student assignments preserved.');})->purpose('Import the supplied historical PLP reference catalog');
+Artisan::command('enrollment:readiness',function(\App\Services\SettingsService $settings){
+ $checks=['MariaDB/MySQL'=>\Illuminate\Support\Facades\DB::getDriverName()==='mysql','Grading direction configured'=>in_array($settings->get('grade_order',config('enrollment.grade_order')),['lower','higher']),'SMTP configured'=>config('mail.default')==='smtp','Production environment'=>app()->environment('production'),'Debug disabled'=>!config('app.debug'),'HTTPS application URL'=>str_starts_with(config('app.url'),'https://')];
+ foreach($checks as $label=>$passed)$this->line(($passed?'PASS':'ACTION NEEDED').' — '.$label);
+ $this->comment('Configuration checks do not establish delivery, integration connectivity, school approval or production security.');
+ return in_array(false,$checks,true)?1:0;
+})->purpose('Report deployment configuration without displaying secrets');
 Artisan::command('enrollment:create-staff', function () {
     $name = $this->ask('Full name');
     $email = $this->ask('Institutional email');

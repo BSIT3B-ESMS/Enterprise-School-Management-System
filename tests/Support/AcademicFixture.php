@@ -3,7 +3,7 @@ namespace Tests\Support;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 trait AcademicFixture {
- protected function row(string $table,array $data):int{return DB::table($table)->insertGetId($data+['created_at'=>now(),'updated_at'=>now()]);}
+ protected function row(string $table,array $data):int{if($table==='special_cases' && !isset($data['curriculum_id']))$data['curriculum_id']=DB::table('students')->where('id',$data['student_id'])->value('curriculum_id');return DB::table($table)->insertGetId($data+['created_at'=>now(),'updated_at'=>now()]);}
  protected function fixture():array {
   $registrar=User::factory()->create(['role'=>'registrar','must_change_password'=>false]);$user=User::factory()->create(['role'=>'student','must_change_password'=>false]);
   $program=$this->row('programs',['code'=>'BSIT','name'=>'Information Technology']);$period=$this->row('periods',['name'=>'2026-2027 Semester 1']);$curriculum=$this->row('curriculums',['program_id'=>$program,'name'=>'2026']);

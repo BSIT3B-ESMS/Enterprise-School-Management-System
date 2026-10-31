@@ -1,9 +1,51 @@
-<nav class="d-flex flex-column gap-2" aria-label="Portal navigation"><a href="/dashboard" class="btn btn-sm btn-outline-secondary">Dashboard</a><a href="/notifications" class="btn btn-sm btn-outline-secondary">Notifications</a><a href="/activity" class="btn btn-sm btn-outline-secondary">Activity</a><a href="/records" class="btn btn-sm btn-outline-secondary">Academic records</a><a href="/enrollments" class="btn btn-sm btn-outline-secondary">Enrollments</a><a href="/special-cases" class="btn btn-sm btn-outline-secondary">Academic evaluations</a>
-
-@if(auth()->user()->role==='registrar')<a href="/reports" class="btn btn-sm btn-outline-secondary">Enrollment reports</a><a href="/staff" class="btn btn-sm btn-outline-secondary">Staff accounts</a><a href="/professors" class="btn btn-sm btn-outline-secondary">Professors</a><a href="/audit" class="btn btn-sm btn-outline-secondary">Audit history</a><a href="/imports" class="btn btn-sm btn-outline-secondary">System imports</a><a href="/scheduler" class="btn btn-sm btn-outline-secondary">Scheduler</a><div class="dropdown"><button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">Academic management</button><ul class="dropdown-menu">
-
-@foreach(config('academic') as $resource=>$fields)<li><a class="dropdown-item" href="/academic/{{ $resource }}">{{ ucwords(str_replace('_',' ',$resource)) }}</a></li>
-
-@endforeach</ul></div>
-
-@endif</nav>
+@php
+$groups = ['Workspace' => [
+    ['dashboard', 'Overview', ['dashboard', 'registrar', 'department-head', 'student']],
+    ['enrollments', 'Enrollments', ['enrollments*']],
+    ['records', 'Academic records', ['records*']],
+    ['special-cases', 'Academic evaluations', ['special-cases*']],
+    ['notifications', 'Notifications', ['notifications*']],
+    ['activity', 'Activity', ['activity*']],
+]];
+if (auth()->user()->role === 'registrar') {
+    $groups['Administration'] = [
+        ['term-calendar', 'Semester & pipeline', ['term-calendar*']],
+        ['students', 'Students', ['students*']],
+        ['admission-years', 'Admission year', ['admission-years*']],
+        ['academic-years', 'Academic year', ['academic-years*']],
+        ['special-enrollment', 'Special enrollment', ['special-enrollment*']],
+        ['colleges', 'Colleges & programs', ['colleges*']],
+        ['sections', 'Sections', ['sections*']],
+        ['scheduler', 'Scheduler', ['scheduler*']],
+        ['professors', 'Professors', ['professors*']],
+        ['academic/subjects', 'Subjects & prerequisites', ['academic/subjects']],
+        ['academic/rooms', 'Rooms', ['academic/rooms']],
+        ['reports', 'Enrollment reports', ['reports*']],
+        ['staff', 'Staff accounts', ['staff*']],
+        ['imports', 'System imports', ['imports*']],
+        ['audit', 'Audit history', ['audit*']],
+        ['settings', 'System settings', ['settings*']],
+    ];
+}
+if(auth()->user()->role==='student') array_splice($groups['Workspace'],1,0,[['grades','Grades',['grades*']],['waiting-list','Subject requests',['waiting-list*']]]);
+if(auth()->user()->role==='department_head') array_unshift($groups['Workspace'],['special-students','Special students',['special-students*']]);
+if(auth()->user()->role==='professor') $groups=['Teaching'=>[['professor','Submit grades',['professor*']],['notifications','Notifications',['notifications*']],['activity','Activity',['activity*']]]];
+@endphp
+<nav class="portal-navigation" aria-label="Portal navigation">
+@foreach($groups as $heading => $links)
+<div class="nav-group"><h2 class="nav-heading">{{ $heading }}</h2>
+@foreach($links as [$path, $label, $patterns])
+<a href="/{{ $path }}" class="nav-item {{ request()->is(...$patterns) ? 'is-active' : '' }}" @if(request()->is(...$patterns)) aria-current="page" @endif>{{ $label }}</a>
+@endforeach
+</div>
+@endforeach
+@if(auth()->user()->role === 'registrar')
+<details class="academic-menu" @if(request()->is('academic/*')) open @endif>
+<summary>Academic management</summary>
+@foreach(config('academic') as $resource => $fields)
+<a href="/academic/{{ $resource }}" class="nav-item {{ request()->is('academic/'.$resource) ? 'is-active' : '' }}" @if(request()->is('academic/'.$resource)) aria-current="page" @endif>{{ ucwords(str_replace('_',' ',$resource)) }}</a>
+@endforeach
+</details>
+@endif
+<a href="{{ route('password.edit') }}" class="nav-item {{ request()->is('account/*') ? 'is-active' : '' }}" @if(request()->is('account/*')) aria-current="page" @endif>Account settings</a>
+</nav>

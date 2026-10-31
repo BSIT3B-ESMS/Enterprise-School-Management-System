@@ -23,10 +23,10 @@ $service=app(AcademicService::class);
      if($student){$user=User::findOrFail($student->user_id);$user->update(['name'=>$name,'email'=>$r['email']]);return true;}
      $temporary=$r['temporary_password']??\Illuminate\Support\Str::random(48);
      $user=User::create(['name'=>$name,'email'=>$r['email'],'password'=>Hash::make($temporary)]);
-     DB::table('students')->insert(['user_id'=>$user->id,'admission_id'=>$r['admission_id'],'curriculum_id'=>$curriculum->id,'year_level'=>$r['year_level'],'classification'=>'regular','created_at'=>now(),'updated_at'=>now()]);if(empty($r['temporary_password'])){$delivery=\Illuminate\Support\Facades\Password::sendResetLink(['email'=>$user->email]);if($delivery!==\Illuminate\Support\Facades\Password::RESET_LINK_SENT)AcademicService::fail('Account invitation could not be sent.');}return false;
+     $studentId=DB::table('students')->insertGetId(['user_id'=>$user->id,'admission_id'=>$r['admission_id'],'curriculum_id'=>$curriculum->id,'year_level'=>$r['year_level'],'classification'=>'regular','admission_year'=>preg_match('/ADM-(\d{4})/',$r['admission_id'],$cohort)?(int)$cohort[1]:null,'created_at'=>now(),'updated_at'=>now()]);if($current=app(TermWorkflowService::class)->current())app(TermWorkflowService::class)->assign($studentId,$current->id);if(empty($r['temporary_password'])){$delivery=\Illuminate\Support\Facades\Password::sendResetLink(['email'=>$user->email]);if($delivery!==\Illuminate\Support\Facades\Password::RESET_LINK_SENT)AcademicService::fail('Account invitation could not be sent.');}return false;
     }
     $exists=DB::table('professors')->where('employee_id',$r['employee_id'])->exists();
-    DB::table('professors')->updateOrInsert(['employee_id'=>$r['employee_id']],['name'=>$name,'email'=>$r['email'],'department'=>$r['department_code'],'employment_type'=>$r['employment_type'],'active'=>$r['employment_status']==='ACTIVE','updated_at'=>now()]);
+    DB::table('professors')->updateOrInsert(['employee_id'=>$r['employee_id']],['name'=>$name,'email'=>$r['email'],'department'=>$r['department_code'],'employment_type'=>$r['employment_type'],'active'=>$r['employment_status']==='ACTIVE','last_synced_at'=>now(),'updated_at'=>now()]);
     if(array_key_exists('teaching_assignments',$record)){
      $assignments=Validator::make($record,['teaching_assignments'=>'present|array|max:1000','teaching_assignments.*.subject_code'=>'required|string|max:30'])->validate()['teaching_assignments'];
      $professorId=DB::table('professors')->where('employee_id',$r['employee_id'])->value('id');$subjectIds=[];

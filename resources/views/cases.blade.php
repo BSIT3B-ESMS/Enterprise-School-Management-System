@@ -12,7 +12,11 @@
 
 @foreach($periods as $p)<option value="{{ $p->id }}">{{ $p->name }}</option>
 
-@endforeach</select><label class="form-label" for="request">Subjects requested and academic circumstances</label><textarea id="request" class="form-control mb-3" name="request" required maxlength="5000"></textarea><button class="btn btn-primary">Submit request</button></form></div>
+@endforeach</select><label class="form-label" for="request">Subjects requested and academic circumstances</label><textarea id="request" class="form-control mb-3" name="request" required maxlength="5000"></textarea><label class="form-label" for="requested-subjects">Specific subjects requested (optional)</label><select multiple class="form-select mb-3" name="requested_subject_ids[]" id="requested-subjects">
+@foreach($subjects as $subject)
+<option value="{{ $subject->id }}">{{ $subject->code }} · {{ $subject->name }}</option>
+@endforeach
+</select><button class="btn btn-primary">Submit request</button></form></div>
 
 @endif
 
@@ -22,10 +26,7 @@
 
 @endif
 
-@if(auth()->user()->role==='department_head' && $row->status==='pending')<form method="post" action="/special-cases/{{ $row->id }}/evaluate">@csrf<label class="form-label" for="evaluation-{{ $row->id }}">Academic findings and reasons</label><textarea id="evaluation-{{ $row->id }}" name="evaluation" class="form-control mb-3" required maxlength="5000"></textarea><button name="status" value="approved" class="btn btn-primary">Approve evaluation</button><button name="status" value="rejected" class="btn btn-outline-secondary">Reject request</button></form>
-
-@endif</article>
-
+<a href="/special-cases/{{ $row->id }}" class="btn btn-outline-primary align-self-start">View evaluation and subject credits</a></article>
 @empty<p>No academic evaluation requests.</p>
 
 @endforelse{{ $rows->links('pagination::bootstrap-5') }}

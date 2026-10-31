@@ -1,59 +1,27 @@
 # PLP Enrollment Management System
 
-A working local Laravel 12 / PHP 8.4 / MariaDB enrollment application based on ENROLLMENT-MANAGEMENT-SYSTEM.docx. Bootstrap 5 and jQuery assets are served locally. No frontend build is required.
+Laravel 12 / PHP 8.4+ / MariaDB (MySQL connection). Bootstrap and jQuery assets are served locally. The operational website now uses MariaDB, following the latest user decision.
 
-## Start on this computer
+## Start
 
-Double-click Start Enrollment System.cmd, or open PowerShell in this folder:
+Run `powershell -ExecutionPolicy Bypass -File .\start.ps1` or double-click Start Enrollment System.cmd. Open http://127.0.0.1:8000. Startup configures PHP, starts the existing loopback MariaDB installation on port 3307 when applicable, runs migrations and starts Laravel in the background. Existing occupied HTTP ports are left alone.
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\start.ps1
-```
+For a new installation, install Composer dependencies, configure an existing MariaDB/MySQL database and private credentials in .env, then run scripts/setup-local.ps1. No default accounts or campus records are seeded. Students receive accounts through Admission; staff access is institutionally authorized. There is no public registration or first-account setup screen.
 
-Open http://127.0.0.1:8000. The script checks the local database, starts the portable MariaDB server if needed, builds derived provider caches, applies migrations and starts Laravel. It preserves the application key and existing data. Runtime paths in start.ps1 point to the Codex task's work/tools folder on this computer. Use PHP from PATH or update these paths when moving the project.
+## Integrated workflows
 
-Demo Registrar: registrar@example.test. Demo password: DemoEnrollment2026!. Other synthetic accounts and complete steps are in docs/USER_MANUAL.md. The demonstration database is labeled in the UI. There are no real student or employee records.
+Registrar, Student, program-scoped Department Head and assigned-class Professor portals; seven-stage enrollment pipeline; academic-year and admission-cohort directories; automatic primary sections; section-wide proposals and grade-checked promotion; colleges/programs; subject scopes and earlier-term prerequisites; room-by-hour and weekly scheduling; dates and year-level schedule finalization; special evaluation with evidence-based credits; fixed primary assignments and requested additions; direct or Registrar-forwarded proposals; waiting/defer/release; Professor grades and student summaries/upcoming requirements; private notifications; account details; JSON imports; audit, COR printing, PDFs and history.
 
-## Included
+Student acceptance creates the COR and reserves seats in one transaction. The Accepted pipeline column includes finalized enrollments because there is no second acceptance or pending Registrar finalization step. Year closure preserves schedules and CORs. Demo credentials, browser-localStorage authority and destructive prototype reset controls were excluded as required by the user's earlier instructions.
 
-- Student, Registrar and Department Head portals with server-enforced role, ownership and program boundaries.
-- Admission-origin student provisioning; optional one-time email password setup; secure temporary-password change.
-- Login throttling, password recovery, session/token revocation and controlled staff account activation.
-- Programs, academic years/semesters, curriculum versions, required/elective requirements, subjects and prerequisites.
-- Mandatory/alternative prerequisites, optional minimum-grade thresholds, cycle prevention and audited authorized exceptions.
-- Academic history, credit records, classification and student-number management.
-- Buildings, floors, rooms, specialized/dedicated rooms and recurring room closures.
-- EMS professor import, optional teaching authorization synchronization and recorded availability.
-- Class offerings, sections, automatic class/section seat counts and full-section recommendations.
-- Visual timetable with filters, drag-and-drop creation and changes, keyboard form entry and jQuery AJAX validation.
-- Conflict checks for rooms, professors, sections and individual students.
-- Regular and two-stage special enrollment proposals, student acceptance, decline/revision remarks and retained history.
-- Transactional finalization with capacity checks under MariaDB locks.
-- Immutable COR snapshots, HTML printing, server-generated PDF downloads and historical versions.
-- Notifications, activity, audit history and filtered CSV enrollment reports.
-- Authenticated /api/v1 endpoints and source-scoped Admission/EMS import tokens.
-- JSON file exchange using the same validation as the API, duplicate prevention and sanitized import logs.
+See [feature-by-feature mapping](docs/REFERENCE-INTEGRATION.md), [user guide](docs/USER_MANUAL.md) and [API contract](docs/API_DOCUMENTATION.md).
 
-## Verification
+## Verify and recover
 
-```powershell
-php scripts/test.php mysql
-php scripts/test.php
-node --check public/js/scheduler.js
-```
+Run `php scripts/test.php` with the configured PHP runtime. It creates a unique disposable MariaDB test schema and removes it afterward; it never uses the operational database as a test target. Independent processes verify last-seat acceptance under real MariaDB row locks. Archived SQLite backup compatibility has a separately isolated test; SQLite is not used by the operational app.
 
-The MySQL/MariaDB suite exclusively uses plp_automated_testing, never the application database. Create that empty test database and grant the local development database user access before running it on another machine. The SQLite suite uses memory and skips the MariaDB-only concurrent-process test. scripts/test.php reads the existing PHPUnit environment settings while avoiding the inaccurate bootstrap-readability check in this Windows execution environment. scripts/warm-cache.php builds derived Laravel provider caches without modifying vendor code.
+Run `php artisan enrollment:backup` for a verified encrypted MariaDB dump, and `php artisan enrollment:verify-backup <file>` to restore it into a unique separate schema and validate checksums, table counts and foreign keys. Protect APP_KEY separately. See [local operations and migration](docs/LOCAL-SETUP.md).
 
-## Before institutional use
+The SQLite source and earlier MariaDB databases were preserved during transfer. 39 application tables were compared row-for-row and foreign keys verified before activating the fresh MariaDB target. Existing passwords and the application key were preserved; transient sessions were not copied, so sign in again after the switch.
 
-Confirm the actual Admission and EMS contracts, identities and authentication with their teams. The implemented version 1.0 contracts are development contracts from the document, not verified live integrations. Configure real SMTP delivery; the current local environment captures mail to its private development log. Confirm official curriculum, equivalences, grading, academic override authority and COR branding/template.
-
-Set GRADE_ORDER to lower or higher after grading policy is confirmed. Leaving it unconfigured prevents a minimum-grade threshold from being applied with an assumed direction. The two-stage flow is currently applied to all special classifications pending policy confirmation. Pending proposals do not reserve seats; finalization performs the authoritative checks. Section capacity counts distinct finalized students across its offerings, and class capacity is independently enforced.
-
-The official logo, approved COR form, live institutional datasets, live endpoint connection checks, production hosting, backups and user acceptance sign-off still require institutional inputs. No external deployment or GitHub remote was created.
-
-## Source and dependencies
-
-composer install installs locked PHP packages. JavaScript/CSS dependencies are committed under public/vendor. Node is optional for the syntax check. Use .env.example as a placeholder template and configure a private .env. Never commit .env, database contents, mail logs, tokens, runtime tools, or real student exports. Git ignore rules protect the local artifacts.
-
-See docs/DATABASE_ERD.md, docs/API_DOCUMENTATION.md, docs/TESTING.md and docs/USER_MANUAL.md for the schema, interfaces, validation evidence and workflows.
+Actual Admission/EMS network connectivity, SMTP delivery, current approved curricula, real campus records, institutional acceptance and production hosting still require school inputs. The supplied 2022–2023 BSIT/BSCS catalog remains a labeled historical reference.

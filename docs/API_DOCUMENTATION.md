@@ -77,3 +77,23 @@ POST /api/v1/integrations/admission or /integrations/ems with the JSON envelope.
 API student, academic-record, curriculum and back-subject reads enforce ownership/program boundaries. Enrollment reads, proposals, approve/decline with version, finalization, special-case evaluation and COR PDF downloads share the web services and role checks. Registrar resource reads include programs, curriculums, subjects, sections, rooms, professors, class-offerings and class-schedules. POST /academic/{resource} and PUT /academic/{resource}/{id} expose validated academic maintenance, with convenient POST aliases for core resources. Use php artisan route:list --path=api to inspect the authoritative route list.
 
 A revoked, inactive or expired token cannot access data. Integration endpoints are rate limited and enforce the same 2 MB / 1,000-record bounds as file imports. For real external calls use HTTPS, dedicated service accounts, an agreed schema/version lifecycle and protected token delivery. No live source credentials were available for connectivity verification.
+
+## API additions in the Desktop-folder update
+
+The proposed subject PUT/DELETE, section PUT and class-schedule PUT aliases are implemented. DELETE /subjects/{id} deactivates, preserving history. GET/POST /subjects/{id}/prerequisites shares backend cycle validation; POST accepts required_subject_id, alternative_group and optional minimum_grade.
+
+Registrar GET /rooms/{id}/availability and /professors/{id}/availability require period_id and accept optional day (Mon–Sun). They return active status, available_windows for professors, scheduled_meetings and closures for rooms. They do not guarantee a proposed assignment will pass every academic constraint.
+
+GET /special-cases/{id} enforces student ownership and Department Head program scope. POST /special-cases supports requested_subject_ids. Department Head POST /special-cases/{id}/evaluate accepts status approved/rejected and evaluation, with optional credits array. Each row requires subject_id, source_institution, source_subject, source_units, evidence_reference, reason and decision approved/rejected; source_grade is optional. /approve and /reject are aliases fixing status. /forward-to-registrar requires an approved current-curriculum evaluation and student acceptance of the current special proposal.
+
+Registrar POST /students/{id}/curriculum accepts previous_curriculum_id, curriculum_id and reason (20–3000 characters). It rejects stale assignments, empty/inactive/cross-program curricula and open enrollment proposals. The session equivalent is POST /records/{id}/curriculum.
+
+Integration endpoints also enforce the first-login password-change requirement. Service accounts must complete account setup before importing.
+
+## HTML workflow integration update
+
+Student decision acceptance now atomically finalizes the current enrollment and creates the COR. The legacy Registrar finalize endpoint is idempotent for already-finalized records. Capacity/eligibility failures roll back the decision. A staged Department Head draft (special_ready) cannot be accepted until Registrar publishes a student proposal.
+
+New session interfaces: Registrar GET/POST /term-calendar, POST /term-calendar/{id} with dates/activate/lock/close; GET /students and /admission-years, POST /students/actions; GET/POST /sections, POST /sections/{id}; GET /colleges; GET/POST /special-enrollment; GET /scheduler/rooms and POST /scheduler/book (preview=1 validates without persisting). Head GET /special-students, POST /special-cases/{id}/defer and /forward-to-registrar (action=send or forward, offering_ids). Student GET /grades and GET/POST /waiting-list. Professor GET /professor, POST /professor/classes/{id}/grades with a student-ID-keyed grades object. These are CSRF-protected session endpoints; no new bearer aliases are implied.
+
+Professor portal tokens cannot enumerate general academic/student API resources. Professor grade writes require an active EMS link, a recorded teaching assignment, a finalized class roster and an open semester. See REFERENCE-INTEGRATION.md for all flow mappings.

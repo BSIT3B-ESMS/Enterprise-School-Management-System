@@ -1,33 +1,25 @@
-$ErrorActionPreference = 'Stop'
+param([int]$Port=8000)
+$ErrorActionPreference='Stop'
 Set-Location $PSScriptRoot
-$toolRoot = 'C:\Users\Mitchell\Documents\Codex\2026-10-30\unde\work\tools'
-$php = if (Get-Command php -ErrorAction SilentlyContinue) { (Get-Command php).Source } elseif (Test-Path "$toolRoot\php\php.exe") { "$toolRoot\php\php.exe" } else { throw 'Install PHP 8.2+ and add it to PATH.' }
-$env:PATH = (Split-Path $php) + ';' + $env:PATH
-if (!(Test-Path vendor/autoload.php)) { throw 'Run composer install first.' }
-if (!(Test-Path .env)) { Copy-Item .env.example .env }
-$mysqlLocal = (Get-Content .env | Where-Object { $_ -eq 'DB_CONNECTION=mysql' }) -and (Get-Content .env | Where-Object { $_ -eq 'DB_PORT=3307' })
-if ($mysqlLocal) {
-    $client = [Net.Sockets.TcpClient]::new()
-    try { $client.Connect('127.0.0.1',3307); $databaseRunning = $true } catch { $databaseRunning = $false } finally { $client.Dispose() }
-    if (!$databaseRunning) {
-        $server = "$toolRoot\mariadb-11.4.9-winx64\bin\mariadbd.exe"
-        $dataDir = "$toolRoot\mariadb-data"
-        if (!(Test-Path $server) -or !(Test-Path $dataDir)) { throw 'Start the configured MariaDB server before launching the application.' }
-        Start-Process -FilePath $server -ArgumentList @("--datadir=`"$dataDir`"",'--port=3307','--bind-address=127.0.0.1','--skip-log-bin') -WindowStyle Hidden | Out-Null
-        $ready = $false
-        for ($attempt=0; $attempt -lt 30; $attempt++) {
-            $client = [Net.Sockets.TcpClient]::new()
-            try { $client.Connect('127.0.0.1',3307); $ready = $true; break } catch { Start-Sleep -Milliseconds 500 } finally { $client.Dispose() }
-        }
-        if (!$ready) { throw 'MariaDB did not become ready. Check the log in its data folder.' }
-    }
-}
+$runtime=Join-Path $env:LOCALAPPDATA 'PLPEnrollment\runtime'
+$phpCommand=Get-Command php.exe -ErrorAction SilentlyContinue
+$php=if($phpCommand){$phpCommand.Source}else{Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Packages\PHP.PHP.*\php.exe') -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName}
+if(!$php){throw 'Install PHP 8.4+ and add it to PATH.'}
+$phpDirectory=Split-Path $php
+& (Join-Path $PSScriptRoot 'scripts\configure-php.ps1') -Php $php
+$env:PHPRC=$runtime
+$env:PATH=(Split-Path $php)+';'+$env:PATH
+if(!(Test-Path vendor/autoload.php)){throw 'Run composer install first.'}
+if(!(Test-Path .env)){throw 'Configure .env first. See docs/LOCAL-SETUP.md.'}
+# Explicit local server settings must come from this project, not a previous preview shell.
+Remove-Item Env:DB_CONNECTION,Env:DB_DATABASE -ErrorAction SilentlyContinue
+& (Join-Path $PSScriptRoot 'scripts/start-database.ps1')
 & $php scripts/warm-cache.php
-if ($LASTEXITCODE -ne 0) { throw 'Provider cache setup failed.' }
-if (@(Get-Content .env | Where-Object { $_ -match '^APP_KEY=.+$' }).Count -eq 0) {
-    & $php artisan key:generate --no-interaction
-    if ($LASTEXITCODE -ne 0) { throw 'Application key setup failed.' }
-}
+if($LASTEXITCODE -ne 0){throw 'Provider cache setup failed.'}
 & $php artisan migrate --force
-if ($LASTEXITCODE -ne 0) { throw 'Database setup failed.' }
-& $php artisan serve --host=127.0.0.1 --port=8000 --no-reload
+if($LASTEXITCODE -ne 0){throw 'Database migration failed.'}
+$listener=Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
+if($listener){Write-Output "Port $Port is already in use. Open http://127.0.0.1:$Port or choose -Port.";exit 0}
+$router=Join-Path $PWD 'vendor\laravel\framework\src\Illuminate\Foundation\resources\server.php'
+Start-Process $php -ArgumentList @('-S',"127.0.0.1:$Port",('"'+$router+'"')) -WorkingDirectory (Join-Path $PWD 'public') -WindowStyle Hidden -RedirectStandardOutput (Join-Path $PWD 'storage\logs\local-server.out.log') -RedirectStandardError (Join-Path $PWD 'storage\logs\local-server.err.log') | Out-Null
+Write-Output "Enrollment system started at http://127.0.0.1:$Port"

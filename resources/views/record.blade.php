@@ -17,14 +17,18 @@
 @endif
 <div class="card border-0 shadow-sm p-4 mb-4"><h2 class="h5">Academic history</h2><div class="table-responsive"><table class="table table-bordered"><thead><tr><th>Subject</th><th>Period</th><th>Grade</th><th>Status</th><th>Remarks</th></tr></thead><tbody>
 
-@forelse($records as $r)<tr><td>{{ $r->code }} · {{ $r->name }}</td><td>{{ $r->period }}</td><td>{{ $r->grade }}</td><td>{{ $r->status }}{{ !$r->active?' (inactive)':'' }}</td><td>{{ $r->remarks }}</td></tr>
+@forelse($records as $r)<tr><td>{{ $r->code }} · {{ $r->name }}</td><td>{{ $r->period }}</td><td>{{ $r->grade }}</td><td>{{ $r->status }}{{ $records->where('subject_id',$r->subject_id)->where('id','<',$r->id)->isNotEmpty()?' · Retake / later attempt':'' }}{{ !$r->active?' (inactive)':'' }}</td><td>{{ $r->remarks }}</td></tr>
 
 @empty<tr><td colspan="5">No academic history has been entered.</td></tr>
 
 @endforelse</tbody></table></div></div>
-<div class="card border-0 shadow-sm p-4"><h2 class="h5">Curriculum requirements</h2><div class="table-responsive"><table class="table table-striped"><thead><tr><th>Subject</th><th>Units</th><th>Year / Semester</th><th>Completion</th></tr></thead><tbody>
+<div class="card border-0 shadow-sm p-4"><h2 class="h5">Curriculum requirements</h2><div class="table-responsive"><table class="table table-striped"><thead><tr><th>Subject</th><th>Units</th><th>Year / Semester</th><th>Prerequisites</th><th>Completion</th></tr></thead><tbody>
 
-@foreach($requirements as $r)<tr><td>{{ $r->code }} · {{ $r->name }}</td><td>{{ $r->units }}</td><td>{{ $r->year_level }} / {{ $r->semester }}</td><td>{{ $records->contains(fn($record)=>$record->subject_id===$r->id && $record->active && in_array($record->status,['PASSED','CREDITED']))?'Completed / credited':'Still required' }}</td></tr>
+@foreach($requirements as $r)<tr><td>{{ $r->code }} · {{ $r->name }}</td><td>{{ $r->units }}</td><td>{{ $r->year_level }} / {{ $r->semester }}</td><td>
+@foreach($prerequisites[$r->id]??[] as $prerequisite)
+<div>{{ $prerequisite->code }}{{ $prerequisite->alternative_group?' (alternative group '.$prerequisite->alternative_group.')':'' }}{{ $prerequisite->minimum_grade!==null?' · minimum grade '.$prerequisite->minimum_grade:'' }}</div>
+@endforeach
+</td><td>{{ $records->contains(fn($record)=>$record->subject_id===$r->id && $record->active && in_array($record->status,['PASSED','CREDITED']))?'Completed / credited':'Still required' }}</td></tr>
 
 @endforeach</tbody></table></div></div>
 
@@ -55,4 +59,32 @@
 
 @endif
 
+<div class="card border-0 shadow-sm p-4 mt-4"><h2 class="h5">Assigned curriculum: {{ $curriculum->name }}</h2><p>Total curriculum units: {{ $requirements->sum('units') }}</p>
+@foreach($requirements->groupBy(fn($r)=>'Year '.$r->year_level.' / Semester '.$r->semester) as $label=>$group)
+<p>{{ $label }}: {{ $group->sum('units') }} units</p>
+@endforeach
+@if(auth()->user()->role==='registrar')
+<form method="post" action="/records/{{ $student->id }}/curriculum">
+@csrf
+<input type="hidden" name="previous_curriculum_id" value="{{ $student->curriculum_id }}"><label for="new-curriculum" class="form-label">Assign a different curriculum version</label><select id="new-curriculum" name="curriculum_id" class="form-select mb-3" required><option value="">Choose an active version in this program</option>
+@foreach($curriculums->where('id','!=',$student->curriculum_id) as $version)
+<option value="{{ $version->id }}">{{ $version->name }}</option>
+@endforeach
+</select><label for="curriculum-reason" class="form-label">Verification and reason for reassignment</label><textarea id="curriculum-reason" name="reason" class="form-control mb-3" minlength="20" maxlength="3000" required></textarea><button class="btn btn-outline-primary">Record curriculum assignment</button></form>
+@endif
+@if($assignments->isNotEmpty())
+<h3 class="h6 mt-4">Assignment history</h3><div class="table-responsive"><table class="table table-sm"><thead><tr><th>Date</th><th>Previous version</th><th>Assigned version</th><th>Registrar / reason</th></tr></thead><tbody>
+@foreach($assignments as $assignment)
+<tr><td>{{ $assignment->created_at }}</td><td>{{ $assignment->previous }}</td><td>{{ $assignment->curriculum }}</td><td>{{ $assignment->registrar }} · {{ $assignment->reason }}</td></tr>
+@endforeach
+</tbody></table></div>
+@endif
+</div>
+@if($credits->isNotEmpty())
+<div class="card border-0 shadow-sm p-4 mt-4"><h2 class="h5">Evaluated subject equivalencies</h2><div class="table-responsive"><table class="table table-bordered"><thead><tr><th>Original institution / subject</th><th>Equivalent subject</th><th>Decision and evidence</th></tr></thead><tbody>
+@foreach($credits as $credit)
+<tr><td>{{ $credit->source_institution }} · {{ $credit->source_subject }}</td><td>{{ $credit->code }}</td><td>{{ $credit->decision }} · {{ $credit->evidence_reference }}<br><a href="/special-cases/{{ $credit->special_case_id }}">View evaluation #{{ $credit->special_case_id }}</a></td></tr>
+@endforeach
+</tbody></table></div></div>
+@endif
 @endsection
