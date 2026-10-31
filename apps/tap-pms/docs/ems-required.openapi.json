@@ -1,0 +1,502 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "PROPOSED EMS contract required by PMS \u2014 not deployed API",
+    "version": "0.1.0",
+    "description": "EMS owner must approve paths, permissions and fields. PMS owns schedules. This document does not add routes to EMS."
+  },
+  "servers": [
+    {
+      "url": "https://ems.example.invalid/api/v1"
+    }
+  ],
+  "paths": {
+    "/employees": {
+      "get": {
+        "summary": "Proposed EMS Employee feed",
+        "x-permission": "employees:read",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "updated_since",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope; UTC timestamps; sorted updated_at then stable ID",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Employee"
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": [
+                        "next_cursor",
+                        "has_more"
+                      ],
+                      "properties": {
+                        "next_cursor": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "has_more": {
+                          "type": "boolean"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing/revoked token; WWW-Authenticate: Bearer"
+          },
+          "403": {
+            "description": "Insufficient named permission"
+          },
+          "429": {
+            "description": "Rate limit; Retry-After header"
+          }
+        }
+      }
+    },
+    "/leave-requests": {
+      "get": {
+        "summary": "Proposed EMS LeaveDecision feed",
+        "x-permission": "leave-requests:read",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "updated_since",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope; UTC timestamps; sorted updated_at then stable ID",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/LeaveDecision"
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": [
+                        "next_cursor",
+                        "has_more"
+                      ],
+                      "properties": {
+                        "next_cursor": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "has_more": {
+                          "type": "boolean"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing/revoked token; WWW-Authenticate: Bearer"
+          },
+          "403": {
+            "description": "Insufficient named permission"
+          },
+          "429": {
+            "description": "Rate limit; Retry-After header"
+          }
+        }
+      },
+      "post": {
+        "summary": "Proposed EMS acceptance of a PMS-filed leave request",
+        "x-permission": "leave-requests:write",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LeaveSubmission"
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/LeaveSubmission"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "proof": {
+                        "type": "string",
+                        "format": "binary",
+                        "description": "Optional field name must be agreed by EMS"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Accepted; data contains the original request_id and employee_no; not an approval"
+          },
+          "409": {
+            "description": "Idempotency key reused with a different payload"
+          },
+          "422": {
+            "description": "Laravel message/errors; invalid employee, dates, leave type or proof"
+          }
+        }
+      }
+    },
+    "/leave-balances": {
+      "get": {
+        "summary": "Proposed EMS LeaveBalance feed",
+        "x-permission": "leave-balances:read",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "updated_since",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor envelope; UTC timestamps; sorted updated_at then stable ID",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/LeaveBalance"
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": [
+                        "next_cursor",
+                        "has_more"
+                      ],
+                      "properties": {
+                        "next_cursor": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "has_more": {
+                          "type": "boolean"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing/revoked token; WWW-Authenticate: Bearer"
+          },
+          "403": {
+            "description": "Insufficient named permission"
+          },
+          "429": {
+            "description": "Rate limit; Retry-After header"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    },
+    "schemas": {
+      "Employee": {
+        "type": "object",
+        "required": [
+          "employee_no",
+          "full_name",
+          "base_rate",
+          "salary_effective_on",
+          "status",
+          "updated_at"
+        ],
+        "properties": {
+          "employee_no": {
+            "type": "string"
+          },
+          "full_name": {
+            "type": "string"
+          },
+          "base_rate": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,7})\\.[0-9]{2}$",
+            "example": "22000.00"
+          },
+          "salary_effective_on": {
+            "type": "string",
+            "format": "date"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "on_leave",
+              "absent",
+              "inactive",
+              "retired",
+              "terminated",
+              "resigned"
+            ]
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "LeaveDecision": {
+        "type": "object",
+        "required": [
+          "leave_id",
+          "request_id",
+          "employee_no",
+          "starts_on",
+          "ends_on",
+          "status",
+          "is_paid"
+        ],
+        "properties": {
+          "leave_id": {
+            "type": "string"
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Original PMS request ID for PMS-originated requests"
+          },
+          "employee_no": {
+            "type": "string"
+          },
+          "starts_on": {
+            "type": "string",
+            "format": "date"
+          },
+          "ends_on": {
+            "type": "string",
+            "format": "date"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "approved",
+              "rejected",
+              "cancelled"
+            ]
+          },
+          "is_paid": {
+            "type": "boolean"
+          }
+        }
+      },
+      "LeaveBalance": {
+        "type": "object",
+        "required": [
+          "employee_no",
+          "leave_type",
+          "remaining_days",
+          "as_of",
+          "updated_at"
+        ],
+        "properties": {
+          "employee_no": {
+            "type": "string"
+          },
+          "leave_type": {
+            "type": "string"
+          },
+          "remaining_days": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,3})\\.[0-9]{2}$",
+            "example": "7.50"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "LeaveSubmission": {
+        "type": "object",
+        "required": [
+          "request_id",
+          "employee_no",
+          "starts_on",
+          "ends_on",
+          "leave_type",
+          "reason"
+        ],
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "employee_no": {
+            "type": "string"
+          },
+          "starts_on": {
+            "type": "string",
+            "format": "date"
+          },
+          "ends_on": {
+            "type": "string",
+            "format": "date"
+          },
+          "leave_type": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

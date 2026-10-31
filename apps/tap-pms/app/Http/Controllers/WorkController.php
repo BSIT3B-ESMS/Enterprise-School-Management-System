@@ -1,0 +1,63 @@
+<?php
+namespace App\Http\Controllers;
+use App\Models\{Employee,WorkflowRequest,PayrollAdjustment,KioskDevice,AttendanceRecord,AttendancePunch,User};
+use App\Services\{Audit,WorkflowService,ScheduleService,Policy,EmsService};
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\{DB,Hash,Storage};
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rules\Password;
+class WorkController extends Controller {
+ private function employee(Request $r):Employee{return Employee::findOrFail($r->user()->employee_id);}
+ public function schedule(Request $r,Employee $employee){$v=$r->validate(['effective_from'=>'required|date_format:Y-m-d','work_start'=>'required|date_format:H:i','work_end'=>'required|date_format:H:i','lunch_start'=>'nullable|date_format:H:i','lunch_end'=>'nullable|date_format:H:i','grace_minutes'=>'required|integer|min:0|max:120','work_days'=>'required|array|min:1','work_days.*'=>'integer|min:1|max:7']);$v['work_days']=array_map('intval',$v['work_days']);app(ScheduleService::class)->save($employee,$v);return back()->with('success','Schedule saved.');}
+ public function card(Request $r,Employee $employee){$v=$r->validate(['rfid_uid'=>'nullable|string|max:190']);if(!empty($v['rfid_uid'])){$v['rfid_uid']=strtoupper(preg_replace('/[^A-Za-z0-9]/','',$v['rfid_uid']));if(!$v['rfid_uid'])throw \Illuminate\Validation\ValidationException::withMessages(['rfid_uid'=>'Card UID contains no valid characters.']);$dupe=Employee::where('rfid_uid',$v['rfid_uid'])->where('id','!=',$employee->id)->exists();if($dupe)throw \Illuminate\Validation\ValidationException::withMessages(['rfid_uid'=>'This card is already registered.']);}$employee->update($v);Audit::record('card_assigned','employees',$employee->employee_no);return back()->with('success','Card registration updated.');}
+ public function account(Request $r,Employee $employee){
+  $v=$r->validate(['password'=>['required','confirmed',Password::min(12)->letters()->numbers()]]);
+  abort_unless($employee->eligible(),422,'Inactive employees cannot receive an active login.');
+  $user=User::where('employee_id',$employee->id)->first();
+  abort_if(User::where('login_id',$employee->employee_no)->when($user,fn($q)=>$q->where('id','!=',$user->id))->exists(),422,'This official employee ID already has a login.');
+  $attrs=['name'=>$employee->full_name,'login_id'=>$employee->employee_no,'password'=>$v['password'],'role'=>'employee','employee_id'=>$employee->id,'is_active'=>true,'ems_suspended'=>false];
+  $user?$user->update($attrs):User::create($attrs);
+  Audit::record('employee_account_saved','employees',$employee->employee_no);
+  return back()->with('success','Employee account saved. Sign in with the EMS Employee ID. Share the temporary password privately.');
+ }
+ public function password(Request $r){$v=$r->validate(['current_password'=>'required|current_password','password'=>['required','confirmed',Password::min(12)->letters()->numbers()]]);$r->user()->update(['password'=>$v['password']]);$r->session()->regenerate();$r->session()->put('auth_password_hash',$r->user()->fresh()->password);Audit::record('password_changed','users',(string)$r->user()->id);return back()->with('success','Password updated.');}
+ public function request(Request $r){
+  $e=$this->employee($r);$v=$r->validate(['type'=>'required|in:overtime,schedule_change,manual_attendance,deduction,loan,tax,leave','work_date'=>'required|date_format:Y-m-d','reason'=>'required|string|min:5|max:3000','attachment'=>'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120']);$payload=[];
+  if($v['type']==='overtime')$payload=$r->validate(['minutes'=>'required|integer|min:1|max:720']);
+  elseif(in_array($v['type'],['loan','tax','deduction'],true))$payload=$r->validate(['amount'=>['required','string','regex:/^(0|[1-9][0-9]{0,7})\.[0-9]{2}$/']]);
+  elseif($v['type']==='manual_attendance'){
+   $payload=$r->validate(['am_in'=>'nullable|date_format:H:i','am_out'=>'nullable|date_format:H:i','pm_in'=>'nullable|date_format:H:i','pm_out'=>'nullable|date_format:H:i']);
+   $payload=app(\App\Services\AttendanceCorrectionService::class)->validate($e,$v['work_date'],$payload);
+  }elseif($v['type']==='schedule_change'){$payload=$r->validate(['work_start'=>'required|date_format:H:i','work_end'=>'required|date_format:H:i','lunch_start'=>'nullable|date_format:H:i','lunch_end'=>'nullable|date_format:H:i','grace_minutes'=>'required|integer|min:0|max:120','work_days'=>'required|array|min:1','work_days.*'=>'integer|min:1|max:7']);$payload['work_days']=array_map('intval',$payload['work_days']);app(ScheduleService::class)->validate($payload);}
+  else $payload=$r->validate(['ends_on'=>'required|date_format:Y-m-d|after_or_equal:work_date','leave_type'=>'required|string|max:120']);
+  $file=$r->file('attachment');$path=$file?->store('request-attachments','local');
+  try{DB::transaction(function()use($v,$payload,$file,$path,$e){$q=WorkflowRequest::create(['request_id'=>(string)Str::uuid(),'employee_id'=>$e->id,'type'=>$v['type'],'work_date'=>$v['work_date'],'reason'=>$v['reason'],'payload'=>$payload,'attachment_path'=>$path,'attachment_name'=>$file?->getClientOriginalName(),'status'=>$v['type']==='leave'?'pending_ems':'pending']);Audit::record('request_filed','workflow_requests',$q->request_id,['type'=>$q->type]);});}catch(\Throwable $ex){if($path)Storage::disk('local')->delete($path);throw $ex;}
+  return back()->with('success',$v['type']==='leave'?'Leave request saved for EMS submission. EMS will approve or reject it.':'Request filed for review.');
+ }
+ public function decide(Request $r,WorkflowRequest $workflowRequest){$v=$r->validate(['decision'=>'required|in:approved,rejected','decision_note'=>'required|string|min:3|max:2000']);app(WorkflowService::class)->decide($workflowRequest,$v['decision'],$v['decision_note'],$r->user()->id);return back()->with('success','Request decision saved.');}
+ public function adjustment(Request $r){$v=$r->validate(['employee_id'=>'required|exists:employees,id','applies_on'=>'required|date_format:Y-m-d','kind'=>'required|in:addition,deduction','label'=>'required|string|max:190','amount'=>['required','string','regex:/^(0|[1-9][0-9]{0,7})\.[0-9]{2}$/']]);$employee=Employee::findOrFail($v['employee_id']);if(\App\Models\Payslip::where('employee_no',$employee->employee_no)->where('status','released')->whereIn('period_id',\App\Models\PayrollPeriod::where('starts_on','<=',$v['applies_on'])->where('ends_on','>=',$v['applies_on'])->select('period_id'))->exists())throw \Illuminate\Validation\ValidationException::withMessages(['adjustment'=>'Withdraw the affected payslip before adding an adjustment.']);$a=PayrollAdjustment::create($v+['adjustment_id'=>(string)Str::uuid(),'created_by'=>$r->user()->id]);Audit::record('payroll_adjustment_added','payroll_adjustments',$a->adjustment_id);return back()->with('success','Adjustment saved. Recompute the affected cut-off.');}
+ public function policy(Request $r){$v=$r->validate(['deduction_mode'=>'sometimes|in:automatic_official,manual','monthly_divisor'=>'required|integer|min:1|max:31','overtime_multiplier'=>['required','string','regex:/^[0-5]\.[0-9]{2}$/'],'holidays'=>'nullable|string','signatory'=>'required|string|max:150','signatory_title'=>'required|string|max:150','report_preparer'=>'nullable|string|max:150','report_reviewer'=>'nullable|string|max:150','confirm'=>'accepted']);$holidays=array_values(array_filter(array_map('trim',explode(',',$v['holidays']??''))));foreach($holidays as $date)validator(['date'=>$date],['date'=>'date_format:Y-m-d'])->validate();$v['deduction_mode']=$v['deduction_mode']??'automatic_official';$v['holidays']=$holidays;$v['monthly_divisor']=(int)$v['monthly_divisor'];unset($v['confirm']);Policy::save($v);Audit::record('payroll_policy_saved','application_settings','payroll_policy');return back()->with('success','Payroll policy saved. Recompute drafts affected by policy changes.');}
+ public function contributionProfile(Request $r,Employee $employee){
+  $v=$r->validate(['effective_from'=>'required|date_format:Y-m-d','effective_to'=>'nullable|date_format:Y-m-d|after_or_equal:effective_from','pension_scheme'=>'required|in:sss,gsis,none','philhealth_enabled'=>'sometimes|boolean','pagibig_enabled'=>'sometimes|boolean','withholding_enabled'=>'sometimes|boolean','reason'=>'required|string|min:5|max:2000']);
+  foreach(['philhealth_enabled','pagibig_enabled','withholding_enabled']as$name)$v[$name]=$r->boolean($name);
+  if(\App\Models\Payslip::where('employee_no',$employee->employee_no)->where('status','released')->whereIn('period_id',\App\Models\PayrollPeriod::where('ends_on','>=',$v['effective_from'])->when($v['effective_to']??null,fn($q,$end)=>$q->where('starts_on','<=',$end))->select('period_id'))->exists())throw \Illuminate\Validation\ValidationException::withMessages(['coverage'=>'Withdraw affected released payslips before changing coverage.']);
+  $row=\App\Models\ContributionProfile::updateOrCreate(['employee_id'=>$employee->id,'effective_from'=>$v['effective_from']],$v+['created_by'=>$r->user()->id]);Audit::record('contribution_coverage_confirmed','contribution_profiles',(string)$row->id,['employee_no'=>$employee->employee_no]);return back()->with('success','Contribution coverage confirmed. Recompute affected drafts.');
+ }
+ public function deductionOverride(Request $r,Employee $employee){
+  $v=$r->validate(['effective_from'=>'required|date_format:Y-m-d','effective_to'=>'nullable|date_format:Y-m-d|after_or_equal:effective_from','reason'=>'required|string|min:5|max:2000']+array_fill_keys(['sss','gsis','philhealth','pagibig','tax','loan'],['nullable','string','regex:/^(0|[1-9][0-9]{0,7})\.[0-9]{2}$/']));
+  if(!in_array((int)substr($v['effective_from'],8,2),[1,16],true))throw \Illuminate\Validation\ValidationException::withMessages(['effective_from'=>'Choose the first day of a cut-off (1 or 16) for recurring deduction overrides.']);
+  if(\App\Models\Payslip::where('employee_no',$employee->employee_no)->where('status','released')->whereIn('period_id',\App\Models\PayrollPeriod::where('ends_on','>=',$v['effective_from'])->when($v['effective_to']??null,fn($q,$end)=>$q->where('starts_on','<=',$end))->select('period_id'))->exists())throw \Illuminate\Validation\ValidationException::withMessages(['deductions'=>'Withdraw affected released payslips before changing deduction overrides.']);
+  foreach(['sss','gsis','philhealth','pagibig','tax','loan']as$name)$v[$name]=$v[$name]??null;
+  $row=\App\Models\DeductionOverride::updateOrCreate(['employee_id'=>$employee->id,'effective_from'=>$v['effective_from']],$v+['created_by'=>$r->user()->id]);
+  Audit::record('employee_deduction_override_saved','deduction_overrides',(string)$row->id,['employee_no'=>$employee->employee_no]);return back()->with('success','Deduction overrides saved. Recompute affected drafts. Blank amounts use automatic values; 0.00 overrides them to zero.');
+ }
+ public function device(Request $r){$v=$r->validate(['name'=>'required|string|max:100']);$plain=bin2hex(random_bytes(32));$d=KioskDevice::create(['name'=>$v['name'],'token_hash'=>hash('sha256',$plain)]);Audit::record('kiosk_registered','kiosk_devices',(string)$d->id);return back()->with('device_token',$plain)->with('success','Device token created. Copy it now; it is shown once.');}
+ public function revoke(Request $r,KioskDevice $device){$device->update(['revoked_at'=>now()]);Audit::record('kiosk_revoked','kiosk_devices',(string)$device->id);return back()->with('success','Kiosk device revoked.');}
+ public function sync(Request $r){$v=$r->validate(['resource'=>'required|in:employees,leaves,balances']);$count=app(EmsService::class)->sync($v['resource']);return back()->with('success','EMS synchronization completed: '.$count.' records.');}
+ public function sendLeave(WorkflowRequest $workflowRequest){app(EmsService::class)->sendLeave($workflowRequest);return back()->with('success','Leave request submitted to EMS. Synchronize approved leave to receive its decision.');}
+ public function evidence(Request $r,string $kind,string $id){
+  if($kind==='request'){$q=WorkflowRequest::where('request_id',$id)->firstOrFail();$eid=$q->employee_id;$path=$q->attachment_path;$name=$q->attachment_name??'attachment';}
+  elseif($kind==='attendance'){$q=AttendancePunch::where('punch_id',$id)->firstOrFail();$eid=$q->employee_id;$path=$q->photo_path;$name='attendance-photo.jpg';}else abort(404);
+  abort_unless($r->user()->role==='admin'||$r->user()->employee_id===$eid,403);abort_unless($path&&Storage::disk('local')->exists($path),404);Audit::record('evidence_viewed',$kind,$id);return Storage::disk('local')->response($path,basename($name),['Cache-Control'=>'private, no-store']);
+ }
+}

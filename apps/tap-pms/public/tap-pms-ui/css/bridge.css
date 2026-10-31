@@ -1,0 +1,23 @@
+/* Server-side bridge: v4 TAP masthead, ribbon, pagebar and original navy/brass styling. */
+:root{--pms-teal:#12263f;--pms-dark:#12263f;--pms-border:#d3dae3}
+body{background:#f2f4f7!important;color:#1d2733}
+.tap-shell{background:#f2f4f7}.tap-shell .masthead{padding:.6rem 1.5rem;background:#12263f}.tap-shell .tap-wordmark{color:#fff;font-size:1.55rem;font-weight:850;letter-spacing:.06em}.tap-shell .tap-wordmark:hover{color:#f1e8d0}.tap-shell .tap-connection{background:#344d68!important;color:#e9edf2}
+.tap-server-ribbon{display:block!important;position:relative;overflow-x:auto;white-space:nowrap;background:white;border-bottom:1px solid #d3dae3}.tap-server-ribbon .ribbon-items{display:flex;align-items:stretch;gap:.15rem;flex-wrap:wrap}.tap-server-ribbon .nav-link{text-decoration:none}.tap-server-ribbon .ribbon-groups{display:flex}.tap-server-ribbon .ribbon-group{display:flex}
+.tap-shell .pagebar{padding:1rem 1.8rem}.tap-shell .pagebar h1{margin-bottom:0}.tap-content{width:min(100%,1640px);margin:0 auto;padding:20px 28px 35px}.tap-footer{padding:18px 28px 22px;text-align:center;font-size:11px;color:#798697}
+.tap-shell .panel{border:1px solid #d3dae3;border-radius:4px;box-shadow:none;padding:24px;background:#fff}.tap-shell .panel h2{font-weight:700}.tap-shell .stats-grid{margin:0 0 18px}.tap-shell .stat-card{border-radius:4px;border-color:#d3dae3}
+.tap-shell .kpi-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}.tap-shell .kpi{background:#fff;border:1px solid #d3dae3;min-width:0;padding:20px 21px;border-radius:4px}.tap-shell .kpi-value{font-size:clamp(20px,2.5vw,31px);font-weight:750;margin-top:6px;overflow-wrap:anywhere}.tap-shell .kpi-label{color:#54657b;font-size:12px;font-weight:550}.tap-shell .kpi-accent{border-left:4px solid #b08a2e}
+.tap-section-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:12px}.tap-shell .quick-links a{background:#f7f8fa;border:1px solid #d3dae3;color:#12263f;border-radius:3px}.tap-shell .quick-links a:hover{background:#f1e8d0}.tap-shell .table th{background:#e9edf2;color:#3b4d63}.tap-shell .table thead.table-dark th,.tap-shell .table-dark th{background:#12263f!important;color:#fff!important;border-color:#12263f!important}.tap-shell .table td{vertical-align:middle}
+.tap-shell .form-control,.tap-shell .form-select{min-height:38px}.tap-shell .filter-row{align-items:end}.tap-shell .btn-primary{background:#12263f!important;border-color:#12263f!important}.tap-shell .btn-outline-primary{color:#12263f;border-color:#12263f}.tap-shell .btn-outline-primary:hover{color:#fff}
+.tap-shell .badge{white-space:normal}.tap-shell .workspace-footer{padding:0}
+@media(max-width:990px){.tap-shell .kpi-strip{grid-template-columns:repeat(2,minmax(0,1fr))}.tap-content{padding:16px}.tap-shell .pagebar{padding:1rem}.tap-shell .masthead{padding:.75rem 1rem}}
+@media(max-width:620px){.tap-shell .masthead-right{gap:.35rem}.tap-shell .user-chip{padding-left:0;border:0}.tap-shell .user-chip .role-label{display:none}.tap-shell .tap-connection{display:none}.tap-shell .kpi-strip{grid-template-columns:repeat(2,minmax(0,1fr))}.tap-shell .kpi{padding:13px}.tap-shell .panel{padding:15px}.tap-server-ribbon .ribbon-items{flex-wrap:nowrap;gap:0}.tap-shell .pagebar-date{font-size:11px}.tap-shell .pagebar h1{font-size:22px}}
+.tap-shell td.empty-state{display:table-cell!important}.tap-shell .pagebar .crumb{display:block}
+.tap-shell .pagebar .crumb span{font-size:11px;color:#6c7b8e}
+.tap-shell .tap-overview .kpi-strip .kpi{box-shadow:0 1px 2px rgba(18,38,63,.06)!important}
+.tap-shell .tap-server-ribbon .ribbon-items .nav-link[aria-current="page"]{color:#12263f;border-bottom-color:#b08a2e}
+/* Keep the dark compact v4 report table header throughout the new Blade pages. */
+.tap-shell .panel .table thead th{background:#12263f!important;color:#fff!important;border-bottom:2px solid #b08a2e!important;font-size:.76rem!important;font-weight:650;padding:10px 12px}
+.tap-shell .panel>.table-responsive{border:1px solid #d3dae3;border-radius:3px;overflow-x:auto}
+.tap-shell .panel h2.h5,.tap-shell .panel h3.h5{border-bottom:1px solid #d3dae3;padding-bottom:12px}
+.tap-shell .panel .badge.text-bg-light{background:#edf1f5!important;color:#12263f!important}
+.tap-shell .quick-links a:focus-visible,.tap-shell .ribbon a:focus-visible{outline:3px solid #b08a2e;outline-offset:3px}
