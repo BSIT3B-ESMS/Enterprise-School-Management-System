@@ -31,6 +31,10 @@ on:
       db_port:
         type: number
         default: 3306
+      apt_packages:
+        description: Extra Ubuntu packages the checks need, space-separated (e.g. mariadb-client for mariadb-dump)
+        type: string
+        default: ''
       node:
         description: Run npm ci before the app's checks
         type: boolean
@@ -91,6 +95,15 @@ jobs:
             echo "::error file=apps/${{ inputs.app }}/composer.json::apps/${{ inputs.app }} has no \"ci\" script in composer.json. Add one that runs this app's checks (see \"CI for your app\" in README.md)."
             exit 1
           fi
+
+      - name: Install system packages
+        if: inputs.apt_packages != ''
+        env:
+          PACKAGES: ${{ inputs.apt_packages }}
+        run: |
+          sudo apt-get update -q
+          # Word splitting is intended: PACKAGES is a space-separated list.
+          sudo apt-get install -y -q $PACKAGES
 
       - name: Locate Composer cache
         id: composer-cache
