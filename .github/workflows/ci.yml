@@ -24,7 +24,7 @@ jobs:
       admission: ${{ steps.filter.outputs.admission }}
       dms: ${{ steps.filter.outputs.dms }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: dorny/paths-filter@v3
         id: filter
         with:

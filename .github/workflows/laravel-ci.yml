@@ -1,0 +1,150 @@
+name: Laravel CI
+
+# Shared pipeline for every Laravel app in apps/. Maintainers own the setup below; each team owns what runs by
+# defining a "ci" script in apps/<app>/composer.json (see "CI for your app" in README.md).
+#
+# Example caller in ci.yml:
+#   ems:
+#     uses: ./.github/workflows/laravel-ci.yml
+#     with: { app: ems, php_version: '8.4', database: mysql, db_name: ems_testing, node: true }
+on:
+  workflow_call:
+    inputs:
+      app:
+        description: Folder name under apps/
+        type: string
+        required: true
+      php_version:
+        type: string
+        default: '8.4'
+      php_extensions:
+        description: Added to the common set (mbstring, intl, pdo_mysql, pdo_sqlite, fileinfo, zip, gd)
+        type: string
+        default: ''
+      database:
+        description: "mysql, mariadb, or none (the app's own phpunit.xml settings, such as in-memory SQLite)"
+        type: string
+        default: none
+      db_name:
+        type: string
+        default: testing
+      db_port:
+        type: number
+        default: 3306
+      apt_packages:
+        description: Extra Ubuntu packages the checks need, space-separated (e.g. mariadb-client for mariadb-dump)
+        type: string
+        default: ''
+      node:
+        description: Run npm ci before the app's checks
+        type: boolean
+        default: false
+      node_version:
+        type: string
+        default: '22'
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: composer ci (PHP ${{ inputs.php_version }}, ${{ inputs.database }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/${{ inputs.app }}
+    services:
+      # A service with an empty image is not started, so only the selected database runs.
+      mysql:
+        image: ${{ inputs.database == 'mysql' && 'mysql:8.4' || '' }}
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: ${{ inputs.db_name }}
+        ports:
+          - ${{ inputs.db_port }}:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot --silent"
+          --health-interval=5s --health-timeout=5s --health-retries=30
+      mariadb:
+        image: ${{ inputs.database == 'mariadb' && 'mariadb:11.4' || '' }}
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: ${{ inputs.db_name }}
+        ports:
+          - ${{ inputs.db_port }}:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=30
+    env:
+      # Composer stops scripts after 300 seconds by default, which a full test suite can exceed.
+      COMPOSER_PROCESS_TIMEOUT: 0
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ inputs.php_version }}
+          extensions: mbstring, intl, pdo_mysql, pdo_sqlite, fileinfo, zip, gd, ${{ inputs.php_extensions }}
+          coverage: none
+          tools: composer:v2
+
+      - name: Check the app follows the CI contract
+        run: |
+          if ! php -r 'exit(isset(json_decode(file_get_contents("composer.json"), true)["scripts"]["ci"]) ? 0 : 1);'; then
+            echo "::error file=apps/${{ inputs.app }}/composer.json::apps/${{ inputs.app }} has no \"ci\" script in composer.json. Add one that runs this app's checks (see \"CI for your app\" in README.md)."
+            exit 1
+          fi
+
+      - name: Install system packages
+        if: inputs.apt_packages != ''
+        env:
+          PACKAGES: ${{ inputs.apt_packages }}
+        run: |
+          sudo apt-get update -q
+          # Word splitting is intended: PACKAGES is a space-separated list.
+          sudo apt-get install -y -q $PACKAGES
+
+      - name: Locate Composer cache
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: composer-${{ inputs.app }}-${{ inputs.php_version }}-${{ hashFiles(format('apps/{0}/composer.lock', inputs.app)) }}
+          restore-keys: composer-${{ inputs.app }}-${{ inputs.php_version }}-
+
+      - run: composer validate --no-check-publish
+
+      - run: composer install --no-interaction --prefer-dist --no-progress
+
+      - if: inputs.node
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ inputs.node_version }}
+          cache: npm
+          cache-dependency-path: apps/${{ inputs.app }}/package-lock.json
+
+      - if: inputs.node
+        run: npm ci
+
+      - name: Point the app at the test database
+        if: inputs.database != 'none'
+        run: |
+          {
+            echo "DB_CONNECTION=mysql"
+            echo "DB_HOST=127.0.0.1"
+            echo "DB_PORT=${{ inputs.db_port }}"
+            echo "DB_DATABASE=${{ inputs.db_name }}"
+            echo "DB_USERNAME=root"
+            echo "DB_PASSWORD=root"
+          } >> "$GITHUB_ENV"
+
+      - name: Prepare .env
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Run the app's checks (composer ci)
+        run: composer ci
