@@ -26,7 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: admission-production
     steps:
-      - uses: appleboy/ssh-action@v1.2.0
+      - uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
