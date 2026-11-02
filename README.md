@@ -50,3 +50,25 @@ All workflows live in [`.github/workflows/`](.github/workflows). GitHub ignores 
 | `dms-special-checks.yml` | Weekly, or by hand | Real ClamAV scan test for Document Management |
 
 TAP-PMS and Enrollment have test suites but no CI yet.
+
+## CI for your app
+
+Apps are moving to one shared pipeline, [`laravel-ci.yml`](.github/workflows/laravel-ci.yml). Maintainers own how CI runs, and each team owns what it runs.
+
+**The pipeline sets up** PHP, the Composer cache, an optional MySQL or MariaDB test database, `npm ci` (if the app needs Node) and `.env` with an app key. It always runs `composer validate` and `composer install`.
+
+**Your team provides** a `ci` script in `apps/<app>/composer.json` that runs your app's checks and exits non-zero on failure:
+
+```json
+"scripts": {
+    "ci": [
+        "vendor/bin/pint --test",
+        "@php artisan test --compact"
+    ]
+}
+```
+
+- Run `composer ci` locally before you push. It runs exactly what CI runs.
+- Changing the `ci` script only needs your own team's review. Changes to `.github/` need `maintainers`.
+- An app that is switched to the shared pipeline without a `ci` script fails with an error pointing here.
+- Tell maintainers which PHP version, database (`mysql`, `mariadb` or `none`) and Node setup your app needs. They set those in `ci.yml`.
