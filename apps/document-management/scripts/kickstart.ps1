@@ -84,27 +84,46 @@ Write-Host "==================================================================="
 Write-Section "Checking PHP environment..."
 
 $phpPath = $null
-$phpCommand = Get-Command php -ErrorAction SilentlyContinue
-if ($phpCommand) {
-    $phpPath = $phpCommand.Source
-} else {
-    $candidatePhpPaths = @(
-        "$env:USERPROFILE\.config\herd-lite\bin\php.exe",
-        "C:\Users\Ivan\.config\herd-lite\bin\php.exe",
-        "C:\xampp\php\php.exe",
-        "D:\xampp\php\php.exe",
-        "E:\xampp\php\php.exe",
-        "C:\laragon\bin\php\php-*\php.exe",
-        "C:\php\php.exe",
-        "C:\Program Files\PHP\*\php.exe"
-    )
-    foreach ($cand in $candidatePhpPaths) {
-        $resolved = Resolve-Path $cand -ErrorAction SilentlyContinue | Select-Object -First 1
-        if ($resolved) {
-            $phpPath = $resolved.Path
-            $phpDir = Split-Path $phpPath -Parent
-            $env:PATH = "$phpDir;" + $env:PATH
-            break
+$candidatePhpPaths = @(
+    "$env:USERPROFILE\.config\herd-lite\bin\php.exe",
+    "C:\Users\Ivan\.config\herd-lite\bin\php.exe",
+    "C:\xampp\php\php.exe",
+    "D:\xampp\php\php.exe",
+    "E:\xampp\php\php.exe",
+    "C:\laragon\bin\php\php-*\php.exe",
+    "C:\php\php.exe",
+    "C:\Program Files\PHP\*\php.exe"
+)
+
+# Prioritize modern PHP (>= 8.3)
+foreach ($cand in $candidatePhpPaths) {
+    $resolved = Resolve-Path $cand -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($resolved -and (Test-Path $resolved.Path)) {
+        $rawVer = (& $resolved.Path -r "echo PHP_VERSION;" 2>$null)
+        try {
+            if ($rawVer -and ([version]($rawVer.Split('-')[0]) -ge [version]'8.3.0')) {
+                $phpPath = $resolved.Path
+                $phpDir = Split-Path $phpPath -Parent
+                $env:PATH = "$phpDir;" + $env:PATH
+                break
+            }
+        } catch {}
+    }
+}
+
+if (-not $phpPath) {
+    $phpCommand = Get-Command php -ErrorAction SilentlyContinue
+    if ($phpCommand) {
+        $phpPath = $phpCommand.Source
+    } else {
+        foreach ($cand in $candidatePhpPaths) {
+            $resolved = Resolve-Path $cand -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($resolved -and (Test-Path $resolved.Path)) {
+                $phpPath = $resolved.Path
+                $phpDir = Split-Path $phpPath -Parent
+                $env:PATH = "$phpDir;" + $env:PATH
+                break
+            }
         }
     }
 }
@@ -312,40 +331,130 @@ try {
 }
 
 # -------------------------------------------------------------------------
-# Step 8: Start Background Services (Worker & Scheduler)
+# Step 8: ClamAV Daemon Check & Auto-Start (Port 3310)
 # -------------------------------------------------------------------------
-Write-Section "Starting background services..."
+Write-Section "Checking ClamAV Daemon (port 3310)..."
 
-$workerLog = Join-Path $appRoot 'storage/logs/worker.log'
-$workerErr = Join-Path $appRoot 'storage/logs/worker-error.log'
-$schedulerLog = Join-Path $appRoot 'storage/logs/scheduler.log'
-$schedulerErr = Join-Path $appRoot 'storage/logs/scheduler-error.log'
+$clamdProcess = $null
+$isClamdRunning = Test-PortOpen "127.0.0.1" 3310
 
-$worker = Start-Process -FilePath $phpPath `
-    -ArgumentList 'artisan','queue:work','database','--queue=scans,default','--sleep=1','--tries=5','--timeout=75' `
-    -WorkingDirectory $appRoot `
-    -WindowStyle Hidden `
-    -PassThru `
-    -RedirectStandardOutput $workerLog `
-    -RedirectStandardError $workerErr
+if ($isClamdRunning) {
+    Write-Success "ClamAV daemon is already running on port 3310."
+} else {
+    $clamdExe = Join-Path $appRoot "storage\tools\clamav\clamav-1.4.6.win.x64\clamd.exe"
+    $clamdConf = Join-Path $appRoot "storage\tools\clamav\clamav-1.4.6.win.x64\clamd.conf"
+    if (Test-Path $clamdExe) {
+        Write-Info "Starting ClamAV daemon ($clamdExe)..."
+        $clamdDir = Split-Path $clamdExe -Parent
+        $clamdCmd = "title PLP DMS - ClamAV Daemon && cd /d `"$clamdDir`" && `"$clamdExe`" --config-file=`"$clamdConf`""
+        $clamdProcess = Start-Process -FilePath "cmd.exe" `
+            -ArgumentList "/k", "`"$clamdCmd`"" `
+            -WorkingDirectory $clamdDir `
+            -PassThru
 
-Write-Success "ClamAV Scan Worker started (PID $($worker.Id)) -> logs in storage/logs/worker.log"
+        $cSw = [System.Diagnostics.Stopwatch]::StartNew()
+        while ($cSw.Elapsed.TotalSeconds -lt 8) {
+            Start-Sleep -Milliseconds 600
+            if (Test-PortOpen "127.0.0.1" 3310) { break }
+        }
 
-$scheduler = Start-Process -FilePath $phpPath `
-    -ArgumentList 'artisan','schedule:work' `
-    -WorkingDirectory $appRoot `
-    -WindowStyle Hidden `
-    -PassThru `
-    -RedirectStandardOutput $schedulerLog `
-    -RedirectStandardError $schedulerErr
-
-Write-Success "Task Scheduler started (PID $($scheduler.Id)) -> logs in storage/logs/scheduler.log"
+        if (Test-PortOpen "127.0.0.1" 3310) {
+            Write-Success "ClamAV daemon started and listening on 127.0.0.1:3310 (PID $($clamdProcess.Id))."
+        } else {
+            Write-Warn "ClamAV daemon launched but port 3310 is still initializing. Scans will connect once ready."
+        }
+    } else {
+        Write-Warn "clamd.exe not found at standard path. Scans will use fallback scanner."
+    }
+}
 
 # -------------------------------------------------------------------------
-# Step 9: Launch Browser & Serve
+# Step 9: Start Background Services (Worker & Scheduler in visible CMD)
+# -------------------------------------------------------------------------
+Write-Section "Starting background services in visible CMD windows..."
+
+$workerCmd = "title PLP DMS - Queue Worker && cd /d `"$appRoot`" && `"$phpPath`" artisan queue:work database --queue=scans,default --sleep=1 --tries=5 --timeout=75"
+$worker = Start-Process -FilePath "cmd.exe" `
+    -ArgumentList "/k", "`"$workerCmd`"" `
+    -WorkingDirectory $appRoot `
+    -PassThru
+
+Write-Success "Queue Worker launched in visible CMD window (PID $($worker.Id))."
+
+$schedulerCmd = "title PLP DMS - Task Scheduler && cd /d `"$appRoot`" && `"$phpPath`" artisan schedule:work"
+$scheduler = Start-Process -FilePath "cmd.exe" `
+    -ArgumentList "/k", "`"$schedulerCmd`"" `
+    -WorkingDirectory $appRoot `
+    -PassThru
+
+Write-Success "Task Scheduler launched in visible CMD window (PID $($scheduler.Id))."
+
+# -------------------------------------------------------------------------
+# Step 10: Ngrok Tunnel (for Phone & Remote Testing in visible CMD)
+# -------------------------------------------------------------------------
+Write-Section "Checking Ngrok tunnel..."
+
+$ngrokProcess = $null
+$ngrokPublicUrl = $null
+$isNgrokRunning = Test-PortOpen "127.0.0.1" 4040
+
+if ($isNgrokRunning) {
+    try {
+        $tunnels = (Invoke-RestMethod -Uri "http://127.0.0.1:4040/api/tunnels" -TimeoutSec 2 -ErrorAction SilentlyContinue).tunnels
+        if ($tunnels -and $tunnels.Length -gt 0) {
+            $ngrokPublicUrl = $tunnels[0].public_url
+            Write-Success "Ngrok is already active: $ngrokPublicUrl"
+        }
+    } catch {}
+} else {
+    $ngrokExe = $null
+    $ngrokCandidates = @(
+        "C:\Users\Ivan\Documents\ngrok-v3-stable-windows-amd64\ngrok.exe",
+        "C:\Users\PLP\Downloads\ngrok_bin\ngrok.exe"
+    )
+    foreach ($cand in $ngrokCandidates) {
+        if (Test-Path $cand) {
+            $ngrokExe = $cand
+            break
+        }
+    }
+    if (-not $ngrokExe) {
+        $ngrokCmd = Get-Command ngrok -ErrorAction SilentlyContinue
+        if ($ngrokCmd) {
+            $ngrokExe = $ngrokCmd.Source
+        }
+    }
+
+    if ($ngrokExe) {
+        Write-Info "Starting Ngrok tunnel for port $Port ($ngrokExe)..."
+
+        $ngrokCmd = "title PLP DMS - Ngrok Tunnel && `"$ngrokExe`" http $Port"
+        $ngrokProcess = Start-Process -FilePath "cmd.exe" `
+            -ArgumentList "/k", "`"$ngrokCmd`"" `
+            -WorkingDirectory (Split-Path $ngrokExe -Parent) `
+            -PassThru
+
+        Start-Sleep -Seconds 2
+        try {
+            $tunnels = (Invoke-RestMethod -Uri "http://127.0.0.1:4040/api/tunnels" -TimeoutSec 3 -ErrorAction SilentlyContinue).tunnels
+            if ($tunnels -and $tunnels.Length -gt 0) {
+                $ngrokPublicUrl = $tunnels[0].public_url
+                Write-Success "Ngrok tunnel established: $ngrokPublicUrl"
+            }
+        } catch {}
+
+        if (-not $ngrokPublicUrl) {
+            Write-Success "Ngrok launched in visible CMD window (PID $($ngrokProcess.Id))."
+        }
+    } else {
+        Write-Info "Ngrok not found in PATH or Documents. Skipping remote tunnel (local access only)."
+    }
+}
+
+# -------------------------------------------------------------------------
+# Step 11: Launch Browser & Serve
 # -------------------------------------------------------------------------
 if (-not $NoBrowser) {
-    # Launch browser after slight delay in background job
     Start-Job -ScriptBlock {
         param($url)
         Start-Sleep -Seconds 2
@@ -355,11 +464,15 @@ if (-not $NoBrowser) {
 
 Write-Host "`n===================================================================" -ForegroundColor Green
 Write-Host " [DMS READY] System is fully operational!" -ForegroundColor White
-Write-Host " URL       : $appUrl" -ForegroundColor Yellow
-Write-Host " Database  : $dbDatabase on $dbHost`:$dbPort" -ForegroundColor Gray
-Write-Host " Scan Queue: database / scans,default (ClamAV Worker PID $($worker.Id))" -ForegroundColor Gray
-Write-Host " Scheduler : Active (PID $($scheduler.Id))" -ForegroundColor Gray
-Write-Host " Note      : Press Ctrl+C in this window to stop all services." -ForegroundColor White
+Write-Host " Local Web URL  : $appUrl" -ForegroundColor Yellow
+if ($ngrokPublicUrl) {
+    Write-Host " Phone / Remote : $ngrokPublicUrl" -ForegroundColor Cyan
+}
+Write-Host " Database       : $dbDatabase on $dbHost`:$dbPort" -ForegroundColor Gray
+Write-Host " ClamAV Daemon  : 127.0.0.1:3310 (Fast socket scanning)" -ForegroundColor Gray
+Write-Host " Scan Queue     : database / scans,default (Worker PID $($worker.Id))" -ForegroundColor Gray
+Write-Host " Scheduler      : Active (PID $($scheduler.Id))" -ForegroundColor Gray
+Write-Host " Note           : Press Ctrl+C in this window to stop all services." -ForegroundColor White
 Write-Host "===================================================================`n" -ForegroundColor Green
 
 try {
@@ -373,6 +486,14 @@ try {
     if ($scheduler -and -not $scheduler.HasExited) {
         Stop-Process -Id $scheduler.Id -Force -ErrorAction SilentlyContinue
         Write-Host "  [-] Stopped scheduler." -ForegroundColor Gray
+    }
+    if ($clamdProcess -and -not $clamdProcess.HasExited) {
+        Stop-Process -Id $clamdProcess.Id -Force -ErrorAction SilentlyContinue
+        Write-Host "  [-] Stopped ClamAV daemon." -ForegroundColor Gray
+    }
+    if ($ngrokProcess -and -not $ngrokProcess.HasExited) {
+        Stop-Process -Id $ngrokProcess.Id -Force -ErrorAction SilentlyContinue
+        Write-Host "  [-] Stopped Ngrok tunnel." -ForegroundColor Gray
     }
     Write-Host "[DMS] All services stopped cleanly. Goodbye!`n" -ForegroundColor Green
 }

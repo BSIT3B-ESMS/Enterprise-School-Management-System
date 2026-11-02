@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password as PasswordRule;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
@@ -38,30 +39,31 @@ class InvitationController extends Controller
     public function store(Request $request, InvitationService $service)
     {
         $data = $request->validate([
-            'name' => 'required|string|max:255',
+            'name' => ['required', 'string', 'min:2', 'max:255', 'regex:/^[\pL\s\-\'.]+$/u'],
             'email' => 'required|email|max:255',
             'role' => 'required|in:staff,admin,super_admin',
             'source' => 'nullable|string|max:50',
+        ], [
+            'name.regex' => 'The full name may only contain letters, spaces, hyphens, periods, and apostrophes.',
         ]);
-        $id = $service->request($request->user(), $data);
-        $status = 'pending';
-        $message = 'Staff invitation submitted for Super Admin approval.';
+        $actor = $request->user();
+        $id = $service->request($actor, $data);
+        $status = $actor->isSuperAdmin() ? 'delivered' : 'pending';
+        $message = $actor->isSuperAdmin() ? 'Invitation email sent.' : 'Staff invitation submitted for Super Admin approval.';
 
-        if ($request->user()->isSuperAdmin()) {
-            $status = 'delivered';
-            $message = 'Invitation email sent.';
+        if ($actor->isSuperAdmin()) {
             try {
-                $service->deliver($request->user(), $id);
+                $service->deliver($actor, $id);
             } catch (HttpExceptionInterface $e) {
                 if ($e->getStatusCode() === 503) {
                     $status = 'approved';
-                    $message = 'Invitation created and approved. Outbound email is not configured or failed to deliver; invitation can be sent once mail transport is active.';
+                    $message = 'Invitation created. Outbound email is not configured or failed to deliver; invitation can be sent once mail transport is active.';
                 } else {
                     throw $e;
                 }
             } catch (\Throwable $e) {
                 $status = 'approved';
-                $message = 'Invitation created and approved. Outbound email is not configured or failed to deliver; invitation can be sent once mail transport is active.';
+                $message = 'Invitation created. Outbound email is not configured or failed to deliver; invitation can be sent once mail transport is active.';
             }
         }
 
@@ -152,12 +154,29 @@ class InvitationController extends Controller
             ]);
         }
 
-        return response()->view('invitations.password', ['token' => $token, 'email' => $row->email, 'mode' => 'invite'])->header('Referrer-Policy', 'no-referrer')->header('Cache-Control', 'no-store');
+        return response()->view('invitations.password', ['token' => $token, 'email' => $row->email, 'mode' => 'invite'])->header('Referrer-Policy', 'same-origin')->header('Cache-Control', 'no-store');
     }
 
     public function accept(Request $request, string $token, InvitationService $service)
     {
-        $data = $request->validate(['password' => ['required', 'confirmed', PasswordRule::min(12)->mixedCase()->numbers()->symbols()]]);
+        $validator = Validator::make($request->all(), [
+            'password' => ['required', 'confirmed', PasswordRule::min(8)],
+        ]);
+
+        if ($validator->fails()) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'The given data was invalid.',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            return redirect('/invitations/accept/'.$token)
+                ->withErrors($validator)
+                ->withInput();
+        }
+
+        $data = $validator->validated();
         $user = $service->accept($token, $data['password']);
 
         if ($request->expectsJson()) {
@@ -188,7 +207,20 @@ class InvitationController extends Controller
             if (! $user->active) {
                 return;
             }
-            Mail::raw('Reset your DMS password: '.url('/reset-password/'.$token.'?email='.rawurlencode($user->email)), fn ($message) => $message->to($user->email)->subject('Reset your DMS password'));
+            $baseUrl = rtrim(config('app.url'), '/');
+            $resetUrl = $baseUrl . '/reset-password/' . $token . '?email=' . rawurlencode($user->email);
+            Mail::send(
+                ['emails.password-reset', 'emails.password-reset-text'],
+                [
+                    'user' => $user,
+                    'email' => $user->email,
+                    'resetUrl' => $resetUrl,
+                    'expiresIn' => config('auth.passwords.users.expire', 60),
+                ],
+                function ($message) use ($user) {
+                    $message->to($user->email)->subject('Reset your DMS password · PLP Documents');
+                }
+            );
             Access::audit($user, 'account.password_reset_requested');
         });
 
@@ -197,12 +229,35 @@ class InvitationController extends Controller
 
     public function resetForm(Request $request, string $token)
     {
-        return response()->view('invitations.password', ['token' => $token, 'email' => $request->query('email'), 'mode' => 'reset'])->header('Referrer-Policy', 'no-referrer')->header('Cache-Control', 'no-store');
+        return response()->view('invitations.password', ['token' => $token, 'email' => $request->query('email'), 'mode' => 'reset'])->header('Referrer-Policy', 'same-origin')->header('Cache-Control', 'no-store');
     }
 
     public function reset(Request $request)
     {
-        $data = $request->validate(['token' => 'required|string', 'email' => 'required|email', 'password' => ['required', 'confirmed', PasswordRule::min(12)->mixedCase()->numbers()->symbols()]]);
+        $validator = Validator::make($request->all(), [
+            'token' => 'required|string',
+            'email' => 'required|email',
+            'password' => ['required', 'confirmed', PasswordRule::min(8)],
+        ]);
+
+        if ($validator->fails()) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'The given data was invalid.',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            $token = $request->input('token');
+            $email = $request->input('email');
+            $target = $token ? '/reset-password/'.$token.($email ? '?email='.rawurlencode($email) : '') : '/forgot-password';
+
+            return redirect($target)
+                ->withErrors($validator)
+                ->withInput($request->except('password', 'password_confirmation'));
+        }
+
+        $data = $validator->validated();
         $status = Password::reset($data, function (User $user, string $password) {
             abort_unless($user->active, 422, 'This password reset request is invalid.');
             DB::transaction(function () use ($user, $password) {

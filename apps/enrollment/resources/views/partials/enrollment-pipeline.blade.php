@@ -1,0 +1,3 @@
+<section class="mb-4" aria-labelledby="pipeline-heading"><h2 class="h4" id="pipeline-heading">Enrollment pipeline</h2><p class="text-secondary">{{ $pipelinePeriod?->name??'No semester is open' }}. Accepted includes finalized enrollments because acceptance creates the COR immediately.</p><div class="pipeline-grid">
+@foreach(\App\Services\EnrollmentPipelineService::LABELS as $stage=>$label)<a class="pipeline-stage" href="{{ url('/students').'?'.http_build_query(['stage'=>$stage,'period_id'=>$pipelinePeriod?->id]) }}"><span>{{ $label }}</span><strong>{{ $pipeline[$stage] }}</strong></a>@endforeach
+</div></section>

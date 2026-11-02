@@ -1,0 +1,11 @@
+# Each team reviews changes to its own app. Root files (README, .github/) belong to maintainers.
+# Later rules win, so the catch-all comes first.
+*                           @BSIT3B-ESMS/maintainers
+
+/apps/ems/                  @BSIT3B-ESMS/ems
+/apps/admission/            @BSIT3B-ESMS/oas
+/apps/document-management/  @BSIT3B-ESMS/dms
+/apps/tap-pms/              @BSIT3B-ESMS/pms
+/apps/enrollment/           @BSIT3B-ESMS/es
+
+/.github/                   @BSIT3B-ESMS/maintainers

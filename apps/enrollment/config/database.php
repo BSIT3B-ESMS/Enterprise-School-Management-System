@@ -1,0 +1,22 @@
+<?php
+return [
+ 'default'=>env('DB_CONNECTION','mysql'),
+ 'connections'=>[
+  'mysql'=>[
+   'driver'=>'mysql','host'=>env('DB_HOST','127.0.0.1'),'port'=>env('DB_PORT','3307'),
+   'database'=>env('DB_DATABASE','plp_enrollment'),'username'=>env('DB_USERNAME','plp_app'),'password'=>env('DB_PASSWORD',''),
+   'charset'=>'utf8mb4','collation'=>'utf8mb4_unicode_ci','prefix'=>'','prefix_indexes'=>true,'strict'=>true,'engine'=>'InnoDB',
+  ],
+  'sqlite'=>[
+   'driver'=>'sqlite',
+   'database'=>env('DB_DATABASE',database_path('enrollment.sqlite')),
+   'prefix'=>'',
+   'foreign_key_constraints'=>true,
+   'busy_timeout'=>10000,
+   'journal_mode'=>'WAL',
+   'synchronous'=>'FULL',
+   'transaction_mode'=>'IMMEDIATE',
+  ],
+ ],
+ 'migrations'=>['table'=>'migrations','update_date_on_publish'=>true],
+];

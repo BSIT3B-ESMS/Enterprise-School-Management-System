@@ -1,0 +1,2 @@
+@php($selected=request('sort',$defaultSort??'id')===$column)
+<th scope="col" @if($selected) aria-sort="{{ request('direction',$defaultDirection??'asc')==='desc'?'descending':'ascending' }}" @endif><a href="{{ request()->fullUrlWithQuery(['sort'=>$column,'direction'=>$selected && request('direction',$defaultDirection??'asc')==='asc'?'desc':'asc','page'=>1]) }}">{{ $label }}@if($selected)<span class="small ms-1">{{ request('direction',$defaultDirection??'asc')==='desc'?'↓':'↑' }}</span>@endif</a></th>

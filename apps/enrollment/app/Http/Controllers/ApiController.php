@@ -1,0 +1,21 @@
+<?php
+namespace App\Http\Controllers;
+use App\Models\User;
+use App\Services\AccessService;
+use App\Services\AcademicService;
+use App\Services\ImportService;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
+use Illuminate\Validation\Rules\Password;
+class ApiController extends Controller {
+public function login(Request $request){$data=$request->validate(['email'=>'required|email','password'=>'required|string']);$user=User::where(['email'=>$data['email'],'active'=>true])->first();if(!$user || !Hash::check($data['password'],$user->password))throw ValidationException::withMessages(['email'=>'The supplied credentials are invalid.']);$token=$user->createToken('portal-api',['portal'],now()->addHours(8));return response()->json(['token'=>$token->plainTextToken,'expires_at'=>$token->accessToken->expires_at,'role'=>$user->role,'must_change_password'=>$user->must_change_password]);}
+public function logout(Request $request){$request->user()->currentAccessToken()?->delete();return response()->json(['message'=>'Signed out.']);}
+public function password(Request $request){$data=$request->validate(['current_password'=>'required|string','password'=>['required','confirmed',Password::min(12)->mixedCase()->numbers()]]);if(!Hash::check($data['current_password'],$request->user()->password))throw ValidationException::withMessages(['current_password'=>'The current password is invalid.']);$request->user()->forceFill(['password'=>Hash::make($data['password']),'must_change_password'=>false])->save();$request->user()->tokens()->delete();DB::table('sessions')->where('user_id',$request->user()->id)->delete();app(\App\Services\NotificationService::class)->accountEvent($request->user()->id,'Password changed');app(AcademicService::class)->audit('password_changed','users',$request->user()->id);return response()->json(['message'=>'Password updated. Sign in again.']);}
+public function students(Request $request,AccessService $access){$query=DB::table('students as s')->join('users as u','u.id','=','s.user_id')->select('s.*','u.name','u.email');if($request->user()->role==='student')$query->where('s.user_id',$request->user()->id);if($request->user()->role==='department_head')$query->whereIn('s.id',$access->studentIds());return response()->json($query->orderBy('s.id')->paginate(30));}
+public function student(int $id,AccessService $access){$access->student($id);return response()->json(DB::table('students')->find($id));}
+public function academic(int $id,string $part,AccessService $access){$access->student($id);$student=DB::table('students')->find($id);$records=DB::table('academic_records as r')->join('subjects as s','s.id','=','r.subject_id')->where('r.student_id',$id)->select('r.*','s.code','s.name')->get();if($part==='academic-records')return response()->json($records);$query=DB::table('curriculum_subjects as c')->join('subjects as s','s.id','=','c.subject_id')->where(['c.curriculum_id'=>$student->curriculum_id,'c.active'=>true])->select('s.*','c.year_level','c.semester','c.elective');if($part==='back-subjects'){$completed=$records->filter(fn($r)=>$r->active && in_array($r->status,['PASSED','CREDITED']))->pluck('subject_id');$back=$records->filter(fn($r)=>$r->active && in_array($r->status,['FAILED','INCOMPLETE','WITHDRAWN']))->pluck('subject_id');$query->whereNotIn('s.id',$completed)->where(fn($q)=>$q->where('c.year_level','<',$student->year_level)->orWhereIn('s.id',$back));}return response()->json($query->get());}
+public function resource(Request $request,string $resource){$tables=['programs'=>'programs','curriculums'=>'curriculums','subjects'=>'subjects','sections'=>'sections','rooms'=>'rooms','professors'=>'professors','class-offerings'=>'offerings','class-schedules'=>'schedules'];abort_unless(isset($tables[$resource]),404);return response()->json(DB::table($tables[$resource])->orderBy('id')->paginate(30));}
+public function integration(Request $request,string $source,ImportService $service){abort_unless(in_array($source,['admission','ems']),404);if(strlen($request->getContent())>2*1024*1024)abort(413);$request->validate(['curriculum_id'=>'nullable|exists:curriculums,id']);return response()->json($service->run($source,$request->json()->all(),$request->filled('curriculum_id')?$request->integer('curriculum_id'):null));}
+}
