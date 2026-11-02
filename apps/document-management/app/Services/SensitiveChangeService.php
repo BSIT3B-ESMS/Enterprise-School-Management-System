@@ -17,11 +17,13 @@ class SensitiveChangeService
             $actor = User::whereKey($actor->id)->lockForUpdate()->firstOrFail();
             $doc = DB::table('documents')->where('id', $doc->id)->lockForUpdate()->first() ?? abort(404);
             $this->validate($actor, $doc, $action, $payload);
+
             if ($actor->isSuperAdmin()) {
                 $this->apply($actor, $doc, $action, $payload);
 
                 return ['status' => 'applied', 'revision' => $doc->revision];
             }
+
             $id = (string) Str::uuid();
             DB::table('sensitive_changes')->insert(['id' => $id, 'requester_id' => $actor->id, 'document_id' => $doc->id,
                 'action' => $action, 'requester_role' => $actor->role, 'revision' => $doc->revision,
@@ -90,10 +92,18 @@ class SensitiveChangeService
         }
         if ($action === 'share.grant') {
             abort_unless(in_array($p['permission'] ?? '', ['Viewer', 'Commenter', 'Editor'], true), 422);
+            $recipient = DB::table('users')->where('id', $p['recipient_id'] ?? 0)->where('active', true)->first();
+            abort_unless($recipient !== null, 422);
             abort_unless(Access::scope(DB::table('users'), $actor)->where('id', $p['recipient_id'] ?? 0)->where('active', true)->exists(), 422);
             abort_if((int) $p['recipient_id'] === $actor->id, 422);
+
+            // Restricted documents are shareable to the same authority level only.
+            if ($doc->classification === 'Restricted' && ! $actor->isSuperAdmin()) {
+                abort_unless($recipient->role === $actor->role, 422, 'Restricted documents can only be shared with colleagues of the same authority level (' . ucfirst(str_replace('_', ' ', $actor->role)) . ').');
+            }
+
             try {
-                $expiry = isset($p['expires_at']) ? Carbon::parse($p['expires_at']) : now()->addDays(30);
+                $expiry = isset($p['expires_at']) && ! empty($p['expires_at']) ? Carbon::parse($p['expires_at']) : now()->addDays(30);
             } catch (\Throwable) {
                 abort(422, 'A valid sharing expiry is required.');
             }

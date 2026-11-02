@@ -43,8 +43,11 @@
                     value="{{ $fullName }}"
                     autocomplete="name"
                     maxlength="255"
+                    pattern="^[A-Za-zÀ-ÖØ-öø-ÿ\s\.\-']{2,}$"
+                    title="Full name may only contain letters, spaces, hyphens, periods, and apostrophes."
                     required
                     @if (isset($validationErrors['name'])) aria-invalid="true" @endif />
+                <div class="invalid-feedback realtime-feedback" id="full-name-error" style="display: none;"></div>
             </div>
             <p class="invitation-source"><strong>Assigned workspace</strong><br />{{ $assignedSource }} · {{ config('dms.sources.'.$assignedSource) }}</p>
         </fieldset>
@@ -71,7 +74,11 @@
                         aria-controls="registration-password"
                         aria-pressed="false"
                         aria-label="Show new password">
-                        Show
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" />
+                            <circle cx="12" cy="12" r="3" />
+                            <path data-password-slash d="m3 3 18 18" style="display: none" />
+                        </svg>
                     </button>
                 </div>
                 <small class="input-help" id="registration-password-help"
@@ -99,7 +106,11 @@
                         aria-controls="registration-password-confirmation"
                         aria-pressed="false"
                         aria-label="Show password confirmation">
-                        Show
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" />
+                            <circle cx="12" cy="12" r="3" />
+                            <path data-password-slash d="m3 3 18 18" style="display: none" />
+                        </svg>
                     </button>
                 </div>
             </div>

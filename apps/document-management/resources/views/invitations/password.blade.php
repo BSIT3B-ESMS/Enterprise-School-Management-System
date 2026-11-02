@@ -6,11 +6,11 @@
     <meta name="csrf-token" content="{{ csrf_token() }}" />
     <title>{{ $mode === 'invite' ? 'Activate your account' : 'Reset your password' }} · PLP Documents</title>
     <link rel="stylesheet" href="/vendor/bootstrap.min.css" />
-    <link rel="stylesheet" href="/css/dms.css" />
+    <link rel="stylesheet" href="/css/dms.css?v={{ @filemtime(public_path('css/dms.css')) ?: '1' }}" />
     <script defer src="/vendor/jquery.min.js"></script>
     <script defer src="/vendor/jquery-ui.min.js"></script>
     <script defer src="/vendor/bootstrap.bundle.min.js"></script>
-    <script defer src="/js/dms.js"></script>
+    <script defer src="/js/dms.js?v={{ @filemtime(public_path('js/dms.js')) ?: '1' }}"></script>
 </head>
 <body class="login-page">
     <div class="login-story">
@@ -49,7 +49,17 @@
                 <div class="alert alert-info" role="status">{{ session('status') }}</div>
             @endif
             @if ($errors->any())
-                <div class="alert alert-danger" role="alert">{{ $errors->first() }}</div>
+                <div class="alert alert-danger" role="alert">
+                    @if ($errors->count() > 1)
+                        <ul class="mb-0 ps-3">
+                            @foreach ($errors->all() as $error)
+                                <li>{{ $error }}</li>
+                            @endforeach
+                        </ul>
+                    @else
+                        {{ $errors->first() }}
+                    @endif
+                </div>
             @endif
             <form method="post" action="{{ $mode === 'invite' ? '/invitations/accept/' . $token : '/reset-password' }}">
                 @csrf
@@ -67,32 +77,44 @@
                 </div>
                 <div class="mb-4">
                     <label for="password" class="form-label">Password</label>
-                    <div class="input-group">
+                    <div class="password-field">
                         <input
-                            class="form-control"
+                            class="form-control @error('password') is-invalid @enderror"
                             id="password"
                             type="password"
                             name="password"
                             autocomplete="new-password"
-                            minlength="12"
+                            minlength="8"
                             data-password-policy
                             required />
-                        <button class="btn btn-outline-secondary password-toggle" type="button" aria-label="Show password">Show</button>
+                        <button class="password-toggle" type="button" aria-label="Show password" aria-pressed="false" title="Show password">
+                            <svg class="eye-icon eye-show" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                                <circle cx="12" cy="12" r="3" />
+                                <path data-password-slash d="m3 3 18 18" style="display: none" />
+                            </svg>
+                        </button>
                     </div>
-                    <div class="form-text mt-2">Must contain at least 12 characters, including uppercase, lowercase, numbers, and symbols.</div>
+                    <div class="form-text mt-2">Must contain at least 8 characters.</div>
                 </div>
                 <div class="mb-4">
                     <label for="password_confirmation" class="form-label">Confirm password</label>
-                    <div class="input-group">
+                    <div class="password-field">
                         <input
-                            class="form-control"
+                            class="form-control @error('password') is-invalid @enderror"
                             id="password_confirmation"
                             type="password"
                             name="password_confirmation"
                             autocomplete="new-password"
-                            minlength="12"
+                            minlength="8"
                             required />
-                        <button class="btn btn-outline-secondary password-toggle" type="button" aria-label="Show password">Show</button>
+                        <button class="password-toggle" type="button" aria-label="Show password" aria-pressed="false" title="Show password">
+                            <svg class="eye-icon eye-show" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                                <circle cx="12" cy="12" r="3" />
+                                <path data-password-slash d="m3 3 18 18" style="display: none" />
+                            </svg>
+                        </button>
                     </div>
                 </div>
                 <button class="btn btn-primary w-100" type="submit">{{ $mode === 'invite' ? 'Activate account' : 'Save new password' }}</button>
