@@ -1,0 +1,1212 @@
+{
+  "provenance": "User-supplied EnrollmentSystem folder; 2022–2023 curriculum transcription, not approval for current intakes.",
+  "programs": [
+    {
+      "code": "BSIT",
+      "name": "BS Information Technology",
+      "college": "Computer Studies"
+    },
+    {
+      "code": "BSCS",
+      "name": "BS Computer Science",
+      "college": "Computer Studies"
+    },
+    {
+      "code": "BSA",
+      "name": "BS Accountancy",
+      "college": "Business and Accountancy"
+    },
+    {
+      "code": "BSENT",
+      "name": "BS Entrepreneurship",
+      "college": "Business and Accountancy"
+    },
+    {
+      "code": "BSBA-MM",
+      "name": "BS Business Administration major in Marketing Management",
+      "college": "Business and Accountancy"
+    },
+    {
+      "code": "BSHM",
+      "name": "BS Hospitality Management",
+      "college": "Hospitality Management"
+    },
+    {
+      "code": "BSN",
+      "name": "BS Nursing",
+      "college": "Nursing"
+    },
+    {
+      "code": "ABPSY",
+      "name": "AB Psychology",
+      "college": "Arts and Science"
+    },
+    {
+      "code": "BSECE",
+      "name": "BS Electronics Engineering",
+      "college": "Engineering"
+    },
+    {
+      "code": "BEED",
+      "name": "Bachelor of Elementary Education",
+      "college": "Education"
+    },
+    {
+      "code": "BSED-EN",
+      "name": "Bachelor of Secondary Education major in English",
+      "college": "Education"
+    },
+    {
+      "code": "BSED-FIL",
+      "name": "Bachelor of Secondary Education major in Filipino",
+      "college": "Education"
+    },
+    {
+      "code": "BSED-MATH",
+      "name": "Bachelor of Secondary Education major in Mathematics",
+      "college": "Education"
+    }
+  ],
+  "curriculum": {
+    "version": "2022–2023",
+    "sources": [
+      {
+        "program": "BS Information Technology",
+        "file": "2022-BSIT-Curriculum (1).pdf",
+        "url": "/curriculum/2022-bsit.pdf",
+        "expectedSubjects": 49,
+        "expectedUnits": 146
+      },
+      {
+        "program": "BS Computer Science",
+        "file": "2022-BSCS-Curriculum.pdf",
+        "url": "/curriculum/2022-bscs.pdf",
+        "expectedSubjects": 51,
+        "expectedUnits": 146
+      }
+    ],
+    "subjects": [
+      {
+        "code": "GE 003",
+        "title": "The Contemporary World with Peace Education",
+        "program": "BS Information Technology",
+        "yearLevel": 1,
+        "semester": 1,
+        "units": 3,
+        "prerequisites": "",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "GE 006",
+        "title": "Art Appreciation",
+        "program": "BS Information Technology",
+        "yearLevel": 1,
+        "semester": 1,
+        "units": 3,
+        "prerequisites": "",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "GE 004",
+        "title": "Mathematics in the Modern World",
+        "program": "BS Information Technology",
+        "yearLevel": 1,
+        "semester": 1,
+        "units": 3,
+        "prerequisites": "",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "COMP 101",
+        "title": "Introduction to Computing",
+        "program": "BS Information Technology",
+        "yearLevel": 1,
+        "semester": 1,
+        "units": 3,
+        "prerequisites": "",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "COMP 102",
+        "title": "Fundamentals of Programming (C++)",
+        "program": "BS Information Technology",
+        "yearLevel": 1,
+        "semester": 1,
+        "units": 3,
+        "prerequisites": "",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "PE 101",
+        "title": "Wellness and Fitness",
+        "program": "BS Information Technology",
+        "yearLevel": 1,
+        "semester": 1,
+        "units": 2,
+        "prerequisites": "",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "NSTP 101",
+        "title": "National Service Training Program (CWTS/ROTC)",
+        "program": "BS Information Technology",
+        "yearLevel": 1,
+        "semester": 1,
+        "units": 3,
+        "prerequisites": "",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "GE 001",
+        "title": "Understanding the Self",
+        "program": "BS Information Technology",
+        "yearLevel": 1,
+        "semester": 2,
+        "units": 3,
+        "prerequisites": "",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "GE 005",
+        "title": "Purposive Communication",
+        "program": "BS Information Technology",
+        "yearLevel": 1,
+        "semester": 2,
+        "units": 3,
+        "prerequisites": "",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "GE 007",
+        "title": "Science, Technology and Society",
+        "program": "BS Information Technology",
+        "yearLevel": 1,
+        "semester": 2,
+        "units": 3,
+        "prerequisites": "",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "GEE 001",
+        "title": "GE Elective 1",
+        "program": "BS Information Technology",
+        "yearLevel": 1,
+        "semester": 2,
+        "units": 3,
+        "prerequisites": "",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "COMP 103",
+        "title": "Intermediate Programming (Java)",
+        "program": "BS Information Technology",
+        "yearLevel": 1,
+        "semester": 2,
+        "units": 3,
+        "prerequisites": "COMP 102",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "IT 101",
+        "title": "Discrete Mathematics",
+        "program": "BS Information Technology",
+        "yearLevel": 1,
+        "semester": 2,
+        "units": 3,
+        "prerequisites": "COMP 101",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "PE 102",
+        "title": "Self-Defense",
+        "program": "BS Information Technology",
+        "yearLevel": 1,
+        "semester": 2,
+        "units": 2,
+        "prerequisites": "",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "NSTP 102",
+        "title": "National Service Training Program (CWTS/ROTC)",
+        "program": "BS Information Technology",
+        "yearLevel": 1,
+        "semester": 2,
+        "units": 3,
+        "prerequisites": "",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "GE 008",
+        "title": "Ethics",
+        "program": "BS Information Technology",
+        "yearLevel": 2,
+        "semester": 1,
+        "units": 3,
+        "prerequisites": "",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "GEE 002",
+        "title": "GE Elective 2",
+        "program": "BS Information Technology",
+        "yearLevel": 2,
+        "semester": 1,
+        "units": 3,
+        "prerequisites": "",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "COMP 104",
+        "title": "Data Structures and Algorithms",
+        "program": "BS Information Technology",
+        "yearLevel": 2,
+        "semester": 1,
+        "units": 3,
+        "prerequisites": "COMP 103",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "COMP 105",
+        "title": "Information Management",
+        "program": "BS Information Technology",
+        "yearLevel": 2,
+        "semester": 1,
+        "units": 3,
+        "prerequisites": "COMP 103",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "IT 102",
+        "title": "Quantitative Methods",
+        "program": "BS Information Technology",
+        "yearLevel": 2,
+        "semester": 1,
+        "units": 3,
+        "prerequisites": "IT 101",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "IT 201",
+        "title": "IT Elective: Platform Technologies",
+        "program": "BS Information Technology",
+        "yearLevel": 2,
+        "semester": 1,
+        "units": 3,
+        "prerequisites": "COMP 103",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "IT 202",
+        "title": "IT Elective: Object-Oriented Programming (VB.Net)",
+        "program": "BS Information Technology",
+        "yearLevel": 2,
+        "semester": 1,
+        "units": 3,
+        "prerequisites": "COMP 103",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "PE 103",
+        "title": "Individual/Dual Games and Sports",
+        "program": "BS Information Technology",
+        "yearLevel": 2,
+        "semester": 1,
+        "units": 2,
+        "prerequisites": "",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "GE 002",
+        "title": "Readings in Philippine History with Indigenous Peoples' Education",
+        "program": "BS Information Technology",
+        "yearLevel": 2,
+        "semester": 2,
+        "units": 3,
+        "prerequisites": "",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "GEE 003",
+        "title": "GE Elective 3",
+        "program": "BS Information Technology",
+        "yearLevel": 2,
+        "semester": 2,
+        "units": 3,
+        "prerequisites": "",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "IT 103",
+        "title": "Advanced Database Systems",
+        "program": "BS Information Technology",
+        "yearLevel": 2,
+        "semester": 2,
+        "units": 3,
+        "prerequisites": "COMP 105",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "IT 104",
+        "title": "Integrative Programming and Technologies I",
+        "program": "BS Information Technology",
+        "yearLevel": 2,
+        "semester": 2,
+        "units": 3,
+        "prerequisites": "IT 201, IT 202",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "IT 105",
+        "title": "Networking I",
+        "program": "BS Information Technology",
+        "yearLevel": 2,
+        "semester": 2,
+        "units": 3,
+        "prerequisites": "IT 201",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "IT 301",
+        "title": "Web Programming",
+        "program": "BS Information Technology",
+        "yearLevel": 2,
+        "semester": 2,
+        "units": 3,
+        "prerequisites": "COMP 103",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "COMP 106",
+        "title": "Applications Development and Emerging Technologies",
+        "program": "BS Information Technology",
+        "yearLevel": 2,
+        "semester": 2,
+        "units": 3,
+        "prerequisites": "COMP 105",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "PE 104",
+        "title": "Team Games and Sports",
+        "program": "BS Information Technology",
+        "yearLevel": 2,
+        "semester": 2,
+        "units": 2,
+        "prerequisites": "",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "GE 009",
+        "title": "Rizal's Life and Works",
+        "program": "BS Information Technology",
+        "yearLevel": 3,
+        "semester": 1,
+        "units": 3,
+        "prerequisites": "",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "IT 106",
+        "title": "Systems Integration and Architecture I",
+        "program": "BS Information Technology",
+        "yearLevel": 3,
+        "semester": 1,
+        "units": 3,
+        "prerequisites": "IT 104",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "IT 107",
+        "title": "Networking II",
+        "program": "BS Information Technology",
+        "yearLevel": 3,
+        "semester": 1,
+        "units": 3,
+        "prerequisites": "IT 105",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "IT 302",
+        "title": "Software Engineering",
+        "program": "BS Information Technology",
+        "yearLevel": 3,
+        "semester": 1,
+        "units": 3,
+        "prerequisites": "COMP 105",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "IT 303",
+        "title": "Technopreneurship",
+        "program": "BS Information Technology",
+        "yearLevel": 3,
+        "semester": 1,
+        "units": 3,
+        "prerequisites": "",
+        "minimumYear": 3,
+        "minimumPassedUnits": 81
+      },
+      {
+        "code": "IT 304",
+        "title": "IT Professional Ethics",
+        "program": "BS Information Technology",
+        "yearLevel": 3,
+        "semester": 1,
+        "units": 3,
+        "prerequisites": "",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "IT 305",
+        "title": "Web Development",
+        "program": "BS Information Technology",
+        "yearLevel": 3,
+        "semester": 1,
+        "units": 3,
+        "prerequisites": "IT 301",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "IT 108",
+        "title": "Information Assurance and Security I",
+        "program": "BS Information Technology",
+        "yearLevel": 3,
+        "semester": 2,
+        "units": 3,
+        "prerequisites": "IT 106",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "IT 109",
+        "title": "Introduction to Human Computer Interaction",
+        "program": "BS Information Technology",
+        "yearLevel": 3,
+        "semester": 2,
+        "units": 3,
+        "prerequisites": "COMP 102",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "IT 110",
+        "title": "Social and Professional Issues",
+        "program": "BS Information Technology",
+        "yearLevel": 3,
+        "semester": 2,
+        "units": 3,
+        "prerequisites": "",
+        "minimumYear": 3,
+        "minimumPassedUnits": 81
+      },
+      {
+        "code": "IT 203",
+        "title": "IT Elective: Integrative Programming and Technologies II",
+        "program": "BS Information Technology",
+        "yearLevel": 3,
+        "semester": 2,
+        "units": 3,
+        "prerequisites": "IT 104",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "IT 306",
+        "title": "Multimedia and Technologies",
+        "program": "BS Information Technology",
+        "yearLevel": 3,
+        "semester": 2,
+        "units": 3,
+        "prerequisites": "",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "IT 111",
+        "title": "IT Capstone Project I",
+        "program": "BS Information Technology",
+        "yearLevel": 3,
+        "semester": 3,
+        "units": 3,
+        "prerequisites": "IT 108, COMP 106, IT 302",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "IT 112",
+        "title": "Information Assurance and Security II",
+        "program": "BS Information Technology",
+        "yearLevel": 3,
+        "semester": 3,
+        "units": 3,
+        "prerequisites": "IT 108, COMP 106",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "IT 113",
+        "title": "System Administration and Maintenance",
+        "program": "BS Information Technology",
+        "yearLevel": 4,
+        "semester": 1,
+        "units": 3,
+        "prerequisites": "IT 112",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "IT 114",
+        "title": "IT Capstone Project II",
+        "program": "BS Information Technology",
+        "yearLevel": 4,
+        "semester": 1,
+        "units": 3,
+        "prerequisites": "IT 111",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "IT 204",
+        "title": "IT Elective: Systems Integration and Architecture II",
+        "program": "BS Information Technology",
+        "yearLevel": 4,
+        "semester": 1,
+        "units": 3,
+        "prerequisites": "IT 106",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "IT 115",
+        "title": "On-the-Job Training (486 hours)",
+        "program": "BS Information Technology",
+        "yearLevel": 4,
+        "semester": 2,
+        "units": 6,
+        "prerequisites": "IT 108, COMP 106",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "GE 003",
+        "title": "The Contemporary World with Peace Education",
+        "program": "BS Computer Science",
+        "yearLevel": 1,
+        "semester": 1,
+        "units": 3,
+        "prerequisites": "",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "GE 006",
+        "title": "Art Appreciation",
+        "program": "BS Computer Science",
+        "yearLevel": 1,
+        "semester": 1,
+        "units": 3,
+        "prerequisites": "",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "GE 004",
+        "title": "Mathematics in the Modern World",
+        "program": "BS Computer Science",
+        "yearLevel": 1,
+        "semester": 1,
+        "units": 3,
+        "prerequisites": "",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "COMP 101",
+        "title": "Introduction to Computing",
+        "program": "BS Computer Science",
+        "yearLevel": 1,
+        "semester": 1,
+        "units": 3,
+        "prerequisites": "",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "COMP 102",
+        "title": "Fundamentals of Programming (C++)",
+        "program": "BS Computer Science",
+        "yearLevel": 1,
+        "semester": 1,
+        "units": 3,
+        "prerequisites": "",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "PE 101",
+        "title": "Wellness and Fitness",
+        "program": "BS Computer Science",
+        "yearLevel": 1,
+        "semester": 1,
+        "units": 2,
+        "prerequisites": "",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "NSTP 101",
+        "title": "National Service Training Program (CWTS/ROTC)",
+        "program": "BS Computer Science",
+        "yearLevel": 1,
+        "semester": 1,
+        "units": 3,
+        "prerequisites": "",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "GE 001",
+        "title": "Understanding the Self",
+        "program": "BS Computer Science",
+        "yearLevel": 1,
+        "semester": 2,
+        "units": 3,
+        "prerequisites": "",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "GE 005",
+        "title": "Purposive Communication",
+        "program": "BS Computer Science",
+        "yearLevel": 1,
+        "semester": 2,
+        "units": 3,
+        "prerequisites": "",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "GE 007",
+        "title": "Science, Technology and Society",
+        "program": "BS Computer Science",
+        "yearLevel": 1,
+        "semester": 2,
+        "units": 3,
+        "prerequisites": "",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "GEE 001",
+        "title": "GE Elective 1",
+        "program": "BS Computer Science",
+        "yearLevel": 1,
+        "semester": 2,
+        "units": 3,
+        "prerequisites": "",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "COMP 103",
+        "title": "Intermediate Programming (Java)",
+        "program": "BS Computer Science",
+        "yearLevel": 1,
+        "semester": 2,
+        "units": 3,
+        "prerequisites": "COMP 102",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "CS 101",
+        "title": "Discrete Structures I",
+        "program": "BS Computer Science",
+        "yearLevel": 1,
+        "semester": 2,
+        "units": 3,
+        "prerequisites": "",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "PE 102",
+        "title": "Self-Defense",
+        "program": "BS Computer Science",
+        "yearLevel": 1,
+        "semester": 2,
+        "units": 2,
+        "prerequisites": "",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "NSTP 102",
+        "title": "National Service Training Program (CWTS/ROTC)",
+        "program": "BS Computer Science",
+        "yearLevel": 1,
+        "semester": 2,
+        "units": 3,
+        "prerequisites": "",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "GE 008",
+        "title": "Ethics",
+        "program": "BS Computer Science",
+        "yearLevel": 2,
+        "semester": 1,
+        "units": 3,
+        "prerequisites": "",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "GEE 002",
+        "title": "GE Elective 2",
+        "program": "BS Computer Science",
+        "yearLevel": 2,
+        "semester": 1,
+        "units": 3,
+        "prerequisites": "",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "COMP 104",
+        "title": "Data Structures and Algorithms",
+        "program": "BS Computer Science",
+        "yearLevel": 2,
+        "semester": 1,
+        "units": 3,
+        "prerequisites": "COMP 103",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "COMP 105",
+        "title": "Information Management",
+        "program": "BS Computer Science",
+        "yearLevel": 2,
+        "semester": 1,
+        "units": 3,
+        "prerequisites": "COMP 103",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "CS 102",
+        "title": "Discrete Structures II",
+        "program": "BS Computer Science",
+        "yearLevel": 2,
+        "semester": 1,
+        "units": 3,
+        "prerequisites": "CS 101",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "CS 103",
+        "title": "Object-Oriented Programming (VB.Net with Database)",
+        "program": "BS Computer Science",
+        "yearLevel": 2,
+        "semester": 1,
+        "units": 3,
+        "prerequisites": "CS 101, COMP 103",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "PE 103",
+        "title": "Individual/Dual Games and Sports",
+        "program": "BS Computer Science",
+        "yearLevel": 2,
+        "semester": 1,
+        "units": 2,
+        "prerequisites": "",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "GE 002",
+        "title": "Readings in Philippine History with Indigenous Peoples' Education",
+        "program": "BS Computer Science",
+        "yearLevel": 2,
+        "semester": 2,
+        "units": 3,
+        "prerequisites": "",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "GEE 003",
+        "title": "GE Elective 3",
+        "program": "BS Computer Science",
+        "yearLevel": 2,
+        "semester": 2,
+        "units": 3,
+        "prerequisites": "",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "CS 104",
+        "title": "Algorithms and Complexity",
+        "program": "BS Computer Science",
+        "yearLevel": 2,
+        "semester": 2,
+        "units": 3,
+        "prerequisites": "CS 101, COMP 104",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "CS 105",
+        "title": "Software Engineering I",
+        "program": "BS Computer Science",
+        "yearLevel": 2,
+        "semester": 2,
+        "units": 3,
+        "prerequisites": "COMP 105, CS 103",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "CS 301",
+        "title": "Math Elective: Linear Algebra",
+        "program": "BS Computer Science",
+        "yearLevel": 2,
+        "semester": 2,
+        "units": 3,
+        "prerequisites": "",
+        "minimumYear": 2,
+        "minimumPassedUnits": 40
+      },
+      {
+        "code": "CS 402",
+        "title": "Web Programming Development",
+        "program": "BS Computer Science",
+        "yearLevel": 2,
+        "semester": 2,
+        "units": 3,
+        "prerequisites": "",
+        "minimumYear": 2,
+        "minimumPassedUnits": 40
+      },
+      {
+        "code": "COMP 106",
+        "title": "Application Development and Emerging Technologies",
+        "program": "BS Computer Science",
+        "yearLevel": 2,
+        "semester": 2,
+        "units": 3,
+        "prerequisites": "COMP 105",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "PE 104",
+        "title": "Team Games and Sports",
+        "program": "BS Computer Science",
+        "yearLevel": 2,
+        "semester": 2,
+        "units": 2,
+        "prerequisites": "",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "GE 009",
+        "title": "Rizal's Life and Works",
+        "program": "BS Computer Science",
+        "yearLevel": 3,
+        "semester": 1,
+        "units": 3,
+        "prerequisites": "",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "CS 401",
+        "title": "Digital Design",
+        "program": "BS Computer Science",
+        "yearLevel": 3,
+        "semester": 1,
+        "units": 3,
+        "prerequisites": "CS 101",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "CS 106",
+        "title": "Automata Theory and Formal Languages",
+        "program": "BS Computer Science",
+        "yearLevel": 3,
+        "semester": 1,
+        "units": 3,
+        "prerequisites": "CS 104",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "CS 107",
+        "title": "Architecture and Organization",
+        "program": "BS Computer Science",
+        "yearLevel": 3,
+        "semester": 1,
+        "units": 3,
+        "prerequisites": "CS 101, COMP 104",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "CS 108",
+        "title": "Information Assurance and Security",
+        "program": "BS Computer Science",
+        "yearLevel": 3,
+        "semester": 1,
+        "units": 2,
+        "prerequisites": "COMP 105",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "CS 109",
+        "title": "Software Engineering II",
+        "program": "BS Computer Science",
+        "yearLevel": 3,
+        "semester": 1,
+        "units": 3,
+        "prerequisites": "CS 105",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "CS 201",
+        "title": "CS Elective: Intelligent Systems",
+        "program": "BS Computer Science",
+        "yearLevel": 3,
+        "semester": 1,
+        "units": 3,
+        "prerequisites": "",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "CS 403",
+        "title": "Open Source Programming with Database",
+        "program": "BS Computer Science",
+        "yearLevel": 3,
+        "semester": 1,
+        "units": 3,
+        "prerequisites": "CS 402",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "CS 110",
+        "title": "Operating Systems",
+        "program": "BS Computer Science",
+        "yearLevel": 3,
+        "semester": 2,
+        "units": 3,
+        "prerequisites": "COMP 104",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "CS 111",
+        "title": "Programming Languages",
+        "program": "BS Computer Science",
+        "yearLevel": 3,
+        "semester": 2,
+        "units": 3,
+        "prerequisites": "COMP 104",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "CS 112",
+        "title": "Social Issues and Professional Practice",
+        "program": "BS Computer Science",
+        "yearLevel": 3,
+        "semester": 2,
+        "units": 3,
+        "prerequisites": "CS 109",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "CS 202",
+        "title": "CS Elective: Parallel and Distributed Programming",
+        "program": "BS Computer Science",
+        "yearLevel": 3,
+        "semester": 2,
+        "units": 3,
+        "prerequisites": "",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "CS 405",
+        "title": "Open Source Programming with Framework",
+        "program": "BS Computer Science",
+        "yearLevel": 3,
+        "semester": 2,
+        "units": 3,
+        "prerequisites": "CS 403",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "CS 404",
+        "title": "Multimedia Systems",
+        "program": "BS Computer Science",
+        "yearLevel": 3,
+        "semester": 2,
+        "units": 3,
+        "prerequisites": "",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "CS 115",
+        "title": "CS Thesis 1",
+        "program": "BS Computer Science",
+        "yearLevel": 3,
+        "semester": 3,
+        "units": 3,
+        "prerequisites": "CS 109",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "CS 114",
+        "title": "Human Computer Interaction",
+        "program": "BS Computer Science",
+        "yearLevel": 4,
+        "semester": 1,
+        "units": 1,
+        "prerequisites": "COMP 103",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "CS 117",
+        "title": "CS Thesis 2",
+        "program": "BS Computer Science",
+        "yearLevel": 4,
+        "semester": 1,
+        "units": 3,
+        "prerequisites": "CS 115",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "CS 203",
+        "title": "CS Elective: Graphics and Visual Computing",
+        "program": "BS Computer Science",
+        "yearLevel": 4,
+        "semester": 1,
+        "units": 3,
+        "prerequisites": "",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "CS 406",
+        "title": "Robotics",
+        "program": "BS Computer Science",
+        "yearLevel": 4,
+        "semester": 1,
+        "units": 3,
+        "prerequisites": "",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "CS 116",
+        "title": "Networks and Communications",
+        "program": "BS Computer Science",
+        "yearLevel": 4,
+        "semester": 2,
+        "units": 3,
+        "prerequisites": "COMP 103",
+        "minimumYear": 0,
+        "minimumPassedUnits": 0
+      },
+      {
+        "code": "CS 113",
+        "title": "On-the-Job Training Program (162 hours)",
+        "program": "BS Computer Science",
+        "yearLevel": 4,
+        "semester": 2,
+        "units": 3,
+        "prerequisites": "",
+        "minimumYear": 4,
+        "minimumPassedUnits": 118
+      }
+    ],
+    "electiveOptions": {
+      "Mathematics, Science & Technology": [
+        "Environmental Science",
+        "Human Reproduction",
+        "People and the Earth's Ecosystem",
+        "Living in the IT Era"
+      ],
+      "Social Science and Philosophy": [
+        "Philippine Indigenous Communities",
+        "Gender and Society",
+        "Business Logic",
+        "Religions, Religious Experience and Spirituality",
+        "The Entrepreneurial Mind"
+      ],
+      "Arts and Humanities": [
+        "Great Books",
+        "Reading Visual Arts",
+        "Philippine Popular Culture",
+        "Indigenous Creative Crafts"
+      ]
+    }
+  }
+}

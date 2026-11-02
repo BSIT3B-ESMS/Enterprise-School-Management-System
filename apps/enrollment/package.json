@@ -1,0 +1,1 @@
+{"name":"plp-enrollment-management-system","private":true,"scripts":{"check":"node --check public/js/scheduler.js"}}
