@@ -1,17 +1,15 @@
-name: CI
+name: DMS CI
 
+# Called by ci.yml when apps/document-management changes.
 on:
-  push:
-    branches: [master, main]
-  pull_request:
-    branches: [master, main]
+  workflow_call:
 
 permissions:
   contents: read
 
-concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+defaults:
+  run:
+    working-directory: apps/document-management
 
 jobs:
   backend:
@@ -33,7 +31,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/composer
-          key: ${{ runner.os }}-composer-${{ hashFiles('composer.lock') }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('apps/document-management/composer.lock') }}
           restore-keys: |
             ${{ runner.os }}-composer-
 
@@ -109,7 +107,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/composer
-          key: ${{ runner.os }}-composer-${{ hashFiles('composer.lock') }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('apps/document-management/composer.lock') }}
           restore-keys: |
             ${{ runner.os }}-composer-
 
@@ -167,6 +165,7 @@ jobs:
         with:
           node-version: "22"
           cache: npm
+          cache-dependency-path: apps/document-management/package-lock.json
 
       - name: Install frontend dependencies
         run: npm ci
@@ -201,7 +200,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/composer
-          key: ${{ runner.os }}-composer-${{ hashFiles('composer.lock') }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('apps/document-management/composer.lock') }}
           restore-keys: |
             ${{ runner.os }}-composer-
 

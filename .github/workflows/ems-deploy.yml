@@ -1,34 +1,35 @@
-name: Deploy
+name: EMS deploy
 
-# Runs after CI passes on main. The build happens on a GitHub-hosted runner; the deploy runs on a self-hosted Windows
-# runner on the PLP server (labels: self-hosted, windows, ems-prod), gated by the "production" environment's required
-# reviewers. Nothing is deployed until the repository variable DEPLOY_ENABLED is set to "true".
+# Runs when apps/ems changes on main: EMS CI first, then the build on a GitHub-hosted runner, then the deploy on a
+# self-hosted Windows runner on the PLP server (labels: self-hosted, windows, ems-prod), gated by the "ems-production"
+# environment's required reviewers. Nothing is deployed until the repository variable EMS_DEPLOY_ENABLED is "true".
 on:
-  workflow_run:
-    workflows: [CI]
-    types: [completed]
+  push:
     branches: [main]
+    paths: ['apps/ems/**']
   workflow_dispatch:
 
 concurrency:
-  group: deploy-production
+  group: ems-deploy-production
   cancel-in-progress: false
 
 permissions:
   contents: read
 
 jobs:
+  ci:
+    if: vars.EMS_DEPLOY_ENABLED == 'true'
+    uses: ./.github/workflows/ems-ci.yml
+
   build:
     name: Build release
-    if: >-
-      vars.DEPLOY_ENABLED == 'true' &&
-      (github.event_name == 'workflow_dispatch' ||
-       (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'))
+    needs: ci
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/ems
     steps:
       - uses: actions/checkout@v7
-        with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - uses: shivammathur/setup-php@v2
         with:
@@ -39,6 +40,7 @@ jobs:
         with:
           node-version: '24'
           cache: npm
+          cache-dependency-path: apps/ems/package-lock.json
 
       - run: composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist --no-progress
 
@@ -48,12 +50,12 @@ jobs:
           npm run build
 
       - name: Remove files the server does not need
-        run: rm -rf node_modules tests .git .github .ai .agents .claude
+        run: rm -rf node_modules tests .ai .agents .claude
 
       - uses: actions/upload-artifact@v7
         with:
           name: release
-          path: .
+          path: apps/ems
           include-hidden-files: true
           retention-days: 14
 
@@ -61,7 +63,7 @@ jobs:
     name: Deploy to production
     needs: build
     runs-on: [self-hosted, windows, ems-prod]
-    environment: production
+    environment: ems-production
     steps:
       - uses: actions/download-artifact@v8
         with:

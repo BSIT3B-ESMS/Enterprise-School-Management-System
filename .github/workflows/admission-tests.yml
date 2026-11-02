@@ -1,10 +1,12 @@
-name: tests
+name: Admission tests
 
+# Called by ci.yml when apps/admission changes, and by admission-deploy.yml before a release.
 on:
-  push:
-    branches: [backend, main]
-  pull_request:
-  workflow_call:        # deploy.yml runs these first
+  workflow_call:
+
+defaults:
+  run:
+    working-directory: apps/admission
 
 jobs:
   phpunit:

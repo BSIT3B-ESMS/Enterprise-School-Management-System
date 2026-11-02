@@ -1,0 +1,79 @@
+name: CI
+
+# Runs each app's checks only when that app changed, then reports one result in "ci-ok".
+# "ci-ok" is the status check to require on main: it always runs, so a PR that skips an app's checks never waits.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  changes:
+    name: Detect changed apps
+    runs-on: ubuntu-latest
+    outputs:
+      ems: ${{ steps.filter.outputs.ems }}
+      admission: ${{ steps.filter.outputs.admission }}
+      dms: ${{ steps.filter.outputs.dms }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          # A change to the root workflows reruns every app's checks.
+          filters: |
+            ems:
+              - 'apps/ems/**'
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/ems-ci.yml'
+            admission:
+              - 'apps/admission/**'
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/admission-tests.yml'
+            dms:
+              - 'apps/document-management/**'
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/dms-ci.yml'
+
+  ems:
+    name: EMS
+    needs: changes
+    if: needs.changes.outputs.ems == 'true'
+    uses: ./.github/workflows/ems-ci.yml
+
+  admission:
+    name: Admission
+    needs: changes
+    if: needs.changes.outputs.admission == 'true'
+    uses: ./.github/workflows/admission-tests.yml
+
+  dms:
+    name: Document Management
+    needs: changes
+    if: needs.changes.outputs.dms == 'true'
+    uses: ./.github/workflows/dms-ci.yml
+
+  ci-ok:
+    name: ci-ok
+    needs: [changes, ems, admission, dms]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if any app check failed or was cancelled
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "Results: $RESULTS"
+          for result in $RESULTS; do
+            if [[ "$result" == "failure" || "$result" == "cancelled" ]]; then
+              exit 1
+            fi
+          done
