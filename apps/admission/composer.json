@@ -79,6 +79,10 @@
         ],
         "pre-package-uninstall": [
             "Illuminate\\Foundation\\ComposerScripts::prePackageUninstall"
+        ],
+        "ci": [
+            "@php artisan jwt:secret --force",
+            "@php artisan test --compact"
         ]
     },
     "extra": {

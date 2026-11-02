@@ -72,6 +72,10 @@
         ],
         "pre-package-uninstall": [
             "Illuminate\\Foundation\\ComposerScripts::prePackageUninstall"
+        ],
+        "ci": [
+            "npm run build",
+            "@php artisan test --compact"
         ]
     },
     "extra": {
