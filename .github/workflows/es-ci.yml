@@ -1,0 +1,67 @@
+name: ES CI
+
+# Called by ci.yml when apps/enrollment changes. Mirrors scripts/test.php (which is Windows-only): a disposable
+# MariaDB schema on port 3307 named plp_test_<12 hex>, the pattern the test workers require for an isolated database.
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: apps/enrollment
+
+jobs:
+  tests:
+    name: Tests (MariaDB)
+    runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: plp_test_000000000000
+        ports:
+          - 3307:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    env:
+      DB_CONNECTION: mysql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3307
+      DB_DATABASE: plp_test_000000000000
+      DB_USERNAME: root
+      DB_PASSWORD: root
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_mysql, pdo_sqlite, mbstring, intl, fileinfo
+          coverage: none
+
+      - name: Cache Composer packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache/files
+          key: composer-es-${{ hashFiles('apps/enrollment/composer.lock') }}
+          restore-keys: composer-es-
+
+      - run: composer validate --strict
+
+      - run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Prepare environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Check JavaScript syntax
+        run: npm run check
+
+      - run: vendor/bin/phpunit

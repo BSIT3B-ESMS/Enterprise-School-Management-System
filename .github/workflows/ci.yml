@@ -23,6 +23,8 @@ jobs:
       ems: ${{ steps.filter.outputs.ems }}
       admission: ${{ steps.filter.outputs.admission }}
       dms: ${{ steps.filter.outputs.dms }}
+      es: ${{ steps.filter.outputs.es }}
+      workflows: ${{ steps.filter.outputs.workflows }}
     steps:
       - uses: actions/checkout@v5
       - uses: dorny/paths-filter@v3
@@ -42,6 +44,12 @@ jobs:
               - 'apps/document-management/**'
               - '.github/workflows/ci.yml'
               - '.github/workflows/dms-ci.yml'
+            es:
+              - 'apps/enrollment/**'
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/es-ci.yml'
+            workflows:
+              - '.github/workflows/**'
 
   ems:
     name: EMS
@@ -61,9 +69,42 @@ jobs:
     if: needs.changes.outputs.dms == 'true'
     uses: ./.github/workflows/dms-ci.yml
 
+  es:
+    name: Enrollment
+    needs: changes
+    if: needs.changes.outputs.es == 'true'
+    uses: ./.github/workflows/es-ci.yml
+
+  actionlint:
+    name: Lint workflows
+    needs: changes
+    if: needs.changes.outputs.workflows == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      # ShellCheck is off for now: the app workflows' shell steps were written before this check existed.
+      - name: Run actionlint
+        run: docker run --rm -v "$PWD:/repo" --workdir /repo rhysd/actionlint:1.7.7 -color -shellcheck= -pyflakes=
+
+  branch-name:
+    name: Branch name
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check <app>/<description> naming
+        env:
+          BRANCH: ${{ github.head_ref }}
+        run: |
+          if [[ "$BRANCH" =~ ^(ems|oas|dms|pms|es|repo)/[a-z0-9][a-z0-9._-]*$ || "$BRANCH" == dependabot/* ]]; then
+            echo "Branch name OK: $BRANCH"
+            exit 0
+          fi
+          echo "::error::Branch '$BRANCH' must be named <app>/<description> in lowercase, where <app> is one of: ems, oas, dms, pms, es, repo. Example: ems/leave-approvals"
+          exit 1
+
   ci-ok:
     name: ci-ok
-    needs: [changes, ems, admission, dms]
+    needs: [changes, ems, admission, dms, es, actionlint, branch-name]
     if: always()
     runs-on: ubuntu-latest
     steps:

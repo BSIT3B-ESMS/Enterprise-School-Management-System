@@ -1,13 +1,19 @@
 version: 2
 updates:
   - package-ecosystem: composer
-    directory: /apps/ems
+    directories:
+      - /apps/ems
+      - /apps/admission
+      - /apps/document-management
+      - /apps/enrollment
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
 
   - package-ecosystem: npm
-    directory: /apps/ems
+    directories:
+      - /apps/ems
+      - /apps/document-management
     schedule:
       interval: weekly
     open-pull-requests-limit: 5

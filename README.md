@@ -30,12 +30,16 @@ Check each app's own README for seeders, demo accounts and start scripts.
 
 ## Contributing
 
-1. Branch from `main`, prefixed with the app: `ems/leave-approvals`, `admission/fix-upload`, `dms/...`, `pms/...`, `es/...`. Use `repo/...` for root changes.
+`main` is the only long-lived branch. All work happens on short-lived feature branches.
+
+1. Branch from `main` and name it `<app>/<description>` in lowercase. `<app>` is the team: `ems`, `oas` (Admission), `dms`, `pms`, `es` (Enrollment), or `repo` for root files. Example: `ems/leave-approvals`. CI rejects other names.
 2. Keep a PR to one app where possible. A PR that changes two apps needs a review from both teams.
 3. Open a pull request to `main`. It merges once:
-   - the owning team approves it (see [`.github/CODEOWNERS`](.github/CODEOWNERS)), and
+   - the owning team approves it (see [`.github/CODEOWNERS`](.github/CODEOWNERS)) after the last push,
+   - every review conversation is resolved, and
    - the **ci-ok** check passes.
-4. Nobody pushes directly to `main`.
+4. PRs are squash-merged, so each PR becomes one commit on `main`, and the branch is deleted afterwards.
+5. Nobody pushes directly to `main`.
 
 ## CI/CD
 
@@ -43,10 +47,12 @@ All workflows live in [`.github/workflows/`](.github/workflows). GitHub ignores 
 
 | Workflow | Runs when | What it does |
 |---|---|---|
-| `ci.yml` | Every PR and push to `main` | Runs the checks of each app that changed, then reports one result as **ci-ok** |
-| `ems-ci.yml`, `admission-tests.yml`, `dms-ci.yml` | Called by `ci.yml` and the deploy workflows | Each app's lint and tests |
+| `ci.yml` | Every PR and push to `main` | Runs the checks of each app that changed, lints workflow files when they change, checks the branch name, then reports one result as **ci-ok** |
+| `ems-ci.yml`, `admission-tests.yml`, `dms-ci.yml`, `es-ci.yml` | Called by `ci.yml` and the deploy workflows | Each app's lint and tests |
 | `ems-deploy.yml` | Push to `main` touching `apps/ems/`, or by hand | EMS CI, build, then deploy on the self-hosted Windows runner (`ems-production` environment) |
 | `admission-deploy.yml` | By hand only | Admission tests, then deploy to EC2 over SSH (`admission-production` environment) |
 | `dms-special-checks.yml` | Weekly, or by hand | Real ClamAV scan test for Document Management |
 
-TAP-PMS and Enrollment have test suites but no CI yet.
+TAP-PMS has a test suite but no CI yet.
+
+Dependabot opens weekly update PRs for each app's Composer and npm packages (except TAP-PMS) and for the workflow actions.
