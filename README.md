@@ -72,5 +72,3 @@ Apps are moving to one shared pipeline, [`laravel-ci.yml`](.github/workflows/lar
 - Changing the `ci` script only needs your own team's review. Changes to `.github/` need `maintainers`.
 - An app that is switched to the shared pipeline without a `ci` script fails with an error pointing here.
 - Tell maintainers which PHP version, database (`mysql`, `mariadb` or `none`) and Node setup your app needs. They set those in `ci.yml`.
-
-this is a test by niccolo yumul
