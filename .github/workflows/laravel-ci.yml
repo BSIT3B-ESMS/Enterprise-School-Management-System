@@ -80,7 +80,7 @@ jobs:
       # Composer stops scripts after 300 seconds by default, which a full test suite can exceed.
       COMPOSER_PROCESS_TIMEOUT: 0
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - uses: shivammathur/setup-php@v2
         with:
